@@ -57,3 +57,4 @@ authored 13 colliding ADRs at numbers already in use).
 | #                                                                              | Title                                                              | Status   |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ | -------- |
 | [ADR-0001](./0001-project-framing-and-scope.md)                                | Project framing & scope                                            | Proposed |
+| [ADR-0002](./0002-typescript-as-implementation-language.md)                    | TypeScript as implementation language                              | Proposed |
