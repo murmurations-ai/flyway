@@ -1,0 +1,20 @@
+# Secrets — never committed
+.env
+.env.*
+!.env.example
+
+# OS + editor noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Obsidian personal workspace state
+.obsidian/
+
+# Build artifacts
+dist/
+node_modules/
+
+# Logs
+*.log
