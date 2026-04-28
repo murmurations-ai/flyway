@@ -4,22 +4,25 @@
 **Date:** 2026-04-27
 **Status:** Research output, not a decision document. Consumed by future ADRs.
 
+> **Amendment, 2026-04-27 (same day):** Original draft assumed every flyway participant runs the murmurations-harness. Source clarified this is too narrow — a "murmuration" is *any agent swarm controlled by a Source*, and flyway must support participants regardless of runtime: harness installations, Claude Code sessions, Cursor / IDE plugins, OpenClaw agents reached via chat, raw-GitHub manual users, and tools yet to exist. The paper has been amended throughout to reflect this; the most concentrated changes are in §6 (Architecture) and a new §6.5 (Participation modes & client integrations). The recommended MVP has shifted from "two harness installations" to "one harness + one Claude Code session" as a deliberate cross-runtime demonstration.
+
 ---
 
 ## Abstract
 
-flyway is the layer above any single AI-agent murmuration: the shared corridor that lets `n` independent murmurations — each running on the murmurations-harness, each controlled by a different human Source, each persisting state in its own GitHub repository — collaborate while preserving full autonomy.
+flyway is the protocol that lets `n` independent AI-agent murmurations collaborate while each retains full autonomy. A *murmuration* is any agent swarm controlled by a Source — a human operator. The murmurations-harness is one way to operationalize a murmuration, but not the only way: a Source running Claude Code with sub-agents, a developer using Cursor, an OpenClaw agent reached through a chat client, or even a person scripting against GitHub directly are all equally valid participants. flyway is runtime-agnostic by design.
 
-This paper synthesizes three parallel research strands (federation protocols in software, decentralized governance theory, and the murmurations-harness's existing extension surface) into a recommended shape for flyway. The conclusion: flyway is small. It is a thin protocol on top of primitives that already exist (Git, GitHub, signed commits, S3 governance, the harness's CollaborationProvider seam). Its load-bearing contributions are *not* novel infrastructure — they are an explicit handshake protocol between murmurations, a small set of shared schemas, and a discipline of treating "no joint action" as a first-class outcome when Sources disagree. Most of the design work is choosing what *not* to build.
+This paper synthesizes three parallel research strands (federation protocols in software, decentralized governance theory, and the murmurations-harness's existing extension surface) into a recommended shape for flyway. The conclusion: flyway is small. It is a thin protocol on top of primitives that already exist (Git, GitHub, signed commits, S3 governance). Its load-bearing contributions are *not* novel infrastructure — they are an explicit handshake protocol between murmurations, a small set of shared schemas, a discipline of treating "no joint action" as a first-class outcome when Sources disagree, and a runtime-agnostic protocol surface so participants can join from any tool. Most of the design work is choosing what *not* to build.
 
 The paper proposes:
 
-- **Identity:** `did:web` resolved from each murmuration's repo, with a signed entity statement borrowed from OpenID Federation.
+- **Identity:** `did:web` resolved from each murmuration's repo, with a signed entity statement borrowed from OpenID Federation. Identity is anchored to a Source-controlled repo, not to any specific runtime.
 - **Discovery:** thin GitHub-hosted directories + operator-run aggregators, borrowed from Murmurations.network.
 - **Trust:** explicit pairwise recognition; per-pair engagement agreements committed to both repos.
 - **Governance:** S3 as the default for inter-murmuration consent, pluggable per agreement; "lazy consent" for routine matters; explicit goal lifecycles; structured exit terms.
-- **Architecture:** a parallel package set under `@murmurations-ai/*` (`flyway-core`, `flyway-collaboration-provider`, `flyway-governance-plugin`) that composes with the harness via existing CollaborationProvider, GovernancePlugin, and extension interfaces. No harness fork. 3–4 small additive harness ADRs.
-- **MVP:** mirrored cross-murmuration directives. One primitive, end-to-end, between two real murmurations.
+- **Architecture (revised):** a runtime-agnostic protocol layer + a reference TypeScript core (`@murmurations-ai/flyway-core`) + a family of client integrations: harness adapter, CLI, Claude Code skill, generic MCP server (Cursor and other MCP-capable tools), and documented patterns for chat clients and web UI. Any client that can read/write GitHub, sign artifacts, and verify peer signatures is a first-class participant.
+- **Participation modes:** persistent (always-on daemon), interactive (Source actively at their tool), asynchronous (GitHub-only), and ephemeral (one-shot Claude Code or CLI participation). All four modes are valid; agreements may require specific modes when warranted.
+- **MVP (revised):** mirrored cross-murmuration directives between **one harness installation and one Claude Code session**, demonstrating the cross-runtime story end-to-end.
 
 The paper also surfaces five questions that cannot be answered by research alone and need design choices: identity-rotation strategy, schema-evolution strategy, threat model when a Source is captured, cost attribution between cooperating murmurations, and whether flyway needs an off-GitHub transport.
 
@@ -29,7 +32,19 @@ The paper also surfaces five questions that cannot be answered by research alone
 
 ### 1.1 What we mean by "multi-murmuration collaboration"
 
-Each AI-agent murmuration today is a closed system: one daemon, one Source, one repo. Within a murmuration, agents wake on signals, attend group meetings, run governance rounds, and commit work. The harness is explicitly *single-murmuration* by ship bar — its `CLAUDE.md` declares "multi-murmuration coordination is out of scope for v0.1."
+A *murmuration* is any agent swarm controlled by a Source. The murmurations-harness is the canonical operationalization — one daemon, one Source, one repo, agents waking on signals — but it is one of several. Equally valid murmurations include:
+
+- A Source running **Claude Code** with a portfolio of sub-agents and long-running agent tasks
+- A developer using **Cursor** (or another MCP-capable IDE) with embedded agent tooling
+- An **OpenClaw agent** reached through a chat client (Discord, Telegram, Slack)
+- A Source scripting agents directly against the **Anthropic / OpenAI / Gemini APIs**, with state in any repo
+- A Source using just **GitHub** — manually orchestrating issues, PRs, and signed commits with no autonomous agents at all
+
+The unifying property is not the runtime. It is *a Source whose authority is anchored at a Git-addressable repo with a stable identity, who speaks for whatever agents (or only themselves) they are operating.* flyway is the protocol that lets such Sources collaborate.
+
+Today there is no protocol for this. Each Source's tooling is closed within their own session or installation. Multi-murmuration collaboration, then, is the work that happens between any two or more such Sources.
+
+The harness is explicitly *single-murmuration* by ship bar — its `CLAUDE.md` declares "multi-murmuration coordination is out of scope for v0.1." Other tools (Claude Code, Cursor, OpenClaw) similarly do not assume cross-instance coordination. flyway adds it without requiring any of them to change.
 
 Multi-murmuration collaboration, then, is the work that happens between any two or more such systems. Concretely:
 
@@ -41,11 +56,12 @@ The user's brief asks all three questions in scope. The answers turn out to diff
 
 ### 1.2 What's at stake
 
-Three properties must hold no matter what flyway does:
+Four properties must hold no matter what flyway does:
 
 1. **Operator agency.** Each murmuration's Source retains unilateral authority over: who they federate with, what content they accept, what their agents do, and whether to exit any collaboration at any time. This is the load-bearing invariant. Anything that violates it has stopped being federation and started being submission.
-2. **Harness sovereignty.** The harness ships and runs as a single-murmuration runtime with no flyway dependency. Operators who never touch flyway must continue to have a complete experience.
-3. **Honesty about disagreement.** When Sources cannot agree, the answer is *no joint action*. flyway must not pretend to manufacture agreement. The empirical lesson from Ostrom's commons literature, from Apache's lazy-consent practice, and from S3 itself is that voluntary cooperation that respects exit is more stable than forced agreement.
+2. **Runtime independence.** flyway must not assume a specific runtime. A Source running the harness, a Source running Claude Code, and a Source manually using GitHub must all be first-class participants. The protocol surface lives at the Git/GitHub layer, not at any one tool's API.
+3. **Harness sovereignty.** The harness ships and runs as a single-murmuration runtime with no flyway dependency. Operators who never touch flyway must continue to have a complete experience. (This is a special case of property 2 — the harness happens to be the project's own primary runtime, but it gets no privileged status in flyway.)
+4. **Honesty about disagreement.** When Sources cannot agree, the answer is *no joint action*. flyway must not pretend to manufacture agreement. The empirical lesson from Ostrom's commons literature, from Apache's lazy-consent practice, and from S3 itself is that voluntary cooperation that respects exit is more stable than forced agreement.
 
 ### 1.3 What "good" looks like
 
@@ -269,31 +285,138 @@ Murmuration B subscribes to a topic stream from A: e.g., "all issues with label 
 
 ## 6. Architecture
 
-flyway is a parallel package set under `@murmurations-ai/*`, installed alongside the harness, composing with its existing extension surfaces.
+flyway is a **runtime-agnostic protocol** with a reference TypeScript implementation and a family of client integrations. The protocol lives at the GitHub/Git/DID layer; participants choose any client that implements it.
 
-### 6.1 Package shape
-
-| Package | Purpose | Composes with |
-|---|---|---|
-| `@murmurations-ai/flyway-core` | Identity (DID), entity statements, schema validation, peer registry | Stand-alone |
-| `@murmurations-ai/flyway-collaboration-provider` | `FederationCollaborationProvider` implementation | harness `CollaborationProvider` (ADR-0021) |
-| `@murmurations-ai/flyway-governance-plugin` | Federation governance plugin (default S3-extended; pluggable) | harness `GovernancePlugin` interface |
-| `@murmurations-ai/flyway-extension` | Spirit skills, agent tools, CLI commands | harness extension system (ADR-0023) |
-| `@murmurations-ai/flyway-schemas` | JSON Schemas for entity statements, agreements, projects, syndicates | Reference repo for cross-murmuration data formats |
-
-The five packages compose: an operator's `harness.yaml` declares `collaboration.provider: flyway` and `governance.plugin: flyway-s3`, and the federation extension is loaded automatically from `@murmurations-ai/flyway-extension`. Operators who don't install any of these get the existing single-murmuration harness experience.
-
-### 6.2 Operator repo additions
-
-A flyway-enabled murmuration's repo gains:
+### 6.1 The three layers
 
 ```
-<murmuration-repo>/
+┌─────────────────────────────────────────────────────────────────────┐
+│  Layer 3: Client integrations                                       │
+│                                                                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │ harness  │ │  Claude  │ │   MCP    │ │   CLI    │ │   chat   │  │
+│  │ adapter  │ │   Code   │ │  server  │ │  (one-   │ │  client  │  │
+│  │          │ │  skill   │ │ (Cursor, │ │  shot)   │ │ adapter  │  │
+│  │          │ │          │ │  IDE…)   │ │          │ │(OpenClaw)│  │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘  │
+│       └────────────┴────────────┼────────────┴────────────┘        │
+│                                 │                                   │
+└─────────────────────────────────┼───────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼───────────────────────────────────┐
+│  Layer 2: Reference implementation                                  │
+│                                                                     │
+│   @murmurations-ai/flyway-core   (TypeScript library)               │
+│   - Identity (DID resolution, signing, verification)                │
+│   - Entity statement loading + JWT verify                           │
+│   - Peer registry + agreement model                                 │
+│   - Primitive RPC (open directive, mirror, etc.)                    │
+│   - Schema validation against @murmurations-ai/flyway-schemas       │
+│                                                                     │
+└─────────────────────────────────┬───────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼───────────────────────────────────┐
+│  Layer 1: Protocol                                                  │
+│                                                                     │
+│   - Wire format: GitHub artifacts (issues, PRs, comments, commits)  │
+│     and JSON files in `flyway/` directory of each murmuration's     │
+│     own repo                                                        │
+│   - Identity: did:web rooted at <repo>/.well-known/did.json         │
+│   - Auth: JWT signing of entity statements + actions                │
+│   - Schemas: @murmurations-ai/flyway-schemas (Git-versioned)        │
+│   - Discovery: thin GitHub-hosted directories + aggregators         │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+The protocol is the contract. Anyone implementing it is a first-class participant. The reference implementation makes it cheap to implement; the client integrations make it cheap to *use* from common tools.
+
+### 6.2 Layer 1 — the protocol
+
+The protocol is defined entirely by:
+
+- **Schemas** (in `@murmurations-ai/flyway-schemas`, a versioned Git repo) for: DID documents, entity statements, peer registry entries, engagement agreements, projects, syndicates, directives, governance rounds, tensions.
+- **GitHub artifact conventions** for: which issue label denotes a flyway directive, which file path holds an entity statement, which PR convention proposes an agreement, etc.
+- **Cryptographic conventions:** JWT (JWS) over canonical JSON, did:web identity resolution, ed25519 default signing.
+- **Lifecycle state machines** for: agreements, projects, syndicates, directives, governance rounds, tensions.
+
+A spec doc (eventually shipped at `flyway-protocol-v1.md` in this repo) is the formal artifact. Anything that produces and consumes the right artifacts in the right shape is a flyway participant — regardless of language or runtime.
+
+### 6.3 Layer 2 — the reference implementation
+
+`@murmurations-ai/flyway-core` is a pure TypeScript library implementing the protocol. It has no runtime assumptions — it can be used from a Node daemon (the harness), from a Claude Code skill, from an Electron app, from a CLI, or from a plain browser. It depends only on:
+
+- A JavaScript fetch implementation (universal)
+- A signing implementation (Web Crypto API in browser; node:crypto in Node; configurable)
+- A GitHub API client (could be the harness's `@murmurations-ai/github`, or `@octokit/rest`, or raw fetch)
+
+The library exposes high-level operations (e.g., `proposeDirective(peer, body)`, `acceptAgreement(peerId, agreementId)`, `resolvePeer(did)`) and low-level primitives (e.g., `signJWT(payload)`, `verifyEntityStatement(json)`, `mirrorIssue(srcRepo, dstRepo, issueId)`).
+
+### 6.4 Layer 3 — client integrations
+
+Five client integrations are recommended for v0.1, in approximate priority:
+
+| Integration | Package | What it gives | Who it serves |
+|---|---|---|---|
+| **Harness adapter** | `@murmurations-ai/flyway-harness` | `FederationCollaborationProvider` + governance plugin + Spirit skills | Sources running the murmurations-harness |
+| **Claude Code skill** | `@murmurations-ai/flyway-claude-code` | A Claude Code skill exposing flyway operations as agent tools | Sources working in Claude Code sessions (interactive or ephemeral) |
+| **MCP server** | `@murmurations-ai/flyway-mcp` | Generic MCP server exposing flyway operations as MCP tools | Sources using any MCP-capable client (Cursor, Continue, etc.) |
+| **CLI** | `@murmurations-ai/flyway-cli` | Terminal one-shots (`flyway propose <peer> <body>`, `flyway agreements list`, etc.) | Sources who want manual / scripted control without a daemon |
+| **Chat client adapter** | `@murmurations-ai/flyway-chat` | Patterns for a chat-bound agent (OpenClaw via Discord/Telegram) to participate | Sources running OpenClaw or similar chat-based agent systems |
+
+A sixth option that needs no package: **manual GitHub use.** A Source with no tooling beyond a web browser can read peer entity statements, comment on flyway directives, and merge agreement PRs. The protocol is human-usable as a baseline; the integrations make it ergonomic.
+
+### 6.5 Participation modes
+
+Any single Source's relationship to flyway falls into one of four modes. A given collaboration may include participants in different modes simultaneously.
+
+| Mode | Description | Latency to respond | Example |
+|---|---|---|---|
+| **Persistent** | Continuous daemon, scheduled wakes, programmatic triggers | seconds–minutes | Murmurations-harness installation |
+| **Interactive** | Source actively at their tool when in flight | seconds when Source is present, hours when not | Source working in Claude Code, Cursor, or chat client |
+| **Asynchronous** | GitHub-only; no real-time presence | hours–days | Source reading email-style notifications and replying via web UI |
+| **Ephemeral** | One-shot — Source spins up, joins, does some work, exits | per-session | Source opens Claude Code for ~30 minutes to participate in a single round |
+
+**Constraints across modes:**
+
+- All modes use the same protocol primitives (issues, PRs, comments, signed artifacts in `flyway/`).
+- All modes preserve operator agency — a Source can refuse, exit, or rotate at any time.
+- All modes require the same identity: `did:web` rooted at a stable repo. The Source's *runtime* may be ephemeral; the Source's *identity* is persistent.
+
+**Where modes affect protocol:**
+
+- **Goal lifecycle timeouts.** A project that needs decisions in minutes is incompatible with a participant in async-only mode. Engagement agreements should specify expected response cadence, and participants should self-declare their mode (or default mode) in their entity statement.
+- **Hosting governance rounds.** A consent round or syndicate meeting needs *some* persistent or scheduled-interactive participant to act as facilitator. Pure-ephemeral collaborations can run lazy-consent agreements but probably can't host long S3 rounds.
+- **Real-time signal delivery.** If a participant is async-only, they may take days to see a directive. If their agreement requires faster response, they should upgrade their mode (or consent fails on time-bound matters).
+
+The protocol does not ban any mode. It just makes the cadence consequences visible.
+
+### 6.6 The minimum viable client
+
+A flyway client of any kind must be able to:
+
+1. **Read** GitHub artifacts of any peer murmuration's repo (clone or API)
+2. **Verify** peer signatures via `did:web` resolution + JWT signature validation
+3. **Sign** its own outgoing artifacts using a key whose public half is in the Source's DID document
+4. **Write** its own murmuration's repo (issues, PRs, comments, file commits) using whichever GitHub access the Source has configured
+
+A bash script with `curl`, `jq`, and `ssh-agent` can in principle implement all four. Most participants will use a higher-level client. The point is the bar is *low*: flyway is not gated on running specific software.
+
+### 6.7 Operator repo additions
+
+A flyway-participating Source's repo gains the following structure (regardless of runtime — the harness, a Claude Code session backed by a personal repo, a manual operator's notes repo, etc. all use the same shape):
+
+```
+<source-repo>/
 ├── .well-known/
 │   └── did.json                              # DID document (did:web)
 ├── flyway/
 │   ├── entity-statement.json                 # signed entity metadata
-│   ├── peers.yaml                            # recognized peers
+│   │                                         #   - identity, public key, mode (persistent/...)
+│   │                                         #   - declared client integrations
+│   │                                         #   - schemas spoken
+│   │                                         #   - recognized peers
+│   ├── peers.yaml                            # recognized peers (mode-aware)
 │   ├── agreements/
 │   │   └── <peer-id>.yaml                    # per-peer engagement agreements
 │   ├── projects/
@@ -301,35 +424,48 @@ A flyway-enabled murmuration's repo gains:
 │   ├── syndicates/
 │   │   └── <syndicate-id>.yaml               # syndicate membership
 │   └── cache/                                # gitignored peer-state cache
-└── murmuration/
-    └── harness.yaml                          # adds flyway: section
+└── (any other Source-specific files —
+   harness.yaml, role.md, .claude/, etc.
+   are runtime-specific and not flyway concerns)
 ```
 
-All of this is under each operator's existing repo. flyway adds no separate infrastructure.
+A harness installation has the rich `agents/`, `governance/`, `runs/` directory tree alongside `flyway/`. A Claude Code session might have only `.claude/` and `flyway/` — and that's fine. flyway only cares about `flyway/` and `.well-known/did.json`.
 
-### 6.3 Three required harness ADRs (small, additive)
+### 6.8 Three required harness ADRs (small, additive — for the harness adapter only)
 
-For flyway to compose cleanly, the harness needs:
+For the *harness adapter* to compose cleanly with the harness's existing primitives, the harness needs:
 
-1. **ADR-003X: Plugin composition for governance.** Allow `governance.plugins[]` (ordered) or a wrapping pattern so flyway's federation plugin can complement a murmuration's existing S3 plugin rather than replace it.
-2. **ADR-003Y: CollaborationProvider repo dimension.** Either add `repo` parameter to provider operations or formalize the "wrap multiple per-repo providers" pattern. Probably the latter (no breaking change).
-3. **ADR-003Z: Signal kind registration + action handler registration.** Document how new signal kinds and wake action kinds get registered so flyway's contributions are first-class rather than ignored-with-warning.
+1. **Plugin composition for governance.** Allow `governance.plugins[]` (ordered) or a wrapping pattern so flyway's federation plugin can complement a murmuration's existing S3 plugin rather than replace it.
+2. **CollaborationProvider repo dimension.** Either add `repo` parameter to provider operations or formalize the "wrap multiple per-repo providers" pattern. Probably the latter (no breaking change).
+3. **Signal kind registration + action handler registration.** Document how new signal kinds and wake action kinds get registered so flyway's contributions are first-class rather than ignored-with-warning.
 
-None of the three are blocking — flyway v0.1 can land before any of them — but they make the composition path official.
+None of the three are blocking — flyway v0.1 can land before any of them — and they only affect the harness adapter, not the protocol or other client integrations. Sources using Claude Code or the CLI or MCP can collaborate with harness-using Sources today without these ADRs landing, because the cross-runtime work happens at the protocol layer (GitHub artifacts), not inside any one runtime.
 
-### 6.4 The MVP
+### 6.9 The MVP — revised for cross-runtime
 
-One primitive, end-to-end, between two real murmurations. The proposed MVP is **mirrored cross-murmuration directives**, which exercises the full stack:
+One primitive, end-to-end, between two participants on **different runtimes**. Specifically: **mirrored cross-murmuration directives between one harness installation and one Claude Code session.**
 
-- `flyway-core` resolves peer identity
-- `flyway-collaboration-provider` wraps both repos
-- `flyway-extension` provides `:flyway propose <peer> <body>` Spirit skill
-- `flyway-schemas` defines the directive schema
-- The harness's existing directive handling (sees a `source-directive` issue with extra `flyway-directive` label) routes it to agents normally
+This is a deliberate change from the original "two harness installations" MVP. Demonstrating the protocol working across runtimes is more important than demonstrating it within one runtime — because the runtime-agnostic property is what makes flyway useful.
 
-Demo path: Source-A runs `:flyway propose murmuration-B "review draft article"` in their REPL. flyway opens an issue in A's repo and a paired issue in B's repo (with the agreement-permitted write scopes). On B's next wake, an assigned agent sees the directive and responds. flyway mirrors the response into A's repo. A's Source sees the response in A's GitHub, replies via comment, flyway mirrors. Cycle continues until either side closes the directive.
+Demo path:
 
-If that loop works between two real murmurations on different machines controlled by different humans, flyway has demonstrated its core value proposition. Everything else (projects, syndicates, conflict resolution, schema-evolution) is layered on top.
+1. Source-A runs the murmurations-harness on `xeeban/emergent-praxis`. The harness adapter is installed; flyway's `FederationCollaborationProvider` is wired into `harness.yaml`.
+2. Source-B doesn't run the harness. Source-B has a personal repo (e.g., `bob/source-repo`) with `flyway/entity-statement.json` declaring identity. Source-B participates by opening Claude Code in a directory with the flyway Claude Code skill installed.
+3. Both Sources have committed mutual recognition (`flyway/peers.yaml` updated on both sides) and a signed engagement agreement (`flyway/agreements/<peer>.yaml` merged into both repos via PR).
+4. **Test 1 (harness → Claude Code):** Source-A's Spirit runs `:flyway propose source-b "review this draft"`. The harness adapter opens an issue in A's repo (`source-directive` + `flyway-directive` labels) and mirrors it into B's repo. Source-B opens Claude Code, the skill detects new flyway directives in B's signal context, surfaces the issue. Source-B's session asks Claude (with the flyway skill) to draft a response. Skill posts the response to B's issue. Adapter mirrors the response back to A. A's agents see the response in A's signal bundle on next wake.
+5. **Test 2 (Claude Code → harness):** Reverse direction. Source-B uses the flyway skill in a Claude Code session to propose a directive at A. The skill writes the directive to B's repo and to A's repo (via the agreement-permitted scopes). A's harness sees it in the next signal aggregation cycle and routes to assigned agents. Agents respond; harness adapter mirrors to B.
+
+If that bidirectional loop works between *one harness and one Claude Code session*, flyway has demonstrated:
+
+- The protocol works across runtimes
+- Identity verification across runtimes
+- Engagement agreements as the trust substrate
+- Mirrored artifacts as the canonical primitive
+- An ephemeral participant (Claude Code) collaborating with a persistent participant (harness)
+
+Everything else — projects, syndicates, conflict resolution, schema-evolution, additional client integrations — is layered on top.
+
+A more ambitious v1.5 demo: **three-party collaboration** — one harness, one Claude Code, one CLI/manual GitHub — running a single project end-to-end. This proves the heterogeneous case explicitly.
 
 ---
 
@@ -543,42 +679,48 @@ This is the single most important principle in flyway's design. The frameworks t
 
 ## 11. Recommendations
 
-### 11.1 Architectural
+### 11.1 Architectural — runtime-agnostic
 
-1. **Build flyway as five `@murmurations-ai/*` packages** (per §6.1), not as a fork of the harness or a separate daemon. Compose with existing harness extension surfaces.
-2. **File 3 small additive harness ADRs** (per §6.3) for plugin composition, CollaborationProvider repo dimension, and signal/action kind registration. None blocking.
-3. **MVP is mirrored cross-murmuration directives** (per §6.4), demonstrated end-to-end between two real murmurations.
+1. **Build flyway as a three-layer stack** (protocol / reference impl / client integrations — per §6.1), not as a single integration with any one runtime. The protocol is the contract; runtimes are pluggable.
+2. **The reference implementation is `@murmurations-ai/flyway-core`** — pure TypeScript, no runtime assumptions, usable from Node, browsers, Electron, or any JS-capable environment.
+3. **Ship five client integrations for v0.1** (per §6.4): harness adapter, Claude Code skill, MCP server (for Cursor and other MCP clients), CLI, and a chat-client adapter pattern. Document a sixth: manual GitHub use as the always-available baseline.
+4. **File 3 small additive harness ADRs** (per §6.8) for plugin composition, CollaborationProvider repo dimension, and signal/action kind registration. These affect only the harness adapter — not the protocol or other clients. None blocking.
+5. **MVP is mirrored cross-murmuration directives between one harness and one Claude Code session** (per §6.9). Demonstrating cross-runtime is more important than cross-installation.
 
 ### 11.2 Identity & discovery
 
-4. **Adopt `did:web` identity** rooted at each murmuration's repo (`<repo>/.well-known/did.json`). Portable across hosts, free of new infrastructure.
-5. **Adopt OpenID Federation-style entity statements** in `<repo>/flyway/entity-statement.json`, signed JSON listing DID, public key, governance plugin, recognized peers, schemas spoken.
-6. **Adopt thin GitHub-hosted directories + opinionated aggregators** for discovery, borrowing from Murmurations.network's pattern.
+6. **Adopt `did:web` identity** rooted at each Source's repo (`<repo>/.well-known/did.json`). Identity is anchored at the Source level, not at any runtime. A Source can change runtimes without changing identity.
+7. **Adopt OpenID Federation-style entity statements** in `<repo>/flyway/entity-statement.json`, signed JSON listing DID, public key, declared mode (persistent/interactive/async/ephemeral), declared client integrations, governance plugin, recognized peers, schemas spoken.
+8. **Adopt thin GitHub-hosted directories + opinionated aggregators** for discovery, borrowing from Murmurations.network's pattern. Directories list participants regardless of runtime.
 
 ### 11.3 Recognition & engagement
 
-7. **Per-pair engagement agreements** as the load-bearing primitive. Negotiated as PRs against both repos; review per each side's governance; exit clauses required.
-8. **Lazy consent as the default for routine matters** (72-hour quiet window). Reserve formal consent rounds for substantive decisions.
-9. **No joint action when consent fails.** Codify this; refuse to design forced-agreement mechanisms.
+9. **Per-pair engagement agreements** as the load-bearing primitive. Negotiated as PRs against both repos; review per each side's governance; exit clauses required. Agreements may specify expected response cadence so cross-mode pairings (e.g., persistent + ephemeral) are explicit about timing.
+10. **Lazy consent as the default for routine matters** (72-hour quiet window). Reserve formal consent rounds for substantive decisions.
+11. **No joint action when consent fails.** Codify this; refuse to design forced-agreement mechanisms.
 
 ### 11.4 Governance
 
-10. **S3 consent as the default decision rule.** Pluggable per agreement; ship five rules out-of-the-box (s3-consent, lazy-consent, dual-source-sign, weighted-vote-bounded, apache-vote).
-11. **Goals as governed entities** with explicit lifecycles (proposed → agreed → in-flight → closed | retrospected). State transitions are governance acts.
-12. **Syndicates as optional persistent structures** distinct from project-scoped collaboration. Syndicates ratify existing relationships rather than creating them.
+12. **S3 consent as the default decision rule.** Pluggable per agreement; ship five rules out-of-the-box (s3-consent, lazy-consent, dual-source-sign, weighted-vote-bounded, apache-vote).
+13. **Goals as governed entities** with explicit lifecycles (proposed → agreed → in-flight → closed | retrospected). State transitions are governance acts.
+14. **Syndicates as optional persistent structures** distinct from project-scoped collaboration. Syndicates ratify existing relationships rather than creating them. Note: a syndicate that requires real-time coordination implicitly requires at least one persistent participant; agreements should make this explicit.
 
 ### 11.5 Conflict resolution
 
-13. **Six-step escalation ladder** (direct → tension → Case Clinic → mediation → adjudication-if-clause → exit). Time-bounded. Cheap to enter, fast to escalate, clean to exit.
-14. **Case Clinic as the lightweight structured-dialogue tier**. Borrowed from Theory U; appropriate for inter-Source disputes.
+15. **Six-step escalation ladder** (direct → tension → Case Clinic → mediation → adjudication-if-clause → exit). Time-bounded. Cheap to enter, fast to escalate, clean to exit.
+16. **Case Clinic as the lightweight structured-dialogue tier**. Borrowed from Theory U; appropriate for inter-Source disputes. Sources participate as humans regardless of runtime — the dialogue happens in real-time even if their day-to-day work is asynchronous.
 
 ### 11.6 Schemas & evolution
 
-15. **Schemas live in a shared `flyway-schemas` repo**. Versioned. New schemas land via PR. Murmurations declare which schema versions they speak in their entity statement.
+17. **Schemas live in a shared `flyway-schemas` repo**. Versioned. New schemas land via PR. Participants declare which schema versions they speak in their entity statement.
 
-### 11.7 Operator experience
+### 11.7 Operator experience — per runtime
 
-16. **Spirit skills for flyway** (`:flyway peers`, `:flyway propose`, `:flyway agreements`, etc.) ship in `@murmurations-ai/flyway-extension`.
+18. **Harness adapter:** Spirit skills (`:flyway peers`, `:flyway propose`, `:flyway agreements`, etc.) ship in `@murmurations-ai/flyway-harness`.
+19. **Claude Code skill:** ship `@murmurations-ai/flyway-claude-code` as a standalone skill that adds flyway tools to any Claude Code session. The skill provides the same operations as the Spirit skills, exposed as agent tools rather than slash commands.
+20. **MCP server:** ship `@murmurations-ai/flyway-mcp` as a standalone MCP server. Cursor users add it to their MCP config; Continue users do the same; any MCP-capable client gets flyway tools without separate work.
+21. **CLI:** ship `@murmurations-ai/flyway-cli` for terminal one-shots. Useful for Sources who want manual control, scripted automation, or integration into their existing tooling.
+22. **Chat-client adapter pattern:** publish a documented pattern (probably as an example in the flyway repo) for an OpenClaw-or-similar chat-bound agent to participate. The pattern uses the same `@murmurations-ai/flyway-core` library; the integration work is wiring it into the chat client's command surface.
 
 ---
 
@@ -605,19 +747,21 @@ These five become candidate ADRs as flyway matures. None block the v0.1 MVP.
 A discipline borrowed from the framing ADR (ADR-0001):
 
 - flyway is **not** a controller, orchestrator, or master node above murmurations
-- flyway is **not** a hard dependency of the harness
+- flyway is **not** harness-specific — the harness is one of several first-class client integrations
+- flyway is **not** a hard dependency of the harness, Claude Code, Cursor, OpenClaw, or any other tool
+- flyway is **not** a runtime — there is no "flyway daemon" required for participation
 - flyway is **not** a federation that requires central registration
 - flyway is **not** a framework that tries to manufacture agreement when Sources disagree
 - flyway is **not** a substitute for any individual murmuration's own governance
-- flyway is **not** novel infrastructure — it's a thin protocol on existing primitives
+- flyway is **not** novel infrastructure — it's a thin protocol on existing primitives (Git, GitHub, DIDs, JWT)
 
-The single most-important constraint: flyway should remain *small*. Every primitive that can be pushed up to the operator (a custom agreement clause, a shared schema choice, an aggregator implementation) is a primitive flyway does not need to ship.
+The single most-important constraint: flyway should remain *small*. Every primitive that can be pushed up to the operator (a custom agreement clause, a shared schema choice, an aggregator implementation, a runtime-specific UX detail) is a primitive flyway does not need to ship.
 
 ---
 
 ## 14. Summary in one paragraph
 
-flyway treats each AI-agent murmuration as a Git repo with a stable `did:web` identity, lets murmurations recognize one another via signed entity statements borrowed from OpenID Federation, supports per-pair engagement agreements that specify decision rules pluggably (S3 consent default, lazy consent, dual-source sign, weighted-bounded vote, Apache-style vote), composes cross-murmuration work as either ephemeral projects or persistent syndicates with explicit goal lifecycles, and prescribes a six-step escalation ladder for conflicts that ends in clean exit when consent cannot be reached. Architecturally it lives as five `@murmurations-ai/*` packages composing with the harness's existing extension surfaces (CollaborationProvider, GovernancePlugin, Spirit skills, extension tools) — no harness fork, three small additive ADRs. The MVP is mirrored cross-murmuration directives between two real murmurations on different machines. Everything else layers on top. The single load-bearing invariant, derived from across every protocol and governance tradition surveyed, is operator agency: every Source retains unilateral authority over what their murmuration accepts, what it forwards, whom it recognizes, and when it exits. Anything that violates that has stopped being federation.
+flyway is a runtime-agnostic protocol that treats each Source-controlled agent swarm — running on the murmurations-harness, Claude Code, Cursor, OpenClaw, manual GitHub, or anything else — as a Git repo with a stable `did:web` identity. Sources recognize one another via signed entity statements borrowed from OpenID Federation; collaborate via per-pair engagement agreements with pluggable decision rules (S3 consent default, lazy consent, dual-source sign, weighted-bounded vote, Apache-style vote); compose cross-murmuration work as either ephemeral projects or persistent syndicates with explicit goal lifecycles; and resolve conflicts via a six-step escalation ladder ending in clean exit when consent cannot be reached. Architecturally it ships as a three-layer stack: a protocol spec, a reference TypeScript core (`@murmurations-ai/flyway-core`) usable from any JS environment, and a family of client integrations for the harness, Claude Code, generic MCP clients, terminal CLI, and chat-bound agents — none of which is privileged. The MVP is mirrored cross-murmuration directives between one harness installation and one Claude Code session, demonstrating the cross-runtime story end-to-end. Everything else layers on top. The single load-bearing invariant, derived from across every protocol and governance tradition surveyed, is operator agency: every Source retains unilateral authority over what their murmuration accepts, what it forwards, whom it recognizes, and when it exits — regardless of what runtime they are using. Anything that violates that has stopped being federation.
 
 ---
 
