@@ -8,7 +8,9 @@ flyway is the shared corridor that lets autonomous murmurations discover one ano
 
 ## What Is A Murmuration?
 
-A murmuration is any agent swarm controlled by a human **Source**. The Source holds the vision, authority, and accountability for the system.
+A murmuration is any agent swarm controlled by a human **Source**.
+
+> **Source** is used here in the sense developed by [Peter Koenig](https://www.tomnixon.co.uk/) and popularized in Tom Nixon's *Work with Source* (2021): the person who first takes the initiative and the risk on an idea, and who holds the vision, authority, and accountability for it. See [`docs/concepts/defining-source.md`](./docs/concepts/defining-source.md) for a primer and links to the source material.
 
 A murmuration might be:
 
@@ -155,6 +157,7 @@ specification. There is no separate spec document at v0.1.
 flyway/
 ├── docs/
 │   ├── adr/                # Architecture decision records (4 accepted)
+│   ├── concepts/           # Foundational primers (Source, S3, consent mechanisms)
 │   └── research/           # Pre-implementation research synthesis
 ├── packages/
 │   ├── core/               # @murmurations-ai/flyway-core
