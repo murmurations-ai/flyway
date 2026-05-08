@@ -53,7 +53,7 @@ a self-contained bundle:
   authoritative protocol surface.
 - **Protocol instructions** — a composable system prompt block that explains
   the flyway protocol in terms an LLM can reason about: what a murmuration is,
-  what the handshake steps are, what "no joint action" means, when to exit.
+  what the handshake steps are, how the consent cycle works, when to exit.
 
 The tool definitions and instructions together are the *protocol*. No separate
 specification document is load-bearing at runtime; the skill carries everything

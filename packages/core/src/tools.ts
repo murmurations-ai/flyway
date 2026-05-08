@@ -134,10 +134,11 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
   {
     name: 'flyway_respond',
     description:
-      'Respond to an incoming proposal from a peer. Accepts, objects with a reason, or ' +
-      'exits the interaction. If objecting, the reason is shared with the peer and the ' +
-      'proposal remains open for revision. If exiting, the interaction closes cleanly. ' +
-      'The correct response when consent cannot be reached is exit — not silence.',
+      'Respond to an incoming proposal from a peer. Accept, object with a reason ' +
+      '(the proposal stays open for revision and re-proposal — this is the consent ' +
+      'cycle), or exit when consent cannot be reached after good-faith effort. ' +
+      'Silence is never a valid response. Exit is the end of a process, not a ' +
+      'substitute for one.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -151,8 +152,8 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
           enum: ['accept', 'object', 'exit'],
           description:
             'accept = consent to the proposal as written. ' +
-            'object = raise a concern; proposal stays open for revision. ' +
-            'exit = withdraw from this proposal; no joint action.',
+            'object = raise a concern; proposal stays open for revision and re-proposal. ' +
+            'exit = withdraw after good-faith attempts to reach consent have been exhausted.',
         },
         reason: {
           type: 'string',

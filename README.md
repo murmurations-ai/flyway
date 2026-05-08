@@ -44,9 +44,24 @@ flyway is not:
 - a runtime or required daemon
 - harness-specific
 - a dependency of `murmurations-harness`
-- a mechanism for forcing agreement between sovereign Sources
+- a mechanism for **forcing** agreement between sovereign Sources
 
-When Sources do not agree, the correct outcome is **no joint action**.
+## What flyway Is For
+
+flyway exists to help sovereign Sources **achieve consent** — surface
+objections, integrate concerns, and reach agreements every party can stand
+behind. The distinction from forced agreement is load-bearing: forcing
+agreement overrides one Source's authority for another's benefit; achieving
+consent does the work of finding what all parties can support.
+
+flyway provides explicit primitives for that work: structured proposals,
+named objections with reasoning, response cycles, pluggable decision rules
+(S3 consent by default, lazy consent, dual-source sign, and others), and
+a graduated escalation ladder for tensions that don't resolve quickly.
+
+When consent genuinely cannot be reached after good-faith effort, exit is
+a valid outcome — but exit is the *end* of a process, not a substitute
+for one. Silence is never a valid protocol state.
 
 ## Design Principles
 
