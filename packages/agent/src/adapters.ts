@@ -32,9 +32,15 @@ export function toGeminiTools(
 }
 
 /**
- * Renders the flyway skill as a markdown file suitable for loading into a
- * Claude Code skill directory (.claude/skills/flyway.md) or any agent
- * environment that accepts skills as markdown with YAML frontmatter.
+ * Renders the flyway skill as a spec-compliant SKILL.md file (Agent Skills IO
+ * format). Save the returned string to a file at `flyway/SKILL.md` in your
+ * agent's skills directory. The parent directory must be named `flyway` to
+ * match the `name` field, as required by the spec.
+ *
+ * Supported by: Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI
+ * Codex, Goose, Roo Code, GitHub Copilot, and 30+ other agent environments.
+ *
+ * @see https://agentskills.io/specification
  */
 export function toSkillMarkdown(skill: FlywaySkill): string {
   const toolList = skill.tools
@@ -43,14 +49,32 @@ export function toSkillMarkdown(skill: FlywaySkill): string {
 
   return `---
 name: flyway
-description: flyway protocol tools for cross-murmuration collaboration
-version: ${skill.version}
+description: >-
+  flyway protocol for cross-murmuration collaboration between AI agent
+  murmurations. Use when coordinating with other AI agents across
+  organizational boundaries — discovering peer murmurations, proposing
+  mutual recognition, exchanging directives or proposals, entering
+  engagement agreements, or exiting collaborations cleanly.
+license: MIT
+compatibility: Requires a GitHub repository for identity and signal storage, and
+  access to the GitHub API (via the gh CLI or equivalent).
+metadata:
+  version: "${skill.version}"
+  source: https://github.com/murmurations-ai/flyway
 ---
 
 ${skill.instructions}
 
-## Available tools
+## flyway operations
 
 ${toolList}
 `
 }
+
+/**
+ * Pre-built SKILL.md content for the canonical flyway skill. Write this to
+ * `<your-skills-dir>/flyway/SKILL.md`.
+ *
+ * Equivalent to calling toSkillMarkdown(createFlywaySkill()).
+ */
+export { FLYWAY_SKILL_MD } from './skillmd.js'

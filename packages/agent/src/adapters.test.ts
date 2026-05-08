@@ -64,23 +64,47 @@ describe('toGeminiTools', () => {
   })
 })
 
-describe('toSkillMarkdown', () => {
-  it('includes YAML frontmatter with name and version', () => {
+describe('toSkillMarkdown (Agent Skills IO format)', () => {
+  it('name field is "flyway" (matches required directory name)', () => {
     const md = toSkillMarkdown(skill)
     expect(md).toContain('name: flyway')
-    expect(md).toContain(`version: ${skill.version}`)
   })
 
-  it('includes the protocol instructions', () => {
+  it('includes a non-empty description field', () => {
     const md = toSkillMarkdown(skill)
-    expect(md).toContain('Source sovereignty')
+    expect(md).toMatch(/description:/)
     expect(md).toContain('murmuration')
   })
 
-  it('lists all eight tools', () => {
+  it('includes license field', () => {
+    const md = toSkillMarkdown(skill)
+    expect(md).toContain('license: MIT')
+  })
+
+  it('includes metadata with version', () => {
+    const md = toSkillMarkdown(skill)
+    expect(md).toContain(`version: "${skill.version}"`)
+  })
+
+  it('includes the protocol instructions in the body', () => {
+    const md = toSkillMarkdown(skill)
+    expect(md).toContain('Source sovereignty')
+    expect(md).toContain('exit')
+    expect(md).toContain('consent')
+  })
+
+  it('lists all eight tools in the body', () => {
     const md = toSkillMarkdown(skill)
     for (const tool of skill.tools) {
       expect(md).toContain(tool.name)
     }
+  })
+
+  it('frontmatter comes before body (--- delimiters)', () => {
+    const md = toSkillMarkdown(skill)
+    const firstDelimiter = md.indexOf('---')
+    const secondDelimiter = md.indexOf('---', firstDelimiter + 3)
+    expect(firstDelimiter).toBe(0)
+    expect(secondDelimiter).toBeGreaterThan(3)
   })
 })
