@@ -1,41 +1,10 @@
-import type { FlywaySkill, FlywayToolDefinition } from '@murmurations-ai/flyway-core'
-import type { AnthropicTool, GeminiFunctionDeclaration, OpenAIFunction } from './types.js'
-
-export function toAnthropicTools(tools: readonly FlywayToolDefinition[]): AnthropicTool[] {
-  return tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.inputSchema,
-  }))
-}
-
-export function toOpenAITools(tools: readonly FlywayToolDefinition[]): OpenAIFunction[] {
-  return tools.map((tool) => ({
-    type: 'function' as const,
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.inputSchema,
-      strict: true,
-    },
-  }))
-}
-
-export function toGeminiTools(
-  tools: readonly FlywayToolDefinition[],
-): GeminiFunctionDeclaration[] {
-  return tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.inputSchema,
-  }))
-}
+import type { FlywaySkill } from '@murmurations-ai/flyway-core'
 
 /**
  * Renders the flyway skill as a spec-compliant SKILL.md file (Agent Skills IO
- * format). Save the returned string to a file at `flyway/SKILL.md` in your
- * agent's skills directory. The parent directory must be named `flyway` to
- * match the `name` field, as required by the spec.
+ * format). Save the returned string to `flyway/SKILL.md` in your agent's
+ * skills directory. The parent directory must be named `flyway` to match the
+ * `name` field, as required by the spec.
  *
  * Supported by: Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI
  * Codex, Goose, Roo Code, GitHub Copilot, and 30+ other agent environments.
