@@ -12,6 +12,9 @@
       "types": "./dist/index.d.ts"
     }
   },
+  "bin": {
+    "flyway-mcp": "./dist/bin/flyway-mcp.js"
+  },
   "files": ["dist"],
   "scripts": {
     "build": "tsc --build",
@@ -20,6 +23,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@murmurations-ai/flyway-core": "workspace:*"
   }
 }

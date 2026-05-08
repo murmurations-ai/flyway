@@ -1,1 +1,2 @@
-export { FLYWAY_PROTOCOL_VERSION } from '@murmurations-ai/flyway-core'
+export { createFlywayMcpServer } from './server.js'
+export { callFlywayTool, listFlywayTools } from './handlers.js'
