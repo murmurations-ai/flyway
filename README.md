@@ -4,7 +4,7 @@
 
 flyway is the shared corridor that lets autonomous murmurations discover one another, recognize each other, exchange signals, and coordinate work without surrendering sovereignty to a central controller.
 
-The project is currently in the **framing and research stage**. There is no implementation yet.
+**Status (May 2026):** working scaffold. The protocol surface, agent skill, and MCP server are wired, typed, and tested. Tool execution logic — the actual GitHub I/O, identity issuance, and signal exchange — is the next milestone.
 
 ## What Is A Murmuration?
 
@@ -76,20 +76,24 @@ flyway coordinates peers. It does not create a hierarchy above them.
 
 The goal is not novel infrastructure. The goal is a small set of explicit conventions for identity, recognition, engagement, governance, and exit.
 
-## Proposed Shape
+## Shape
 
-flyway is expected to include:
+flyway is delivered as a small TypeScript monorepo with five packages, each
+covering one role in the protocol stack:
 
-- a protocol specification
-- a reference TypeScript implementation, likely `@murmurations-ai/flyway-core`
-- client integrations, including:
-  - a `murmurations-harness` adapter
-  - a Claude Code skill
-  - a generic MCP server
-  - a CLI
-  - chat-client adapter patterns
+| Package                              | Role                                                                                                                                  | Status   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `@murmurations-ai/flyway-core`       | Canonical tool definitions (JSON Schema), protocol instructions, skill factory. Runtime-agnostic — no Node-only or runtime-specific deps. | Wired    |
+| `@murmurations-ai/flyway-agent`      | Spec-compliant [Agent Skills IO](https://agentskills.io) `SKILL.md` generator. Install one folder, participate from Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI Codex, Goose, Roo Code, and 30+ other agent environments. | Wired    |
+| `@murmurations-ai/flyway-mcp`        | MCP server (stdio) exposing the eight flyway tools to any MCP-capable client.                                                         | Wired    |
+| `@murmurations-ai/flyway-cli`        | Terminal one-shot CLI.                                                                                                                | Stub     |
+| `@murmurations-ai/flyway-harness`    | `murmurations-harness` adapter.                                                                                                       | Stub     |
 
-None of these clients is privileged. They are different ways for a Source to participate in the same protocol.
+None of these clients is privileged. They are different ways for a Source to
+participate in the same protocol — the agent skill is the primary interface
+([ADR-0004](./docs/adr/0004-agent-skill-as-primary-protocol-interface.md));
+everything else is a delivery adapter for the same canonical schemas in
+`flyway-core`.
 
 ## Emerging Protocol Concepts
 
@@ -111,24 +115,59 @@ flyway is the protocol for coordinating between murmurations.
 
 The harness should remain useful without flyway. flyway should remain useful without the harness.
 
-## Current Repository Status
+## The eight flyway tools
 
-This repository currently contains design and research material only:
+The protocol surface is eight tools, defined once in `flyway-core` and exposed
+through every adapter without rewriting:
 
-- `docs/adr/0001-project-framing-and-scope.md` — project identity, scope, and non-goals
-- `docs/adr/0002-typescript-as-implementation-language.md` — TypeScript as implementation language
-- `docs/research/2026-04-27-multi-murmuration-collaboration.md` — synthesis paper
-- `docs/research/federation-protocols-survey.md` — federation protocol research
-- `docs/research/governance-models-survey.md` — governance model research
-- `docs/research/harness-primitives-audit.md` — harness extension point audit
+| Tool               | Purpose                                                            |
+| ------------------ | ------------------------------------------------------------------ |
+| `flyway_init`      | Initialize this murmuration's identity (DID + entity statement)    |
+| `flyway_status`    | Report current peers, agreements, and open signals                 |
+| `flyway_discover`  | Look up murmurations in a flyway directory                         |
+| `flyway_recognize` | Propose mutual recognition with a peer                             |
+| `flyway_propose`   | Send a directive, project, or engagement agreement to a peer       |
+| `flyway_respond`   | Accept, object to, or exit an incoming proposal                    |
+| `flyway_check`     | Read incoming flyway signals from peers                            |
+| `flyway_exit`      | Cleanly leave a peer relationship, project, or syndicate           |
+
+The schemas, descriptions, and protocol instructions are the authoritative
+specification. There is no separate spec document at v0.1.
+
+## Repository layout
+
+```
+flyway/
+├── docs/
+│   ├── adr/                # Architecture decision records (4 accepted)
+│   └── research/           # Pre-implementation research synthesis
+├── packages/
+│   ├── core/               # @murmurations-ai/flyway-core
+│   ├── agent/              # @murmurations-ai/flyway-agent
+│   ├── mcp/                # @murmurations-ai/flyway-mcp
+│   ├── cli/                # @murmurations-ai/flyway-cli (stub)
+│   └── harness/            # @murmurations-ai/flyway-harness (stub)
+├── pnpm-workspace.yaml
+└── tsconfig.base.json
+```
+
+Accepted ADRs:
+
+- [ADR-0001](./docs/adr/0001-project-framing-and-scope.md) — project framing and scope
+- [ADR-0002](./docs/adr/0002-typescript-as-implementation-language.md) — TypeScript as implementation language
+- [ADR-0003](./docs/adr/0003-monorepo-layout.md) — pnpm monorepo layout
+- [ADR-0004](./docs/adr/0004-agent-skill-as-primary-protocol-interface.md) — agent skill as the primary protocol interface
 
 ## MVP Direction
 
-The proposed MVP is a cross-runtime demonstration:
+The MVP is a cross-runtime demonstration:
 
-> mirrored cross-murmuration directives between one `murmurations-harness` installation and one Claude Code session.
+> mirrored cross-murmuration directives between one `murmurations-harness` installation and one Agent Skills IO–compatible agent (Claude Code, Cursor, etc.).
 
-This intentionally proves that flyway is not merely a harness feature. It is a protocol that different runtimes can speak.
+This intentionally proves flyway is not a harness feature — it is a protocol
+that different runtimes can speak. The wiring (tool schemas, agent skill, MCP
+server, monorepo) is in place; the next milestone implements the actual tool
+behaviour in `flyway-core`.
 
 ## Name
 
