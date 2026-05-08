@@ -1,6 +1,6 @@
 # ADR-0001 — Project framing & scope
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-04-27
 - **Decision-maker(s):** Source (Nori / Kozan)
 - **Consulted:** —

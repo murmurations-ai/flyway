@@ -56,5 +56,6 @@ authored 13 colliding ADRs at numbers already in use).
 
 | #                                                                              | Title                                                              | Status   |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ | -------- |
-| [ADR-0001](./0001-project-framing-and-scope.md)                                | Project framing & scope                                            | Proposed |
-| [ADR-0002](./0002-typescript-as-implementation-language.md)                    | TypeScript as implementation language                              | Proposed |
+| [ADR-0001](./0001-project-framing-and-scope.md)                                | Project framing & scope                                            | Accepted |
+| [ADR-0002](./0002-typescript-as-implementation-language.md)                    | TypeScript as implementation language                              | Accepted |
+| [ADR-0003](./0003-monorepo-layout.md)                                          | Monorepo layout                                                    | Accepted |

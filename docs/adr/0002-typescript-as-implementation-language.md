@@ -1,6 +1,6 @@
 # ADR-0002 — TypeScript as implementation language
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-04-27
 - **Decision-maker(s):** Source (Nori / Kozan)
 - **Consulted:** —
