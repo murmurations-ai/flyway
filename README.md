@@ -1,3 +1,5 @@
+![Three independent starling murmurations — a flowing wave, a curling spiral, and a long ribbon — sharing the same migration corridor at golden hour, with faint threads of light suggesting mutual awareness across the open sky.](./assets/banner.jpg)
+
 # flyway
 
 **A runtime-agnostic protocol for collaboration between independent AI-agent murmurations.**
