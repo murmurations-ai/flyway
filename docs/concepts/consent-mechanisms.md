@@ -28,7 +28,10 @@ Sociocracy 3.0 consent. Each side runs an S3 consent round; the proposal
 passes when no participant raises a qualified objection. Best for
 substantive decisions where integration of concerns matters.
 
-See [`sociocracy-3.md`](./sociocracy-3.md) for the full primer.
+See [`sociocracy-3.md`](./sociocracy-3.md) for the full primer, and
+[`S3-practical-guide.pdf`](./S3-practical-guide.pdf) §IV.1.5–1.7
+(Consent Decision-Making, Test if Arguments Qualify as Objections,
+Resolve Objections) for the canonical pattern definitions.
 
 ### `lazy-consent`
 

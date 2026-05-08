@@ -74,16 +74,41 @@ The S3 patterns flyway leans on most directly:
 - **Explicit agreements** — flyway agreements are recorded as artifacts
   in Git. They are not informal understandings.
 
-## Where to learn more
+## Canonical reference
+
+flyway treats one specific document as its canonical S3 reference:
+
+- [`S3-practical-guide.pdf`](./S3-practical-guide.pdf) — Bockelbrink,
+  Priest, and David, *A Practical Guide for Evolving Agile and Resilient
+  Organizations with Sociocracy 3.0*, v2026-01-26. Bundled in the repo so
+  every contributor and agent works from the same edition.
+
+When we build flyway tools, skills, instructions, or governance
+primitives that are based on S3, this is the source. It is the
+authority; if our description and the guide disagree, the guide wins.
+
+## Where to learn more (external)
 
 - **Official site:** <https://sociocracy30.org/>
 - **Patterns library:** <https://patterns.sociocracy30.org/> — browseable
   catalogue of every S3 pattern with examples
-- **Free reference book:** *Sociocracy 3.0 — A Practical Guide* by
-  Bockelbrink, Priest, and David — available as a free download from the
-  official site
 - The S3 site also hosts videos, slide decks, and case studies under the
   same open license.
+
+## License and attribution
+
+The S3 Practical Guide and the broader Sociocracy 3.0 framework are
+published under **Creative Commons Attribution-ShareAlike 4.0
+International (CC BY-SA 4.0)** by James Priest, Bernhard Bockelbrink, and
+Liliana David.
+
+flyway is licensed MIT. When flyway artifacts (docs, instructions,
+skills) are *derived* from S3 content (e.g., paraphrasing a pattern into
+agent instructions), those derivatives must carry CC BY-SA 4.0
+attribution and license terms — they are dual-licensed in effect, and
+need to be marked as such. Factual references (pattern names, the seven
+principles by name, page numbers) are not derivative works and do not
+trigger this obligation.
 
 ## Why S3 over alternatives
 
