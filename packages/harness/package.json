@@ -1,0 +1,33 @@
+{
+  "name": "@murmurations-ai/flyway-harness",
+  "version": "0.0.1",
+  "description": "murmurations-harness adapter for flyway",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@murmurations-ai/flyway-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@murmurations-ai/murmurations-harness": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@murmurations-ai/murmurations-harness": {
+      "optional": true
+    }
+  }
+}

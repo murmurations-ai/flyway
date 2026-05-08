@@ -1,0 +1,25 @@
+{
+  "name": "@murmurations-ai/flyway-agent",
+  "version": "0.0.1",
+  "description": "Runtime-agnostic agent skill for flyway — loadable by Claude Code, Cursor, OpenAI Agents, Gemini, and other frontier LLM environments",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@murmurations-ai/flyway-core": "workspace:*"
+  }
+}

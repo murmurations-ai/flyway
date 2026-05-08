@@ -1,0 +1,22 @@
+{
+  "name": "@murmurations-ai/flyway-cli",
+  "version": "0.0.1",
+  "description": "Command-line interface for flyway",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "flyway": "./dist/bin/flyway.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@murmurations-ai/flyway-core": "workspace:*"
+  }
+}

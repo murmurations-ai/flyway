@@ -1,0 +1,22 @@
+{
+  "name": "@murmurations-ai/flyway-core",
+  "version": "0.0.1",
+  "description": "Protocol primitives for flyway — runtime-agnostic cross-murmuration coordination",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  }
+}

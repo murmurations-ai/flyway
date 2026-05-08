@@ -15,6 +15,10 @@
 # Build artifacts
 dist/
 node_modules/
+*.tsbuildinfo
+
+# flyway peer-state cache (gitignored per ADR-0003)
+flyway/cache/
 
 # Logs
 *.log

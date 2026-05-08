@@ -1,0 +1,25 @@
+{
+  "name": "@murmurations-ai/flyway-mcp",
+  "version": "0.0.1",
+  "description": "MCP server for flyway — exposes flyway tools to Cursor, Continue, and any MCP-capable agent environment",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc --build",
+    "typecheck": "tsc --build --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@murmurations-ai/flyway-core": "workspace:*"
+  }
+}
