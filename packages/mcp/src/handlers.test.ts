@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { callFlywayTool, listFlywayTools } from './handlers.js'
 
 describe('listFlywayTools', () => {
-  it('returns all eight flyway tools', () => {
+  it('returns every flyway tool defined in flyway-core', () => {
     const result = listFlywayTools()
     expect(result.tools).toHaveLength(FLYWAY_TOOLS.length)
   })

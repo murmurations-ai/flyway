@@ -93,6 +93,55 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
   },
 
   {
+    name: 'flyway_tension',
+    description:
+      'Flag a tension to a recognized peer — a situation you observe that might be ' +
+      'worth shared attention, before any proposal is on the table. Implements ' +
+      'S3 §IV.1.2 (Navigate via Tension) + §IV.1.3 (Describe Organizational ' +
+      "Drivers). Use this when you sense something worth surfacing but aren't yet " +
+      'proposing action. The peer responds via flyway_respond with acknowledge, ' +
+      'dispute, dissolve, or transfer. An acknowledged tension may later be ' +
+      'promoted to a proposal via flyway_propose.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        peerDid: {
+          type: 'string',
+          description:
+            'DID of the recognized peer to surface the tension to. Must be in flyway/peers.yaml.',
+        },
+        conditions: {
+          type: 'string',
+          description:
+            'Current conditions you observe — concrete, specific, and objective. ' +
+            'Describe what is happening, not what is missing or lacking. Avoid ' +
+            'evaluative language.',
+        },
+        effect: {
+          type: 'string',
+          description:
+            'The current or anticipated effect these conditions lead to. Be ' +
+            'explicit about whether the effect is occurring already or anticipated.',
+        },
+        relevance: {
+          type: 'string',
+          description:
+            'Why this is relevant to the shared context — what value would be ' +
+            'generated, waste eliminated, or consequence avoided by responding. ' +
+            'Omit if the relevance is obvious from conditions and effect.',
+        },
+        proposedOwner: {
+          type: 'string',
+          description:
+            'Optional: DID or role identifier you think should hold this tension ' +
+            "if it is not in the peer's domain.",
+        },
+      },
+      required: ['peerDid', 'conditions', 'effect'],
+    },
+  },
+
+  {
     name: 'flyway_propose',
     description:
       'Propose a directive, project, or engagement agreement to a recognized peer. ' +
@@ -134,34 +183,47 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
   {
     name: 'flyway_respond',
     description:
-      'Respond to an incoming proposal from a peer. Accept, object with a reason ' +
-      '(the proposal stays open for revision and re-proposal — this is the consent ' +
-      'cycle), or exit when consent cannot be reached after good-faith effort. ' +
-      'Silence is never a valid response. Exit is the end of a process, not a ' +
-      'substitute for one.',
+      'Respond to an incoming proposal or tension from a peer. For proposals, ' +
+      'the decisions are accept / object (with reason) / exit (after good-faith ' +
+      'effort). For tensions, the decisions are acknowledge / dispute / dissolve ' +
+      '/ transfer. Silence is never a valid response. Exit and dissolve are the ' +
+      'end of a process, not substitutes for one.',
     inputSchema: {
       type: 'object',
       properties: {
-        proposalId: {
+        subjectId: {
           type: 'string',
           description:
-            'ID of the proposal to respond to (returned by flyway_check)',
+            'ID of the proposal or tension to respond to (returned by flyway_check).',
         },
         decision: {
           type: 'string',
-          enum: ['accept', 'object', 'exit'],
+          enum: ['accept', 'object', 'exit', 'acknowledge', 'dispute', 'dissolve', 'transfer'],
           description:
+            'For proposals: ' +
             'accept = consent to the proposal as written. ' +
             'object = raise a concern; proposal stays open for revision and re-proposal. ' +
-            'exit = withdraw after good-faith attempts to reach consent have been exhausted.',
+            'exit = withdraw after good-faith attempts to reach consent have been exhausted. ' +
+            'For tensions: ' +
+            'acknowledge = agree this is a driver worth shared attention. ' +
+            'dispute = disagree this is a driver, with reason. ' +
+            'dissolve = on investigation, this is not a real driver; close the tension. ' +
+            'transfer = this belongs to a different domain or peer (set transferTo).',
         },
         reason: {
           type: 'string',
           description:
-            "Required when decision is 'object' or 'exit'. Explains the position to the proposing peer.",
+            "Required when decision is 'object', 'exit', 'dispute', 'dissolve', or " +
+            "'transfer'. Explains the position to the peer.",
+        },
+        transferTo: {
+          type: 'string',
+          description:
+            "DID of the peer or role this tension should be transferred to. " +
+            "Required when decision is 'transfer'.",
         },
       },
-      required: ['proposalId', 'decision'],
+      required: ['subjectId', 'decision'],
     },
   },
 

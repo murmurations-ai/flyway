@@ -7,6 +7,7 @@ const EXPECTED_TOOLS: FlywayToolName[] = [
   'flyway_status',
   'flyway_discover',
   'flyway_recognize',
+  'flyway_tension',
   'flyway_propose',
   'flyway_respond',
   'flyway_check',
@@ -14,7 +15,7 @@ const EXPECTED_TOOLS: FlywayToolName[] = [
 ]
 
 describe('createFlywaySkill', () => {
-  it('returns a skill with all eight tools', () => {
+  it('returns a skill with all nine tools in the expected order', () => {
     const skill = createFlywaySkill()
     expect(skill.tools.map((t) => t.name)).toEqual(EXPECTED_TOOLS)
   })
@@ -57,5 +58,33 @@ describe('createFlywaySkill', () => {
     expect(skill.instructions).toContain('Objection')
     expect(skill.instructions).toContain('Concern')
     expect(skill.instructions).toContain('good enough for now')
+  })
+
+  it('instructions cite Navigate via Tension and Describe Organizational Drivers', () => {
+    const skill = createFlywaySkill()
+    expect(skill.instructions).toContain('§IV.1.2')
+    expect(skill.instructions).toContain('§IV.1.3')
+    expect(skill.instructions).toContain('tension')
+  })
+
+  it('flyway_tension has the three S3 driver-description fields', () => {
+    const skill = createFlywaySkill()
+    const tension = skill.tools.find((t) => t.name === 'flyway_tension')
+    expect(tension).toBeDefined()
+    const props = tension?.inputSchema.properties
+    expect(props).toBeDefined()
+    expect(props).toHaveProperty('conditions')
+    expect(props).toHaveProperty('effect')
+    expect(props).toHaveProperty('relevance')
+  })
+
+  it('flyway_respond decision enum covers both proposals and tensions', () => {
+    const skill = createFlywaySkill()
+    const respond = skill.tools.find((t) => t.name === 'flyway_respond')
+    expect(respond).toBeDefined()
+    const decisionSchema = respond?.inputSchema.properties?.['decision']
+    expect(decisionSchema?.enum).toEqual(
+      expect.arrayContaining(['accept', 'object', 'exit', 'acknowledge', 'dispute', 'dissolve', 'transfer']),
+    )
   })
 })

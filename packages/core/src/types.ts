@@ -23,6 +23,7 @@ export type FlywayToolName =
   | 'flyway_status'
   | 'flyway_discover'
   | 'flyway_recognize'
+  | 'flyway_tension'
   | 'flyway_propose'
   | 'flyway_respond'
   | 'flyway_check'

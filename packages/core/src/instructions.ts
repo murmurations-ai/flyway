@@ -15,6 +15,8 @@
  *     `docs/concepts/S3-practical-guide.pdf`.
  *
  * S3 patterns cited or paraphrased below:
+ *   - §IV.1.2 Navigate via Tension
+ *   - §IV.1.3 Describe Organizational Drivers
  *   - §IV.1.5 Consent Decision-Making
  *   - §IV.1.6 Test if Arguments Qualify as Objections
  *   - §IV.1.7 Resolve Objections
@@ -41,9 +43,9 @@ identity in its repo.
 2. **Discover**. Use flyway_discover to find potential peer murmurations by name or DID.
 3. **Recognize**. Use flyway_recognize to propose mutual recognition. Recognition is \
 required before any collaboration — do not use flyway_propose with an unrecognized peer.
-4. **Collaborate**. Use flyway_propose to send proposals. Use flyway_check to see \
-incoming ones. Use flyway_respond to reply — accept, object with reason and revise \
-toward consent, or exit if consent cannot be reached after good-faith effort.
+4. **Collaborate**. Use flyway_tension to surface observations before they are \
+proposals; flyway_propose to send proposals once a driver is clear. Use \
+flyway_check to see incoming items and flyway_respond to reply to each.
 5. **Exit**. Use flyway_exit to leave any relationship, project, or syndicate cleanly \
 at any time.
 
@@ -97,6 +99,33 @@ exhausted. If exhausted, exit cleanly.
 
 The response cycle — object → understand → integrate → re-propose — is the \
 protocol's mechanism for *reaching* agreement, not a holding pattern.
+
+## When something matters but isn't yet a proposal
+
+Sometimes you notice a situation that affects shared work but you aren't \
+ready to propose action — the right response isn't clear, it might belong \
+to a peer's domain, or it might dissolve once investigated. That is a \
+*tension*, not a proposal (S3 §IV.1.2 Navigate via Tension).
+
+Use flyway_tension to surface it. Describe it in three parts (S3 §IV.1.3 \
+Describe Organizational Drivers):
+
+- **Current conditions**: what you observe, concretely and objectively. \
+Describe what is happening, not what you think is missing or lacking.
+- **Effect**: what those conditions lead to (current or anticipated).
+- **Relevance**: why this matters in the shared context — what value would \
+be generated, waste eliminated, or consequence avoided by responding. Omit \
+if obvious.
+
+The peer responds via flyway_respond with one of: **acknowledge** (agree \
+it's a driver), **dispute** (disagree, with reason), **dissolve** \
+(investigation showed not a driver), or **transfer** (belongs to another \
+domain). An acknowledged tension may later be promoted to a proposal via \
+flyway_propose.
+
+Tensions are lighter than proposals. Use them to surface, not to demand. \
+Many tensions dissolve once investigated — that is a healthy outcome, not \
+a failure.
 
 ## Invariants you must never violate
 

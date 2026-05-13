@@ -54,7 +54,7 @@ Its scope is:
 | Consent Decision-Making (§IV.1.5)                       | Already aligned with `flyway_propose` + `flyway_respond` cycle; instructions cite by name    |
 | Resolve Objections (§IV.1.7)                            | Already aligned with `decision: object`; instructions describe the integration cycle by name |
 | Test if Arguments Qualify as Objections (§IV.1.6)       | Added to protocol instructions so agents can evaluate concerns honestly                      |
-| Navigate via Tension (§IV.1.2)                          | New first-class shape — either a new tool or a structured mode of `flyway_propose` (TBD)     |
+| Navigate via Tension (§IV.1.2)                          | **Resolved 2026-05-13: new tool `flyway_tension`.** Tension is upstream of proposal; the response semantics differ (acknowledge / dispute / dissolve / transfer vs accept / object / exit). Distinct tool preserves the S3 distinction. |
 | Co-Create Proposals + Proposal Forming (§IV.1.9–1.10)   | Augments `flyway_propose` with explicit stages (driver, requirements, draft, refinement)     |
 | Contract for Successful Collaboration (§IV.7.1)         | Shapes the schema for agreements created via `flyway_propose` with `type: agreement`         |
 | Record Governance Decisions + Logbook (§IV.7.2, §IV.7.5)| Shapes how flyway records agreements and decisions in the participating repos                |

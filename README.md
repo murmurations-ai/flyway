@@ -134,21 +134,22 @@ flyway is the protocol for coordinating between murmurations.
 
 The harness should remain useful without flyway. flyway should remain useful without the harness.
 
-## The eight flyway tools
+## The nine flyway tools
 
-The protocol surface is eight tools, defined once in `flyway-core` and exposed
+The protocol surface is nine tools, defined once in `flyway-core` and exposed
 through every adapter without rewriting:
 
-| Tool               | Purpose                                                            |
-| ------------------ | ------------------------------------------------------------------ |
-| `flyway_init`      | Initialize this murmuration's identity (DID + entity statement)    |
-| `flyway_status`    | Report current peers, agreements, and open signals                 |
-| `flyway_discover`  | Look up murmurations in a flyway directory                         |
-| `flyway_recognize` | Propose mutual recognition with a peer                             |
-| `flyway_propose`   | Send a directive, project, or engagement agreement to a peer       |
-| `flyway_respond`   | Accept, object to, or exit an incoming proposal                    |
-| `flyway_check`     | Read incoming flyway signals from peers                            |
-| `flyway_exit`      | Cleanly leave a peer relationship, project, or syndicate           |
+| Tool               | Purpose                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| `flyway_init`      | Initialize this murmuration's identity (DID + entity statement)                               |
+| `flyway_status`    | Report current peers, agreements, and open signals                                            |
+| `flyway_discover`  | Look up murmurations in a flyway directory                                                    |
+| `flyway_recognize` | Propose mutual recognition with a peer                                                        |
+| `flyway_tension`   | Flag a tension to a peer — pre-proposal observation (S3 Navigate via Tension)                 |
+| `flyway_propose`   | Send a directive, project, or engagement agreement to a peer                                  |
+| `flyway_respond`   | Respond to a proposal (accept/object/exit) or tension (acknowledge/dispute/dissolve/transfer) |
+| `flyway_check`     | Read incoming flyway signals from peers                                                       |
+| `flyway_exit`      | Cleanly leave a peer relationship, project, or syndicate                                      |
 
 The schemas, descriptions, and protocol instructions are the authoritative
 specification. There is no separate spec document at v0.1.

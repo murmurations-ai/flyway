@@ -33,7 +33,7 @@ describe('toSkillMarkdown (Agent Skills IO format)', () => {
     expect(md).toContain('consent')
   })
 
-  it('lists all eight tools in the body', () => {
+  it('lists every flyway tool in the body', () => {
     const md = toSkillMarkdown(skill)
     for (const tool of skill.tools) {
       expect(md).toContain(tool.name)
