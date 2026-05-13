@@ -20,6 +20,8 @@
  *   - §IV.1.5 Consent Decision-Making
  *   - §IV.1.6 Test if Arguments Qualify as Objections
  *   - §IV.1.7 Resolve Objections
+ *   - §IV.1.9 Co-Create Proposals
+ *   - §IV.1.10 Proposal Forming
  *
  * Brief direct quotations are used with attribution under fair use; the
  * paraphrased material is the derivative work that triggers CC BY-SA.
@@ -126,6 +128,35 @@ flyway_propose.
 Tensions are lighter than proposals. Use them to surface, not to demand. \
 Many tensions dissolve once investigated — that is a healthy outcome, not \
 a failure.
+
+## Stages of a proposal (S3 §IV.1.9–1.10)
+
+Proposals usually do not appear fully-formed. S3's Co-Create Proposals \
+and Proposal Forming patterns recommend developing a proposal through \
+stages so collaborators contribute at each step. flyway captures this \
+in the optional \`stage\` field on flyway_propose:
+
+- **driver** — surface what motivates a potential proposal. Body describes \
+conditions, effect, and relevance per §IV.1.3.
+- **requirements** — propose what an acceptable solution must satisfy \
+(acceptance criteria, constraints, resources, generative questions).
+- **draft** — initial proposal text inviting input.
+- **refinement** — revised proposal after feedback or objections; the body \
+notes what changed and why.
+- **final** — ready for the consent decision. The default if stage is \
+omitted, preserving the single-shot case.
+
+Use \`previousStageId\` when proposing at a later stage to link back to \
+the proposal it builds on. That keeps the staging chain traceable.
+
+Responses to non-final stages are signals about the proposal's evolution, \
+not consent decisions. Responses to a final-stage proposal follow the \
+consent cycle (S3 §IV.1.5).
+
+Use the stages your collaboration needs. Routine matters can go straight \
+to final. Novel or high-stakes work benefits from walking through earlier \
+stages first — it surfaces objections cheaply, before a fully-drafted \
+proposal becomes hard to revise.
 
 ## Invariants you must never violate
 

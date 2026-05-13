@@ -178,6 +178,27 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
           type: 'string',
           description: 'Optional ISO 8601 date by which a response is needed (e.g. 2026-05-15)',
         },
+        stage: {
+          type: 'string',
+          enum: ['driver', 'requirements', 'draft', 'refinement', 'final'],
+          description:
+            'Optional stage of the proposal forming process (S3 §IV.1.9–1.10). ' +
+            'Defaults to final if omitted. ' +
+            'driver = surface what motivates a potential proposal (conditions/effect/' +
+            'relevance per §IV.1.3). ' +
+            'requirements = propose what an acceptable solution must satisfy. ' +
+            'draft = initial proposal text inviting input. ' +
+            'refinement = revised proposal after feedback or objections. ' +
+            'final = ready for the consent decision. ' +
+            'Responses to non-final stages are signals about evolution, not consent.',
+        },
+        previousStageId: {
+          type: 'string',
+          description:
+            'Optional ID of the previous proposal in the staging chain (e.g. the ' +
+            'draft this refinement supersedes). Lets reviewers trace the proposal ' +
+            'history without inferring it from issue ordering.',
+        },
       },
       required: ['peerDid', 'type', 'title', 'body'],
     },

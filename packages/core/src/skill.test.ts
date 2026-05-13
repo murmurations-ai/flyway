@@ -87,4 +87,30 @@ describe('createFlywaySkill', () => {
       expect.arrayContaining(['accept', 'object', 'exit', 'acknowledge', 'dispute', 'dissolve', 'transfer']),
     )
   })
+
+  it('flyway_propose has the four S3 proposal-forming stages plus final', () => {
+    const skill = createFlywaySkill()
+    const propose = skill.tools.find((t) => t.name === 'flyway_propose')
+    expect(propose).toBeDefined()
+    const stageSchema = propose?.inputSchema.properties?.['stage']
+    expect(stageSchema?.enum).toEqual(['driver', 'requirements', 'draft', 'refinement', 'final'])
+  })
+
+  it('flyway_propose stage field is optional (preserves single-shot proposals)', () => {
+    const skill = createFlywaySkill()
+    const propose = skill.tools.find((t) => t.name === 'flyway_propose')
+    expect(propose?.inputSchema.required).not.toContain('stage')
+  })
+
+  it('flyway_propose has previousStageId for linking refinements back to drafts', () => {
+    const skill = createFlywaySkill()
+    const propose = skill.tools.find((t) => t.name === 'flyway_propose')
+    expect(propose?.inputSchema.properties).toHaveProperty('previousStageId')
+  })
+
+  it('instructions cite Proposal Forming patterns (§IV.1.9–1.10)', () => {
+    const skill = createFlywaySkill()
+    expect(skill.instructions).toContain('§IV.1.9–1.10')
+    expect(skill.instructions).toMatch(/Co-Create Proposals|Proposal Forming/)
+  })
 })
