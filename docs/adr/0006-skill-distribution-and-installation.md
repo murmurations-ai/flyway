@@ -1,6 +1,6 @@
 # ADR-0006 — Skill distribution and installation
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-05-13
 - **Decision-maker(s):** Source (Nori / Kozan)
 - **Consulted:** —
