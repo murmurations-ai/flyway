@@ -61,3 +61,4 @@ authored 13 colliding ADRs at numbers already in use).
 | [ADR-0003](./0003-monorepo-layout.md)                                          | Monorepo layout                                                    | Accepted |
 | [ADR-0004](./0004-agent-skill-as-primary-protocol-interface.md)                | Agent skill as the primary protocol interface                      | Accepted |
 | [ADR-0005](./0005-s3-patterns-as-canonical-protocol-vocabulary.md)             | S3 patterns as the canonical protocol vocabulary                   | Accepted |
+| [ADR-0006](./0006-skill-distribution-and-installation.md)                      | Skill distribution and installation                                | Proposed |
