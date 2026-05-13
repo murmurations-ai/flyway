@@ -44,4 +44,18 @@ describe('createFlywaySkill', () => {
     expect(skill.instructions).toContain('exit')
     expect(skill.instructions).toContain('consent')
   })
+
+  it('instructions cite the load-bearing S3 patterns by section', () => {
+    const skill = createFlywaySkill()
+    expect(skill.instructions).toContain('§IV.1.5') // Consent Decision-Making
+    expect(skill.instructions).toContain('§IV.1.6') // Test if Arguments Qualify as Objections
+    expect(skill.instructions).toContain('§IV.1.7') // Resolve Objections
+  })
+
+  it('instructions distinguish objection from concern (S3 vocabulary)', () => {
+    const skill = createFlywaySkill()
+    expect(skill.instructions).toContain('Objection')
+    expect(skill.instructions).toContain('Concern')
+    expect(skill.instructions).toContain('good enough for now')
+  })
 })
