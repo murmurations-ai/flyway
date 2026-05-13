@@ -15,6 +15,9 @@ output.
   flyway's default decision-making framework
 - [`consent-mechanisms.md`](./consent-mechanisms.md) — the five decision
   rules flyway supports for engagement agreements
+- [`agreement-template.md`](./agreement-template.md) — annotated example
+  of a flyway engagement agreement, with field reference and lifecycle
+  (canonical schema lives in `@murmurations-ai/flyway-core`)
 - [`S3-practical-guide.pdf`](./S3-practical-guide.pdf) — Bockelbrink,
   Priest, and David, *A Practical Guide for Evolving Agile and Resilient
   Organizations with Sociocracy 3.0* (v2026-01-26). The canonical S3

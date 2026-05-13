@@ -160,7 +160,10 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
           description:
             'directive = a specific task or request. ' +
             'project = a scoped collaboration with a deliverable. ' +
-            'agreement = a standing engagement agreement governing future interactions.',
+            'agreement = a standing engagement agreement governing future interactions. ' +
+            'When type is agreement, the body must conform to FLYWAY_AGREEMENT_SCHEMA ' +
+            '(driver, purpose, expectations, decisionRule, review, exit; see ' +
+            'docs/concepts/agreement-template.md).',
         },
         title: {
           type: 'string',
