@@ -6,7 +6,7 @@
 
 flyway is the shared corridor that lets autonomous murmurations discover one another, recognize each other, exchange signals, and coordinate work without surrendering sovereignty to a central controller.
 
-**Status (May 2026):** working scaffold. The protocol surface, agent skill, and MCP server are wired, typed, and tested. Tool execution logic — the actual GitHub I/O, identity issuance, and signal exchange — is the next milestone.
+**Status (May 2026):** the protocol surface, agent skill, and MCP server are wired, typed, and tested. **The first tool — `flyway_init` — actually runs**, generating a real did:web identity (DID document, entity statement, ed25519 keypair) and writing it to the canonical paths. Remaining tools still return "not yet implemented." Signing of artifacts and the rest of the tool surface are next.
 
 ## What Is A Murmuration?
 
@@ -105,7 +105,7 @@ covering one role in the protocol stack:
 | `@murmurations-ai/flyway-core`       | Canonical tool definitions (JSON Schema), protocol instructions, skill factory. Runtime-agnostic — no Node-only or runtime-specific deps. | Wired    |
 | `@murmurations-ai/flyway-agent`      | Spec-compliant [Agent Skills IO](https://agentskills.io) `SKILL.md` generator. Install one folder, participate from Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI Codex, Goose, Roo Code, and 30+ other agent environments. | Wired    |
 | `@murmurations-ai/flyway-mcp`        | MCP server (stdio) exposing the eight flyway tools to any MCP-capable client.                                                         | Wired    |
-| `@murmurations-ai/flyway-cli`        | Terminal CLI. `flyway skill list / install / uninstall` for installing skills into an agent environment (per ADR-0006).                | Wired    |
+| `@murmurations-ai/flyway-cli`        | Terminal CLI. `flyway init` generates an identity; `flyway skill list / install / uninstall` manages installed skills.                 | Wired    |
 | `@murmurations-ai/flyway-harness`    | `murmurations-harness` adapter.                                                                                                       | Stub     |
 
 None of these clients is privileged. They are different ways for a Source to

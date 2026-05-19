@@ -20,3 +20,22 @@ export {
   FLYWAY_AGREEMENT_STATES,
   FLYWAY_DECISION_RULES,
 } from './agreements.js'
+export type {
+  DidDocument,
+  DidVerificationMethod,
+  EntityStatement,
+  FlywayInitArtifacts,
+  FlywayInitInput,
+  FlywayKeypair,
+  FlywayMode,
+  ParsedRepoUrl,
+  PublicKeyJwk,
+} from './init.js'
+export {
+  buildDidDocument,
+  buildEntityStatement,
+  deriveDid,
+  flywayInit,
+  generateEd25519Keypair,
+  parseRepoUrl,
+} from './init.js'

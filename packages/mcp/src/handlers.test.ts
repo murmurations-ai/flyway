@@ -23,8 +23,30 @@ describe('listFlywayTools', () => {
   })
 })
 
-describe('callFlywayTool', () => {
-  it('returns isError: true for any tool (not yet implemented)', () => {
+describe('callFlywayTool — flyway_init (implemented)', () => {
+  it('returns artifacts (no isError) for valid input', () => {
+    const result = callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_init',
+        arguments: {
+          repoUrl: 'https://github.com/xeeban/flyway',
+          sourceName: 'Nori',
+          mode: 'interactive',
+        },
+      },
+    })
+    expect(result.isError).toBeUndefined()
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(first.text)
+    expect(payload.did).toBe('did:web:github.com:xeeban:flyway')
+    expect(payload.didDocument.id).toBe(payload.did)
+    expect(payload.entityStatement.sourceName).toBe('Nori')
+    expect(payload.keypair.publicKeyJwk.crv).toBe('Ed25519')
+  })
+
+  it('returns isError for missing arguments', () => {
     const result = callFlywayTool({
       method: 'tools/call',
       params: { name: 'flyway_init', arguments: {} },
@@ -32,16 +54,33 @@ describe('callFlywayTool', () => {
     expect(result.isError).toBe(true)
   })
 
-  it('includes the requested tool name in the error message', () => {
+  it('returns isError for invalid repoUrl', () => {
+    const result = callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_init',
+        arguments: {
+          repoUrl: 'not a url',
+          sourceName: 'Nori',
+          mode: 'interactive',
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+})
+
+describe('callFlywayTool — other tools (not yet implemented)', () => {
+  it('returns isError for unimplemented tools', () => {
     const result = callFlywayTool({
       method: 'tools/call',
       params: { name: 'flyway_discover', arguments: {} },
     })
+    expect(result.isError).toBe(true)
     const text = result.content[0]
-    expect(text?.type).toBe('text')
     if (text?.type === 'text') {
       expect(text.text).toContain('flyway_discover')
-      expect(text.text).toContain('design phase')
+      expect(text.text).toContain('not yet implemented')
     }
   })
 })
