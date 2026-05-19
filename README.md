@@ -173,7 +173,7 @@ flyway/
 ```
 
 **How does it actually work?**
-See [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — concrete sequence diagrams, state machines, and contracts. Versioned against code SHA.
+See [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — concrete sequence diagrams, state machines, and contracts. Versioned against code SHA. A visual companion with hand-crafted SVG diagrams lives at [`docs/architecture/how-flyway-works.html`](./docs/architecture/how-flyway-works.html) (open in a browser).
 
 Accepted ADRs:
 
