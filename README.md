@@ -105,7 +105,7 @@ covering one role in the protocol stack:
 | `@murmurations-ai/flyway-core`       | Canonical tool definitions (JSON Schema), protocol instructions, skill factory. Runtime-agnostic — no Node-only or runtime-specific deps. | Wired    |
 | `@murmurations-ai/flyway-agent`      | Spec-compliant [Agent Skills IO](https://agentskills.io) `SKILL.md` generator. Install one folder, participate from Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI Codex, Goose, Roo Code, and 30+ other agent environments. | Wired    |
 | `@murmurations-ai/flyway-mcp`        | MCP server (stdio) exposing the eight flyway tools to any MCP-capable client.                                                         | Wired    |
-| `@murmurations-ai/flyway-cli`        | Terminal one-shot CLI.                                                                                                                | Stub     |
+| `@murmurations-ai/flyway-cli`        | Terminal CLI. `flyway skill list / install / uninstall` for installing skills into an agent environment (per ADR-0006).                | Wired    |
 | `@murmurations-ai/flyway-harness`    | `murmurations-harness` adapter.                                                                                                       | Stub     |
 
 None of these clients is privileged. They are different ways for a Source to

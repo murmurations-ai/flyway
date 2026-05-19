@@ -17,6 +17,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@murmurations-ai/flyway-agent": "workspace:*",
     "@murmurations-ai/flyway-core": "workspace:*"
   }
 }

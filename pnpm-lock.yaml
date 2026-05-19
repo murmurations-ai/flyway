@@ -38,6 +38,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@murmurations-ai/flyway-agent':
+        specifier: workspace:*
+        version: link:../agent
       '@murmurations-ai/flyway-core':
         specifier: workspace:*
         version: link:../core
