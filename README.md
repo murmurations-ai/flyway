@@ -172,6 +172,9 @@ flyway/
 └── tsconfig.base.json
 ```
 
+**How does it actually work?**
+See [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — concrete sequence diagrams, state machines, and contracts. Versioned against code SHA.
+
 Accepted ADRs:
 
 - [ADR-0001](./docs/adr/0001-project-framing-and-scope.md) — project framing and scope
