@@ -6,7 +6,7 @@
 
 flyway is the shared corridor that lets autonomous murmurations discover one another, recognize each other, exchange signals, and coordinate work without surrendering sovereignty to a central controller.
 
-**Status (May 2026):** the protocol surface, agent skill, and MCP server are wired, typed, and tested. **The first tool — `flyway_init` — actually runs**, generating a real did:web identity (DID document, entity statement, ed25519 keypair) and writing it to the canonical paths. Remaining tools still return "not yet implemented." Signing of artifacts and the rest of the tool surface are next.
+**Status (May 2026):** the protocol surface, agent skill, and MCP server are wired, typed, and tested. **`flyway_init` runs end-to-end and produces a cryptographically signed identity** — DID document, EdDSA-signed entity statement, ed25519 keypair — written to the canonical paths. Signing is now wired through a pluggable `Signer` interface ([ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md)); a future `flyway-cardano` package will add a Cardano-resident signer and on-chain anchoring without touching `flyway-core`. The remaining eight tools still return "not yet implemented" — that's the next milestone.
 
 ## What Is A Murmuration?
 
