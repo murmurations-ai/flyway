@@ -61,3 +61,10 @@ export {
   verifyInlineSignedArtifact,
 } from './signing.js'
 export type { Anchor, AnchorReceipt } from './anchoring.js'
+export type {
+  FlywayStatus,
+  FlywayStatusAgreements,
+  FlywayStatusIdentity,
+  FlywayStatusPeers,
+} from './status.js'
+export { flywayStatus } from './status.js'

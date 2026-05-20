@@ -72,6 +72,36 @@ describe('callFlywayTool — flyway_init (implemented)', () => {
   })
 })
 
+describe('callFlywayTool — flyway_status (implemented)', () => {
+  it('returns a status payload (no isError) for the current working directory', async () => {
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: { name: 'flyway_status', arguments: {} },
+    })
+    expect(result.isError).toBeUndefined()
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(first.text)
+    expect(payload).toHaveProperty('identity')
+    expect(payload).toHaveProperty('peers')
+    expect(payload).toHaveProperty('agreements')
+    expect(payload.identity).toHaveProperty('initialized')
+  })
+
+  it('honours an explicit cwd argument', async () => {
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: { name: 'flyway_status', arguments: { cwd: '/' } },
+    })
+    expect(result.isError).toBeUndefined()
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(first.text)
+    expect(payload.cwd).toBe('/')
+    expect(payload.identity.initialized).toBe(false)
+  })
+})
+
 describe('callFlywayTool — other tools (not yet implemented)', () => {
   it('returns isError for unimplemented tools', async () => {
     const result = await callFlywayTool({

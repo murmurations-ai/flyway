@@ -2,6 +2,7 @@ import {
   FLYWAY_TOOLS,
   type FlywayMode,
   flywayInit,
+  flywayStatus,
 } from '@murmurations-ai/flyway-core'
 import type {
   CallToolRequest,
@@ -29,8 +30,26 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
   switch (name) {
     case 'flyway_init':
       return handleInit(args)
+    case 'flyway_status':
+      return handleStatus(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleStatus(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
+  // flyway_status has no required arguments (empty inputSchema). An optional
+  // cwd override is honoured if a caller wants to inspect a different repo
+  // checkout; otherwise we use the MCP server's working directory.
+  const cwdArg = args && typeof args === 'object' ? (args as Record<string, unknown>).cwd : undefined
+  const cwd = typeof cwdArg === 'string' ? cwdArg : process.cwd()
+  try {
+    const status = await flywayStatus(cwd)
+    return {
+      content: [{ type: 'text', text: JSON.stringify(status, null, 2) }],
+    }
+  } catch (e) {
+    return errorResult(`flyway_status failed: ${(e as Error).message}`)
   }
 }
 

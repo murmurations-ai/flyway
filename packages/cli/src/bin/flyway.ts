@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-import { FLYWAY_PROTOCOL_VERSION, type FlywayMode } from '@murmurations-ai/flyway-core'
+import {
+  FLYWAY_PROTOCOL_VERSION,
+  type FlywayMode,
+  flywayStatus,
+} from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
 import {
   inferTarget,
@@ -20,6 +24,9 @@ Commands:
                                       (writes .well-known/did.json,
                                       flyway/entity-statement.json,
                                       flyway/keys/source.key; updates .gitignore)
+
+  status [--json]                     Report local flyway state: identity,
+                                      signature validity, peers, agreements.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -191,11 +198,48 @@ async function handleInitCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleStatusCommand(args: string[]): Promise<number> {
+  const { present: asJson } = parseBoolFlag(args, '--json')
+  try {
+    const status = await flywayStatus(process.cwd())
+    if (asJson) {
+      process.stdout.write(JSON.stringify(status, null, 2) + '\n')
+      return 0
+    }
+    const { identity, peers, agreements } = status
+    const head = identity.initialized
+      ? `Identity: ${identity.did}  (signature ${identity.signatureValid ? 'valid' : 'INVALID'})`
+      : 'Identity: not initialized'
+    process.stdout.write(head + '\n')
+    if (identity.initialized) {
+      process.stdout.write(`  Source:   ${identity.sourceName}\n`)
+      process.stdout.write(`  Mode:     ${identity.mode}\n`)
+    }
+    for (const issue of identity.issues) {
+      process.stdout.write(`  ! ${issue}\n`)
+    }
+    process.stdout.write(
+      `\nPeers:    ${peers.present ? 'flyway/peers.yaml present' : 'no peers file yet'}\n`,
+    )
+    process.stdout.write(
+      `Agreements: ${agreements.count} on file` +
+        (agreements.ids.length > 0 ? ` (${agreements.ids.join(', ')})` : '') +
+        '\n',
+    )
+    return identity.initialized && identity.issues.length === 0 ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv
   switch (command) {
     case 'init':
       return handleInitCommand(rest)
+    case 'status':
+      return handleStatusCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':
