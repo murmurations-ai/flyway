@@ -159,7 +159,7 @@ specification. There is no separate spec document at v0.1.
 ```
 flyway/
 ├── docs/
-│   ├── adr/                # Architecture decision records (4 accepted)
+│   ├── adr/                # Architecture decision records (7 accepted)
 │   ├── concepts/           # Foundational primers (Source, S3, consent mechanisms)
 │   └── research/           # Pre-implementation research synthesis
 ├── packages/
@@ -181,6 +181,9 @@ Accepted ADRs:
 - [ADR-0002](./docs/adr/0002-typescript-as-implementation-language.md) — TypeScript as implementation language
 - [ADR-0003](./docs/adr/0003-monorepo-layout.md) — pnpm monorepo layout
 - [ADR-0004](./docs/adr/0004-agent-skill-as-primary-protocol-interface.md) — agent skill as the primary protocol interface
+- [ADR-0005](./docs/adr/0005-s3-patterns-as-canonical-protocol-vocabulary.md) — S3 patterns as canonical protocol vocabulary
+- [ADR-0006](./docs/adr/0006-skill-distribution-and-installation.md) — skill distribution and installation
+- [ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md) — pluggable signers and on-chain anchoring (optional)
 
 ## MVP Direction
 
