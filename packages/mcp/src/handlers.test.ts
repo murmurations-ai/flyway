@@ -24,8 +24,8 @@ describe('listFlywayTools', () => {
 })
 
 describe('callFlywayTool — flyway_init (implemented)', () => {
-  it('returns artifacts (no isError) for valid input', () => {
-    const result = callFlywayTool({
+  it('returns signed artifacts (no isError) for valid input', async () => {
+    const result = await callFlywayTool({
       method: 'tools/call',
       params: {
         name: 'flyway_init',
@@ -44,18 +44,20 @@ describe('callFlywayTool — flyway_init (implemented)', () => {
     expect(payload.didDocument.id).toBe(payload.did)
     expect(payload.entityStatement.sourceName).toBe('Nori')
     expect(payload.keypair.publicKeyJwk.crv).toBe('Ed25519')
+    expect(payload.entityStatement.signature.algorithm).toBe('EdDSA')
+    expect(payload.entityStatement.signature.domain).toBe('flyway-v1:entity-statement')
   })
 
-  it('returns isError for missing arguments', () => {
-    const result = callFlywayTool({
+  it('returns isError for missing arguments', async () => {
+    const result = await callFlywayTool({
       method: 'tools/call',
       params: { name: 'flyway_init', arguments: {} },
     })
     expect(result.isError).toBe(true)
   })
 
-  it('returns isError for invalid repoUrl', () => {
-    const result = callFlywayTool({
+  it('returns isError for invalid repoUrl', async () => {
+    const result = await callFlywayTool({
       method: 'tools/call',
       params: {
         name: 'flyway_init',
@@ -71,8 +73,8 @@ describe('callFlywayTool — flyway_init (implemented)', () => {
 })
 
 describe('callFlywayTool — other tools (not yet implemented)', () => {
-  it('returns isError for unimplemented tools', () => {
-    const result = callFlywayTool({
+  it('returns isError for unimplemented tools', async () => {
+    const result = await callFlywayTool({
       method: 'tools/call',
       params: { name: 'flyway_discover', arguments: {} },
     })

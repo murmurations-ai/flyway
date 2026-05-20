@@ -30,6 +30,7 @@ export type {
   FlywayMode,
   ParsedRepoUrl,
   PublicKeyJwk,
+  SignedEntityStatement,
 } from './init.js'
 export {
   buildDidDocument,
@@ -39,3 +40,24 @@ export {
   generateEd25519Keypair,
   parseRepoUrl,
 } from './init.js'
+export type {
+  LocalEd25519SignerOptions,
+  SignatureEnvelope,
+  SignedInline,
+  Signer,
+} from './signing.js'
+export {
+  DOMAIN_AGREEMENT,
+  DOMAIN_ENTITY_STATEMENT,
+  DOMAIN_EXIT,
+  DOMAIN_PROPOSAL,
+  DOMAIN_RECOGNITION,
+  DOMAIN_RESPOND,
+  DOMAIN_TENSION,
+  canonicalize,
+  domainSeparated,
+  localEd25519Signer,
+  signArtifactInline,
+  verifyInlineSignedArtifact,
+} from './signing.js'
+export type { Anchor, AnchorReceipt } from './anchoring.js'

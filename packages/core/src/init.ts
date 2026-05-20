@@ -2,8 +2,8 @@
  * Pure logic for flyway_init — producing a flyway identity:
  *   - a did:web DID derived from a GitHub repo URL
  *   - a DID document (W3C DID core) with a JsonWebKey2020 verification method
- *   - an entity statement carrying Source metadata
- *   - an ed25519 keypair (real keys; signing of artifacts is deferred)
+ *   - an entity statement carrying Source metadata, signed by the Source key
+ *   - an ed25519 keypair (real keys)
  *
  * This module does NOT write files. It returns artifacts. The CLI and MCP
  * adapters are responsible for filesystem placement.
@@ -12,11 +12,18 @@
  *   - Only HTTPS GitHub URLs are accepted
  *   - DID resolution mechanism (web-hosting the .well-known/did.json) is the
  *     Source's responsibility — typically via GitHub Pages or raw access
- *   - Entity statements are NOT yet signed; signing comes in a follow-up
+ *   - The entity statement is signed inline (per ADR-0007) using the
+ *     generated ed25519 key, via the local signer default
  */
 
 import { generateKeyPairSync } from 'node:crypto'
 import { FLYWAY_AGREEMENT_SCHEMA_VERSION } from './agreements.js'
+import {
+  DOMAIN_ENTITY_STATEMENT,
+  type SignatureEnvelope,
+  localEd25519Signer,
+  signArtifactInline,
+} from './signing.js'
 import { FLYWAY_PROTOCOL_VERSION } from './skill.js'
 import { FLYWAY_TOOLS } from './tools.js'
 
@@ -58,6 +65,10 @@ export interface EntityStatement {
   readonly schemasSupported: readonly string[]
 }
 
+export interface SignedEntityStatement extends EntityStatement {
+  readonly signature: SignatureEnvelope
+}
+
 export interface FlywayInitInput {
   readonly repoUrl: string
   readonly sourceName: string
@@ -67,7 +78,7 @@ export interface FlywayInitInput {
 export interface FlywayInitArtifacts {
   readonly did: string
   readonly didDocument: DidDocument
-  readonly entityStatement: EntityStatement
+  readonly entityStatement: SignedEntityStatement
   readonly keypair: FlywayKeypair
 }
 
@@ -152,11 +163,21 @@ export function buildEntityStatement(
   }
 }
 
-export function flywayInit(input: FlywayInitInput): FlywayInitArtifacts {
+export async function flywayInit(input: FlywayInitInput): Promise<FlywayInitArtifacts> {
   const parsed = parseRepoUrl(input.repoUrl)
   const did = deriveDid(parsed)
   const keypair = generateEd25519Keypair()
   const didDocument = buildDidDocument(did, keypair)
-  const entityStatement = buildEntityStatement(did, input)
+  const unsigned = buildEntityStatement(did, input)
+  const signer = localEd25519Signer({
+    privateKeyPem: keypair.privateKeyPem,
+    publicKeyJwk: keypair.publicKeyJwk,
+    verificationKeyId: `${did}#key-1`,
+  })
+  const entityStatement = await signArtifactInline(
+    DOMAIN_ENTITY_STATEMENT,
+    unsigned,
+    signer,
+  )
   return { did, didDocument, entityStatement, keypair }
 }

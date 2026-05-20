@@ -14,7 +14,7 @@ export function createFlywayMcpServer(): Server {
     },
   )
 
-  server.setRequestHandler(ListToolsRequestSchema, () => listFlywayTools())
+  server.setRequestHandler(ListToolsRequestSchema, async () => listFlywayTools())
   server.setRequestHandler(CallToolRequestSchema, (request) => callFlywayTool(request))
 
   return server

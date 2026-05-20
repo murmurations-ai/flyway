@@ -23,7 +23,7 @@ export function listFlywayTools(): ListToolsResult {
   }
 }
 
-export function callFlywayTool(request: CallToolRequest): CallToolResult {
+export async function callFlywayTool(request: CallToolRequest): Promise<CallToolResult> {
   const { name, arguments: args } = request.params
 
   switch (name) {
@@ -41,7 +41,7 @@ function notImplemented(name: string): CallToolResult {
   }
 }
 
-function handleInit(args: Record<string, unknown> | undefined): CallToolResult {
+async function handleInit(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
   if (!args || typeof args !== 'object') {
     return errorResult('flyway_init requires arguments: repoUrl, sourceName, mode')
   }
@@ -50,7 +50,7 @@ function handleInit(args: Record<string, unknown> | undefined): CallToolResult {
     return errorResult('flyway_init requires string repoUrl, sourceName, and mode')
   }
   try {
-    const artifacts = flywayInit({
+    const artifacts = await flywayInit({
       repoUrl,
       sourceName,
       mode: mode as FlywayMode,

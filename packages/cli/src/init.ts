@@ -32,7 +32,7 @@ export interface RunInitResult {
 
 const GITIGNORE_LINE = 'flyway/keys/'
 
-export function runInit(options: RunInitOptions): RunInitResult {
+export async function runInit(options: RunInitOptions): Promise<RunInitResult> {
   const { cwd, force = false } = options
 
   const didDocPath = join(cwd, '.well-known', 'did.json')
@@ -51,7 +51,7 @@ export function runInit(options: RunInitOptions): RunInitResult {
     }
   }
 
-  const artifacts = flywayInit({
+  const artifacts = await flywayInit({
     repoUrl: options.repoUrl,
     sourceName: options.sourceName,
     mode: options.mode,

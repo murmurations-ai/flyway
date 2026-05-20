@@ -131,8 +131,8 @@ describe('buildEntityStatement', () => {
 })
 
 describe('flywayInit (end-to-end)', () => {
-  it('returns coherent artifacts for a valid input', () => {
-    const artifacts = flywayInit({
+  it('returns coherent artifacts for a valid input', async () => {
+    const artifacts = await flywayInit({
       repoUrl: 'https://github.com/xeeban/flyway',
       sourceName: 'Nori',
       mode: 'interactive',
@@ -148,13 +148,34 @@ describe('flywayInit (end-to-end)', () => {
     )
   })
 
-  it('throws on invalid repoUrl', () => {
-    expect(() =>
+  it('produces a signed entity statement whose signature verifies', async () => {
+    const { DOMAIN_ENTITY_STATEMENT, verifyInlineSignedArtifact } = await import('./signing.js')
+    const artifacts = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/flyway',
+      sourceName: 'Nori',
+      mode: 'interactive',
+    })
+    expect(artifacts.entityStatement.signature).toBeDefined()
+    expect(artifacts.entityStatement.signature.algorithm).toBe('EdDSA')
+    expect(artifacts.entityStatement.signature.domain).toBe(DOMAIN_ENTITY_STATEMENT)
+    expect(artifacts.entityStatement.signature.verificationKeyId).toBe(
+      `${artifacts.did}#key-1`,
+    )
+    const ok = await verifyInlineSignedArtifact(
+      DOMAIN_ENTITY_STATEMENT,
+      artifacts.entityStatement,
+      artifacts.didDocument,
+    )
+    expect(ok).toBe(true)
+  })
+
+  it('rejects on invalid repoUrl', async () => {
+    await expect(
       flywayInit({
         repoUrl: 'not a url',
         sourceName: 'Nori',
         mode: 'interactive',
       }),
-    ).toThrow(/GitHub URL/)
+    ).rejects.toThrow(/GitHub URL/)
   })
 })

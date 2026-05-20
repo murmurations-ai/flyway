@@ -143,7 +143,7 @@ function parseBoolFlag(args: string[], flag: string): { present: boolean; rest: 
   return { present: true, rest: [...args.slice(0, idx), ...args.slice(idx + 1)] }
 }
 
-function handleInitCommand(args: string[]): number {
+async function handleInitCommand(args: string[]): Promise<number> {
   const { value: repoUrl, rest: r1 } = parseFlag(args, '--repo-url')
   const { value: sourceName, rest: r2 } = parseFlag(r1, '--source-name')
   const { value: modeRaw, rest: r3 } = parseFlag(r2, '--mode')
@@ -166,7 +166,7 @@ function handleInitCommand(args: string[]): number {
   }
 
   try {
-    const result = runInit({
+    const result = await runInit({
       repoUrl,
       sourceName,
       mode,
@@ -191,7 +191,7 @@ function handleInitCommand(args: string[]): number {
   }
 }
 
-function main(argv: string[]): number {
+async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv
   switch (command) {
     case 'init':
@@ -216,4 +216,10 @@ function main(argv: string[]): number {
   }
 }
 
-process.exit(main(process.argv.slice(2)))
+main(process.argv.slice(2)).then(
+  (code) => process.exit(code),
+  (e) => {
+    process.stderr.write(`fatal: ${(e as Error).message}\n`)
+    process.exit(1)
+  },
+)
