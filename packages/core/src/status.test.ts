@@ -143,6 +143,123 @@ describe('flywayStatus — peers and agreements', () => {
     expect(status.peers.present).toBe(true)
   })
 
+  it('flags drift when the cached peer entity statement has been replaced (G3)', async () => {
+    // Hand-craft a peers.yaml entry pointing at a cache where the cached
+    // statement's fingerprint no longer matches the recognition entry.
+    await seedIdentity(tmp)
+    const A = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/a-other',
+      sourceName: 'A Other',
+      mode: 'interactive',
+    })
+    const peerArtifacts = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/peer',
+      sourceName: 'Peer',
+      mode: 'interactive',
+    })
+    // Place a fake recognition entry into peers.yaml pointing at the peer cache.
+    const peersYaml = [
+      'schema: flyway-peers-v0',
+      'peers:',
+      `  - did: ${peerArtifacts.did}`,
+      '    sourceName: Peer',
+      '    mode: interactive',
+      `    peerVerificationKeyId: ${peerArtifacts.did}#key-1`,
+      '    peerPublicKey:',
+      '      kty: OKP',
+      '      crv: Ed25519',
+      `      x: ${peerArtifacts.didDocument.verificationMethod[0]!.publicKeyJwk.x}`,
+      '    entityStatementFingerprint: ZZZ_DRIFTED_FINGERPRINT_AAAA',
+      '    recognizedAt: 2026-01-01T00:00:00.000Z',
+      `    recognizedBy: ${A.did}`,
+      '    signature:',
+      `      verificationKeyId: ${A.did}#key-1`,
+      '      algorithm: EdDSA',
+      '      canonicalization: flyway-jcs-v1',
+      '      domain: flyway-v1:recognition',
+      '      signature: fake-signature-bytes',
+      '',
+    ].join('\n')
+    writeFileSync(join(tmp, 'flyway', 'peers.yaml'), peersYaml)
+    // Drop the cached peer artifacts into place.
+    const peerCache = join(tmp, 'flyway', 'peers', 'github.com', 'xeeban', 'peer')
+    mkdirSync(peerCache, { recursive: true })
+    writeFileSync(
+      join(peerCache, 'did.json'),
+      JSON.stringify(peerArtifacts.didDocument, null, 2),
+    )
+    writeFileSync(
+      join(peerCache, 'entity-statement.json'),
+      JSON.stringify(peerArtifacts.entityStatement, null, 2),
+    )
+
+    const status = await flywayStatus(tmp)
+    const peer = status.peers.entries.find((p) => p.did === peerArtifacts.did)
+    expect(peer).toBeDefined()
+    expect(peer!.cacheConsistent).toBe(false)
+    expect(peer!.issues.some((i) => /fingerprint/.test(i))).toBe(true)
+  })
+
+  it('flags drift when the cached peer key has rotated (G3)', async () => {
+    await seedIdentity(tmp)
+    const A = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/a-other',
+      sourceName: 'A Other',
+      mode: 'interactive',
+    })
+    const peerOriginal = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/peer',
+      sourceName: 'Peer',
+      mode: 'interactive',
+    })
+    const peerRotated = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/peer',
+      sourceName: 'Peer',
+      mode: 'interactive',
+    })
+    // Recognition entry binds the ORIGINAL key + fingerprint, but the
+    // cached DID document on disk has the ROTATED key.
+    const peersYaml = [
+      'schema: flyway-peers-v0',
+      'peers:',
+      `  - did: ${peerOriginal.did}`,
+      '    sourceName: Peer',
+      '    mode: interactive',
+      `    peerVerificationKeyId: ${peerOriginal.did}#key-1`,
+      '    peerPublicKey:',
+      '      kty: OKP',
+      '      crv: Ed25519',
+      `      x: ${peerOriginal.didDocument.verificationMethod[0]!.publicKeyJwk.x}`,
+      `    entityStatementFingerprint: ${(await import('./recognize.js')).fingerprintEntityStatement(peerRotated.entityStatement)}`,
+      '    recognizedAt: 2026-01-01T00:00:00.000Z',
+      `    recognizedBy: ${A.did}`,
+      '    signature:',
+      `      verificationKeyId: ${A.did}#key-1`,
+      '      algorithm: EdDSA',
+      '      canonicalization: flyway-jcs-v1',
+      '      domain: flyway-v1:recognition',
+      '      signature: fake',
+      '',
+    ].join('\n')
+    writeFileSync(join(tmp, 'flyway', 'peers.yaml'), peersYaml)
+    const peerCache = join(tmp, 'flyway', 'peers', 'github.com', 'xeeban', 'peer')
+    mkdirSync(peerCache, { recursive: true })
+    writeFileSync(
+      join(peerCache, 'did.json'),
+      JSON.stringify(peerRotated.didDocument, null, 2),
+    )
+    writeFileSync(
+      join(peerCache, 'entity-statement.json'),
+      JSON.stringify(peerRotated.entityStatement, null, 2),
+    )
+
+    const status = await flywayStatus(tmp)
+    const peer = status.peers.entries.find((p) => p.did === peerOriginal.did)
+    expect(peer).toBeDefined()
+    expect(peer!.cacheConsistent).toBe(false)
+    expect(peer!.issues.some((i) => /rotated keys/.test(i))).toBe(true)
+  })
+
   it('counts yaml files in flyway/agreements and lists their ids', async () => {
     mkdirSync(join(tmp, 'flyway', 'agreements'), { recursive: true })
     writeFileSync(join(tmp, 'flyway', 'agreements', 'andamio-2026Q2.yaml'), 'kind: agreement\n')

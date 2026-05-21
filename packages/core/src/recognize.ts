@@ -18,10 +18,11 @@
  */
 
 import { createHash } from 'node:crypto'
-import type { DidDocument, SignedEntityStatement } from './init.js'
+import type { DidDocument, PublicKeyJwk, SignedEntityStatement } from './init.js'
 import {
   DOMAIN_ENTITY_STATEMENT,
   DOMAIN_RECOGNITION,
+  DOMAIN_UNRECOGNITION,
   type SignatureEnvelope,
   type Signer,
   canonicalize,
@@ -33,6 +34,10 @@ export interface RecognitionEntry {
   readonly did: string
   readonly sourceName: string
   readonly mode: string
+  /** The peer's verification key id at the time of recognition (e.g. did:web:...#key-1). */
+  readonly peerVerificationKeyId: string
+  /** The peer's public key (JWK form) at the time of recognition. Inline so verifying the recognition entry's binding to a specific key does not require re-fetching the peer's DID document. */
+  readonly peerPublicKey: PublicKeyJwk
   /**
    * sha256 of the canonical bytes of the peer's signed entity statement
    * at the time of recognition. base64url. Lets us detect later identity
@@ -106,25 +111,97 @@ export async function recognizePeer(input: RecognizePeerInput): Promise<Recogniz
   // 4. Compute peer entity-statement fingerprint over its canonical bytes.
   const fingerprint = fingerprintEntityStatement(input.peerEntityStatement)
 
-  // 5. Build the unsigned entry.
+  // 5. Pull the peer's verification key inline. We bind it into the
+  //    recognition entry so future drift (peer rotates keys) is detectable
+  //    without re-fetching the peer's DID document.
+  const peerMethod = input.peerDidDocument.verificationMethod.find(
+    (m) => m.id === input.peerEntityStatement.verificationKeyId,
+  )
+  if (!peerMethod) {
+    throw new Error(
+      `recognizePeer: peer DID document has no verificationMethod with id ` +
+        `${input.peerEntityStatement.verificationKeyId}.`,
+    )
+  }
+
+  // 6. Build the unsigned entry.
   const now = input.now ?? new Date()
   const unsigned: RecognitionEntry = {
     did: input.peerEntityStatement.did,
     sourceName: input.peerEntityStatement.sourceName,
     mode: input.peerEntityStatement.mode,
+    peerVerificationKeyId: peerMethod.id,
+    peerPublicKey: peerMethod.publicKeyJwk,
     entityStatementFingerprint: fingerprint,
     recognizedAt: now.toISOString(),
     recognizedBy: input.recognizedByDid,
     ...(input.note !== undefined ? { note: input.note } : {}),
   }
 
-  // 6. Sign the entry inline.
+  // 7. Sign the entry inline.
   const signed = await signArtifactInline(DOMAIN_RECOGNITION, unsigned, input.signer)
 
   return {
     entry: signed as SignedRecognitionEntry,
     peerSignatureValid,
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Unrecognition — the inverse of recognize. A Source unilaterally
+// withdraws recognition of a peer. Produces a signed unrecognition record
+// for audit; the peers.yaml entry is removed by the caller.
+// ────────────────────────────────────────────────────────────────────────
+
+export interface UnrecognitionRecord {
+  readonly peer: string
+  readonly unrecognizedAt: string
+  readonly unrecognizedBy: string
+  /** When the recognition being withdrawn was originally entered. Copied from the prior entry. */
+  readonly priorRecognizedAt: string
+  /** Optional human-readable rationale. */
+  readonly reason?: string
+}
+
+export type SignedUnrecognitionRecord = UnrecognitionRecord & {
+  readonly signature: SignatureEnvelope
+}
+
+export interface UnrecognizePeerInput {
+  readonly priorEntry: SignedRecognitionEntry
+  readonly unrecognizedByDid: string
+  readonly signer: Signer
+  readonly reason?: string
+  readonly now?: Date
+}
+
+export async function unrecognizePeer(
+  input: UnrecognizePeerInput,
+): Promise<SignedUnrecognitionRecord> {
+  if (input.priorEntry.recognizedBy !== input.unrecognizedByDid) {
+    throw new Error(
+      `unrecognizePeer: prior entry was recognized by ${input.priorEntry.recognizedBy} ` +
+        `but unrecognize was attempted by ${input.unrecognizedByDid}. ` +
+        `Only the Source who recognized may unrecognize.`,
+    )
+  }
+  const now = input.now ?? new Date()
+  const unsigned: UnrecognitionRecord = {
+    peer: input.priorEntry.did,
+    unrecognizedAt: now.toISOString(),
+    unrecognizedBy: input.unrecognizedByDid,
+    priorRecognizedAt: input.priorEntry.recognizedAt,
+    ...(input.reason !== undefined ? { reason: input.reason } : {}),
+  }
+  const signed = await signArtifactInline(DOMAIN_UNRECOGNITION, unsigned, input.signer)
+  return signed as SignedUnrecognitionRecord
+}
+
+export async function verifyUnrecognitionRecord(
+  record: SignedUnrecognitionRecord,
+  unrecognizerDidDocument: DidDocument,
+): Promise<boolean> {
+  return verifyInlineSignedArtifact(DOMAIN_UNRECOGNITION, record, unrecognizerDidDocument)
 }
 
 /**

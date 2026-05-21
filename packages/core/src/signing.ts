@@ -37,6 +37,7 @@ import type { DidDocument, PublicKeyJwk } from './init.js'
 
 export const DOMAIN_ENTITY_STATEMENT = 'flyway-v1:entity-statement'
 export const DOMAIN_RECOGNITION = 'flyway-v1:recognition'
+export const DOMAIN_UNRECOGNITION = 'flyway-v1:unrecognition'
 export const DOMAIN_AGREEMENT = 'flyway-v1:agreement'
 export const DOMAIN_PROPOSAL = 'flyway-v1:proposal'
 export const DOMAIN_RESPOND = 'flyway-v1:respond'

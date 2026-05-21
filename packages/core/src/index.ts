@@ -54,6 +54,7 @@ export {
   DOMAIN_RECOGNITION,
   DOMAIN_RESPOND,
   DOMAIN_TENSION,
+  DOMAIN_UNRECOGNITION,
   canonicalize,
   domainSeparated,
   localEd25519Signer,
@@ -74,10 +75,15 @@ export type {
   RecognizePeerInput,
   RecognizePeerOutput,
   SignedRecognitionEntry,
+  SignedUnrecognitionRecord,
+  UnrecognitionRecord,
+  UnrecognizePeerInput,
 } from './recognize.js'
 export {
   fingerprintEntityStatement,
   peerCachePathSegments,
   recognizePeer,
+  unrecognizePeer,
   verifyRecognitionEntry,
+  verifyUnrecognitionRecord,
 } from './recognize.js'

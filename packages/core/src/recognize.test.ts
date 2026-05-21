@@ -4,9 +4,15 @@ import {
   fingerprintEntityStatement,
   peerCachePathSegments,
   recognizePeer,
+  unrecognizePeer,
   verifyRecognitionEntry,
+  verifyUnrecognitionRecord,
 } from './recognize.js'
-import { DOMAIN_RECOGNITION, localEd25519Signer } from './signing.js'
+import {
+  DOMAIN_RECOGNITION,
+  DOMAIN_UNRECOGNITION,
+  localEd25519Signer,
+} from './signing.js'
 
 async function makeMurmuration(owner: string, name: string, sourceName: string) {
   const artifacts = await flywayInit({
@@ -42,6 +48,13 @@ describe('recognizePeer', () => {
     expect(entry.signature.algorithm).toBe('EdDSA')
     expect(entry.signature.domain).toBe(DOMAIN_RECOGNITION)
     expect(entry.signature.verificationKeyId).toBe(`${A.artifacts.did}#key-1`)
+    // G1: peer key material is now bound inline.
+    expect(entry.peerVerificationKeyId).toBe(`${B.artifacts.did}#key-1`)
+    expect(entry.peerPublicKey.kty).toBe('OKP')
+    expect(entry.peerPublicKey.crv).toBe('Ed25519')
+    expect(entry.peerPublicKey.x).toBe(
+      B.artifacts.didDocument.verificationMethod[0]!.publicKeyJwk.x,
+    )
   })
 
   it('records an optional note when provided', async () => {
@@ -122,6 +135,51 @@ describe('recognizePeer', () => {
     })
     const ok = await verifyRecognitionEntry(entry, C.artifacts.didDocument)
     expect(ok).toBe(false)
+  })
+})
+
+describe('unrecognizePeer (G2)', () => {
+  it('produces a signed unrecognition record that verifies', async () => {
+    const A = await makeMurmuration('xeeban', 'a', 'Nori')
+    const B = await makeMurmuration('xeeban', 'b', 'Other')
+    const { entry } = await recognizePeer({
+      peerDidDocument: B.artifacts.didDocument,
+      peerEntityStatement: B.artifacts.entityStatement,
+      recognizedByDid: A.artifacts.did,
+      signer: A.signer,
+    })
+    const record = await unrecognizePeer({
+      priorEntry: entry,
+      unrecognizedByDid: A.artifacts.did,
+      signer: A.signer,
+      reason: 'Engagement concluded',
+    })
+    expect(record.peer).toBe(B.artifacts.did)
+    expect(record.unrecognizedBy).toBe(A.artifacts.did)
+    expect(record.priorRecognizedAt).toBe(entry.recognizedAt)
+    expect(record.reason).toBe('Engagement concluded')
+    expect(record.signature.domain).toBe(DOMAIN_UNRECOGNITION)
+    const ok = await verifyUnrecognitionRecord(record, A.artifacts.didDocument)
+    expect(ok).toBe(true)
+  })
+
+  it('refuses when caller is not the original recognizer', async () => {
+    const A = await makeMurmuration('xeeban', 'a', 'Nori')
+    const B = await makeMurmuration('xeeban', 'b', 'Other')
+    const C = await makeMurmuration('xeeban', 'c', 'Third')
+    const { entry } = await recognizePeer({
+      peerDidDocument: B.artifacts.didDocument,
+      peerEntityStatement: B.artifacts.entityStatement,
+      recognizedByDid: A.artifacts.did,
+      signer: A.signer,
+    })
+    await expect(
+      unrecognizePeer({
+        priorEntry: entry,
+        unrecognizedByDid: C.artifacts.did,
+        signer: C.signer,
+      }),
+    ).rejects.toThrow(/Only the Source who recognized/)
   })
 })
 

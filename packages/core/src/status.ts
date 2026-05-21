@@ -23,7 +23,12 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseDocument } from 'yaml'
 import type { DidDocument, SignedEntityStatement } from './init.js'
-import { type SignedRecognitionEntry, verifyRecognitionEntry } from './recognize.js'
+import {
+  type SignedRecognitionEntry,
+  fingerprintEntityStatement,
+  peerCachePathSegments,
+  verifyRecognitionEntry,
+} from './recognize.js'
 import { DOMAIN_ENTITY_STATEMENT, verifyInlineSignedArtifact } from './signing.js'
 
 export interface FlywayStatusIdentity {
@@ -43,6 +48,10 @@ export interface FlywayStatusPeerEntry {
   readonly recognizedAt: string
   /** True iff the recognition entry signature verifies against OUR DID document. */
   readonly recognitionValid: boolean
+  /** True iff the cached peer artifacts still match the recognition entry's bindings (fingerprint + public key). False indicates drift. Undefined if the peer cache is missing. */
+  readonly cacheConsistent?: boolean
+  /** Per-peer issues — e.g. drift detected, cache missing, legacy entry without inline key. */
+  readonly issues: readonly string[]
 }
 
 export interface FlywayStatusPeers {
@@ -190,15 +199,79 @@ async function inspectPeers(
         recognitionValid = false
       }
     }
+    const drift = inspectPeerCacheDrift(cwd, entry)
     summarized.push({
       did: entry.did,
       sourceName: entry.sourceName,
       recognizedAt: entry.recognizedAt,
       recognitionValid,
+      issues: drift.issues,
+      ...(drift.cacheConsistent !== undefined
+        ? { cacheConsistent: drift.cacheConsistent }
+        : {}),
     })
   }
 
   return { file, present: true, count: summarized.length, entries: summarized }
+}
+
+function inspectPeerCacheDrift(
+  cwd: string,
+  entry: SignedRecognitionEntry,
+): { cacheConsistent?: boolean; issues: string[] } {
+  const issues: string[] = []
+  let segments: readonly string[]
+  try {
+    segments = peerCachePathSegments(entry.did)
+  } catch (e) {
+    return { issues: [(e as Error).message] }
+  }
+  const peerDir = join(cwd, 'flyway', 'peers', ...segments)
+  const peerDidPath = join(peerDir, 'did.json')
+  const peerStmtPath = join(peerDir, 'entity-statement.json')
+  if (!existsSync(peerDidPath) || !existsSync(peerStmtPath)) {
+    issues.push(`peer cache missing under flyway/peers/${segments.join('/')}/`)
+    return { issues }
+  }
+
+  let cachedDid: DidDocument
+  let cachedStmt: SignedEntityStatement
+  try {
+    cachedDid = JSON.parse(readFileSync(peerDidPath, 'utf-8')) as DidDocument
+    cachedStmt = JSON.parse(readFileSync(peerStmtPath, 'utf-8')) as SignedEntityStatement
+  } catch (e) {
+    issues.push(`could not parse peer cache: ${(e as Error).message}`)
+    return { issues }
+  }
+
+  // Tolerate legacy entries that predate G1 (missing peerPublicKey / peerVerificationKeyId).
+  const entryPubKey = (entry as { peerPublicKey?: { x?: string } }).peerPublicKey
+  const entryKeyId = (entry as { peerVerificationKeyId?: string }).peerVerificationKeyId
+  if (!entryPubKey || !entryKeyId) {
+    issues.push(
+      'legacy recognition entry (no inline peer public key) — rerun `flyway recognize --force` to refresh',
+    )
+  } else {
+    const cachedMethod = cachedDid.verificationMethod.find((m) => m.id === entryKeyId)
+    if (!cachedMethod) {
+      issues.push(
+        `peer DID document no longer carries verificationMethod ${entryKeyId} — peer may have rotated keys`,
+      )
+    } else if (cachedMethod.publicKeyJwk.x !== entryPubKey.x) {
+      issues.push(
+        `peer public key in cached DID document differs from recognition entry — peer rotated keys`,
+      )
+    }
+  }
+
+  const reFingerprint = fingerprintEntityStatement(cachedStmt)
+  if (reFingerprint !== entry.entityStatementFingerprint) {
+    issues.push(
+      'cached peer entity statement no longer matches recognition fingerprint — peer reissued statement',
+    )
+  }
+
+  return { cacheConsistent: issues.length === 0, issues }
 }
 
 function readOptionalJson<T>(path: string): T | undefined {

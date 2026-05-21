@@ -6,6 +6,7 @@ import {
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
 import { runRecognize } from '../recognize.js'
+import { runUnrecognize } from '../unrecognize.js'
 import {
   inferTarget,
   installSkill,
@@ -33,6 +34,12 @@ Commands:
                                       Verify a peer's identity and add a
                                       signed recognition entry to
                                       flyway/peers.yaml.
+
+  unrecognize <peer-did> [--reason "..."]
+                                      Withdraw recognition of a peer.
+                                      Writes a signed unrecognition record
+                                      to flyway/unrecognized/ and removes
+                                      the entry from flyway/peers.yaml.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -283,6 +290,31 @@ async function handleRecognizeCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleUnrecognizeCommand(args: string[]): Promise<number> {
+  const { value: reason, rest: positional } = parseFlag(args, '--reason')
+  const [peerDid] = positional
+  if (!peerDid) {
+    process.stderr.write('error: flyway unrecognize requires a peer DID\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  try {
+    const result = await runUnrecognize({
+      cwd: process.cwd(),
+      peerDid,
+      ...(reason !== undefined ? { reason } : {}),
+    })
+    process.stdout.write(`Unrecognized ${result.peerDid}\n`)
+    process.stdout.write(`  unrecognizedAt: ${result.record.unrecognizedAt}\n`)
+    process.stdout.write(`  wrote ${result.recordPath}\n`)
+    process.stdout.write(`  updated ${result.peersFilePath}\n`)
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv
   switch (command) {
@@ -292,6 +324,8 @@ async function main(argv: string[]): Promise<number> {
       return handleStatusCommand(rest)
     case 'recognize':
       return handleRecognizeCommand(rest)
+    case 'unrecognize':
+      return handleUnrecognizeCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':
