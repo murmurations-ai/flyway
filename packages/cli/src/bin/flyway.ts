@@ -2,6 +2,7 @@
 import {
   FLYWAY_PROTOCOL_VERSION,
   type FlywayMode,
+  flywayCheck,
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
@@ -40,6 +41,10 @@ Commands:
                                       Writes a signed unrecognition record
                                       to flyway/unrecognized/ and removes
                                       the entry from flyway/peers.yaml.
+
+  check [--json]                      Inspect flyway/inbox/ and report
+                                      signals received from peers, with
+                                      per-signal signature validity.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -315,6 +320,44 @@ async function handleUnrecognizeCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleCheckCommand(args: string[]): Promise<number> {
+  const { present: asJson } = parseBoolFlag(args, '--json')
+  try {
+    const inbox = await flywayCheck(process.cwd())
+    if (asJson) {
+      process.stdout.write(JSON.stringify(inbox, null, 2) + '\n')
+      return inbox.totalCount === inbox.validCount ? 0 : 1
+    }
+    if (inbox.totalCount === 0) {
+      process.stdout.write('No signals in inbox.\n')
+      return 0
+    }
+    process.stdout.write(
+      `Inbox: ${inbox.totalCount} signal${inbox.totalCount === 1 ? '' : 's'} (${inbox.validCount} verified)\n`,
+    )
+    for (const s of inbox.signals) {
+      const status = s.signatureValid
+        ? 'sig valid'
+        : s.signatureValid === false
+          ? 'sig INVALID'
+          : 'unverified (unrecognized sender)'
+      process.stdout.write(
+        `  - ${s.envelope.kind.padEnd(8)} ${s.envelope.id}  from ${s.envelope.from}  [${status}]\n`,
+      )
+      for (const issue of s.issues) {
+        process.stdout.write(`      ! ${issue}\n`)
+      }
+    }
+    for (const issue of inbox.issues) {
+      process.stdout.write(`  ! ${issue}\n`)
+    }
+    return inbox.totalCount === inbox.validCount ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv
   switch (command) {
@@ -326,6 +369,8 @@ async function main(argv: string[]): Promise<number> {
       return handleRecognizeCommand(rest)
     case 'unrecognize':
       return handleUnrecognizeCommand(rest)
+    case 'check':
+      return handleCheckCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

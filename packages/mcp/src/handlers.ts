@@ -3,6 +3,7 @@ import {
   FLYWAY_TOOLS,
   type FlywayMode,
   type SignedEntityStatement,
+  flywayCheck,
   flywayInit,
   flywayStatus,
   localEd25519Signer,
@@ -38,8 +39,23 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleStatus(args)
     case 'flyway_recognize':
       return handleRecognize(args)
+    case 'flyway_check':
+      return handleCheck(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleCheck(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
+  const cwdArg = args && typeof args === 'object' ? (args as Record<string, unknown>).cwd : undefined
+  const cwd = typeof cwdArg === 'string' ? cwdArg : process.cwd()
+  try {
+    const inbox = await flywayCheck(cwd)
+    return {
+      content: [{ type: 'text', text: JSON.stringify(inbox, null, 2) }],
+    }
+  } catch (e) {
+    return errorResult(`flyway_check failed: ${(e as Error).message}`)
   }
 }
 

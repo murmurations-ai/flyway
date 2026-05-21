@@ -63,6 +63,31 @@ export {
 } from './signing.js'
 export type { Anchor, AnchorReceipt } from './anchoring.js'
 export type {
+  BuildSignedSignalInput,
+  SignalEnvelope,
+  SignalKind,
+  SignalRefs,
+  SignedSignalEnvelope,
+} from './signal.js'
+export {
+  SIGNAL_KINDS,
+  SIGNAL_SCHEMA_VERSION,
+  buildSignedSignal,
+  domainForSignalKind,
+  generateSignalId,
+  readSignalFile,
+  signalInboxPath,
+  signalOutboxPath,
+  verifySignedSignal,
+  writeSignalToInbox,
+  writeSignalToOutbox,
+} from './signal.js'
+export type {
+  FlywaySignalInbox,
+  FlywaySignalInboxEntry,
+} from './check.js'
+export { flywayCheck } from './check.js'
+export type {
   FlywayStatus,
   FlywayStatusAgreements,
   FlywayStatusIdentity,
