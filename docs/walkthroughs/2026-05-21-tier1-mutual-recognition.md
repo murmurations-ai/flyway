@@ -248,10 +248,33 @@ Genuinely new gaps worth filing as issues:
   `entityStatementFingerprint` no longer matches what the peer publishes
   today. This is a real soundness gap once peers are reachable remotely.
 
+## Resolution of surfaced gaps
+
+> *Added after the fact. The walkthrough body above is frozen at SHA*
+> `1712232`; *this section records what changed downstream so readers can
+> orient.*
+
+All three gaps from the "Gaps surfaced" section were addressed in
+SHA `f9911fd` (2026-05-21):
+
+- **G1 closed.** `RecognitionEntry` now carries inline `peerPublicKey` and
+  `peerVerificationKeyId`. The peer's key is part of the signed payload, so
+  rotation is detectable from the entry alone.
+- **G2 closed.** New CLI verb: `flyway unrecognize <peer-did> [--reason ...]`.
+  Produces a signed unrecognition record under
+  `flyway/unrecognized/<safe-did>.yaml` and removes the peer from
+  `flyway/peers.yaml`. The peer cache is intentionally retained for audit.
+- **G3 closed.** `flyway_status` now compares each recognition entry's
+  bindings against the cached peer artifacts and reports drift
+  (key rotation, statement reissue, or missing cache) as a per-peer
+  issue.
+
 ## Links
 
 - [`flyway_recognize` in flyway-core](../../packages/core/src/recognize.ts)
 - [`runRecognize` in flyway-cli](../../packages/cli/src/recognize.ts)
+- [`unrecognizePeer` in flyway-core](../../packages/core/src/recognize.ts)
+- [`runUnrecognize` in flyway-cli](../../packages/cli/src/unrecognize.ts)
 - [Architecture reference (markdown)](../architecture/how-flyway-works.md)
 - [ADR-0007 — pluggable signers and on-chain anchoring](../adr/0007-pluggable-signers-and-anchors.md)
 - Previous walkthrough: [2026-05-13 — Three-party retrospective cadence](./2026-05-13-3party-retrospective-cadence.md)
