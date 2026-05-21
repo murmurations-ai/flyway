@@ -159,7 +159,7 @@ specification. There is no separate spec document at v0.1.
 ```
 flyway/
 ├── docs/
-│   ├── adr/                # Architecture decision records (7 accepted)
+│   ├── adr/                # Architecture decision records (8 accepted)
 │   ├── concepts/           # Foundational primers (Source, S3, consent mechanisms)
 │   └── research/           # Pre-implementation research synthesis
 ├── packages/
@@ -184,6 +184,7 @@ Accepted ADRs:
 - [ADR-0005](./docs/adr/0005-s3-patterns-as-canonical-protocol-vocabulary.md) — S3 patterns as canonical protocol vocabulary
 - [ADR-0006](./docs/adr/0006-skill-distribution-and-installation.md) — skill distribution and installation
 - [ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md) — pluggable signers and on-chain anchoring (optional)
+- [ADR-0008](./docs/adr/0008-signal-transport-convention.md) — signal transport convention (envelope + inbox/outbox + pluggable transports)
 
 ## MVP Direction
 

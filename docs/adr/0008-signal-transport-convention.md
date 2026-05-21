@@ -1,6 +1,6 @@
 # ADR-0008 — Signal transport convention
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-05-21
 - **Decision-maker(s):** Source (Nori / Kozan)
 - **Consulted:** —
