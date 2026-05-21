@@ -1,8 +1,12 @@
 import {
+  type DidDocument,
   FLYWAY_TOOLS,
   type FlywayMode,
+  type SignedEntityStatement,
   flywayInit,
   flywayStatus,
+  localEd25519Signer,
+  recognizePeer,
 } from '@murmurations-ai/flyway-core'
 import type {
   CallToolRequest,
@@ -32,8 +36,83 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleInit(args)
     case 'flyway_status':
       return handleStatus(args)
+    case 'flyway_recognize':
+      return handleRecognize(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleRecognize(
+  args: Record<string, unknown> | undefined,
+): Promise<CallToolResult> {
+  // The MCP handler doesn't itself read or write the local repo. It expects
+  // the calling agent to supply both the recognizing Source's identity and
+  // the peer's identity as pre-fetched artifacts. Persistence (writing to
+  // peers.yaml, caching peer artifacts) is the agent's responsibility — or
+  // is delegated to the flyway CLI's `recognize` subcommand.
+  if (!args || typeof args !== 'object') {
+    return errorResult(
+      'flyway_recognize requires arguments: ownDidDocument, ownPrivateKeyPem, peerDidDocument, peerEntityStatement',
+    )
+  }
+  const a = args as Record<string, unknown>
+  if (
+    typeof a.ownPrivateKeyPem !== 'string' ||
+    typeof a.ownDidDocument !== 'object' ||
+    a.ownDidDocument === null ||
+    typeof a.peerDidDocument !== 'object' ||
+    a.peerDidDocument === null ||
+    typeof a.peerEntityStatement !== 'object' ||
+    a.peerEntityStatement === null
+  ) {
+    return errorResult(
+      'flyway_recognize requires: ownDidDocument (object), ownPrivateKeyPem (string), peerDidDocument (object), peerEntityStatement (object)',
+    )
+  }
+  const ownDidDocument = a.ownDidDocument as DidDocument
+  const peerDidDocument = a.peerDidDocument as DidDocument
+  const peerEntityStatement = a.peerEntityStatement as SignedEntityStatement
+  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  if (!ownVerificationMethod) {
+    return errorResult('flyway_recognize: ownDidDocument has no verificationMethod')
+  }
+  try {
+    const signer = localEd25519Signer({
+      privateKeyPem: a.ownPrivateKeyPem,
+      publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+      verificationKeyId: ownVerificationMethod.id,
+    })
+    const { entry, peerSignatureValid } = await recognizePeer({
+      peerDidDocument,
+      peerEntityStatement,
+      recognizedByDid: ownDidDocument.id,
+      signer,
+      ...(typeof a.note === 'string' ? { note: a.note } : {}),
+    })
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              peerDid: entry.did,
+              peerSignatureValid,
+              entry,
+              note:
+                'Append the entry to flyway/peers.yaml and cache ' +
+                'peerDidDocument + peerEntityStatement under ' +
+                'flyway/peers/<host>/<owner>/<repo>/ in your repo. The ' +
+                'flyway CLI `recognize` subcommand does this for you.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  } catch (e) {
+    return errorResult(`flyway_recognize failed: ${(e as Error).message}`)
   }
 }
 

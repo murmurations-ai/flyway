@@ -5,6 +5,7 @@ import {
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
+import { runRecognize } from '../recognize.js'
 import {
   inferTarget,
   installSkill,
@@ -27,6 +28,11 @@ Commands:
 
   status [--json]                     Report local flyway state: identity,
                                       signature validity, peers, agreements.
+
+  recognize <peer-repo-path> [--note "..."] [--force]
+                                      Verify a peer's identity and add a
+                                      signed recognition entry to
+                                      flyway/peers.yaml.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -219,14 +225,58 @@ async function handleStatusCommand(args: string[]): Promise<number> {
       process.stdout.write(`  ! ${issue}\n`)
     }
     process.stdout.write(
-      `\nPeers:    ${peers.present ? 'flyway/peers.yaml present' : 'no peers file yet'}\n`,
+      `\nPeers:    ${
+        peers.present
+          ? `${peers.count} recognized`
+          : 'no peers file yet'
+      }\n`,
     )
+    for (const peer of peers.entries) {
+      const sig = peer.recognitionValid ? 'sig valid' : 'sig INVALID'
+      process.stdout.write(`  - ${peer.sourceName} (${peer.did}) — ${sig}\n`)
+    }
     process.stdout.write(
       `Agreements: ${agreements.count} on file` +
         (agreements.ids.length > 0 ? ` (${agreements.ids.join(', ')})` : '') +
         '\n',
     )
-    return identity.initialized && identity.issues.length === 0 ? 0 : 1
+    const peerSigBroken = peers.entries.some((p) => !p.recognitionValid)
+    return identity.initialized && identity.issues.length === 0 && !peerSigBroken ? 0 : 1
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function handleRecognizeCommand(args: string[]): Promise<number> {
+  const { value: note, rest: r1 } = parseFlag(args, '--note')
+  const { present: force, rest: positional } = parseBoolFlag(r1, '--force')
+  const [peerRepoPath] = positional
+  if (!peerRepoPath) {
+    process.stderr.write(
+      'error: flyway recognize requires a peer repo path\n\n',
+    )
+    process.stderr.write(HELP)
+    return 2
+  }
+  try {
+    const result = await runRecognize({
+      cwd: process.cwd(),
+      peerRepoPath,
+      force,
+      ...(note !== undefined ? { note } : {}),
+    })
+    process.stdout.write(
+      `Recognized ${result.peerDid}` +
+        (result.replacedPriorEntry ? ' (replaced prior entry)' : '') +
+        '\n',
+    )
+    process.stdout.write(`  recognizedAt: ${result.entry.recognizedAt}\n`)
+    process.stdout.write(`  fingerprint:  ${result.entry.entityStatementFingerprint}\n`)
+    for (const file of result.filesWritten) {
+      process.stdout.write(`  wrote ${file}\n`)
+    }
+    return 0
   } catch (e) {
     process.stderr.write(`error: ${(e as Error).message}\n`)
     return 1
@@ -240,6 +290,8 @@ async function main(argv: string[]): Promise<number> {
       return handleInitCommand(rest)
     case 'status':
       return handleStatusCommand(rest)
+    case 'recognize':
+      return handleRecognizeCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

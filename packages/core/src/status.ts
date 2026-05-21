@@ -21,7 +21,9 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { parseDocument } from 'yaml'
 import type { DidDocument, SignedEntityStatement } from './init.js'
+import { type SignedRecognitionEntry, verifyRecognitionEntry } from './recognize.js'
 import { DOMAIN_ENTITY_STATEMENT, verifyInlineSignedArtifact } from './signing.js'
 
 export interface FlywayStatusIdentity {
@@ -35,9 +37,19 @@ export interface FlywayStatusIdentity {
   readonly issues: readonly string[]
 }
 
+export interface FlywayStatusPeerEntry {
+  readonly did: string
+  readonly sourceName: string
+  readonly recognizedAt: string
+  /** True iff the recognition entry signature verifies against OUR DID document. */
+  readonly recognitionValid: boolean
+}
+
 export interface FlywayStatusPeers {
   readonly file: string
   readonly present: boolean
+  readonly count: number
+  readonly entries: readonly FlywayStatusPeerEntry[]
 }
 
 export interface FlywayStatusAgreements {
@@ -60,10 +72,12 @@ const PEERS_PATH = ['flyway', 'peers.yaml'] as const
 const AGREEMENTS_DIR = ['flyway', 'agreements'] as const
 
 export async function flywayStatus(cwd: string): Promise<FlywayStatus> {
+  const identity = await inspectIdentity(cwd)
+  const ourDidDocument = readOptionalJson<DidDocument>(join(cwd, ...DID_DOC_PATH))
   return {
     cwd,
-    identity: await inspectIdentity(cwd),
-    peers: inspectPeers(cwd),
+    identity,
+    peers: await inspectPeers(cwd, ourDidDocument),
     agreements: inspectAgreements(cwd),
   }
 }
@@ -147,9 +161,53 @@ async function inspectIdentity(cwd: string): Promise<FlywayStatusIdentity> {
   return identity
 }
 
-function inspectPeers(cwd: string): FlywayStatusPeers {
+async function inspectPeers(
+  cwd: string,
+  ourDidDocument: DidDocument | undefined,
+): Promise<FlywayStatusPeers> {
   const file = join('flyway', 'peers.yaml')
-  return { file, present: existsSync(join(cwd, ...PEERS_PATH)) }
+  const peersPath = join(cwd, ...PEERS_PATH)
+  if (!existsSync(peersPath)) {
+    return { file, present: false, count: 0, entries: [] }
+  }
+
+  let entries: SignedRecognitionEntry[]
+  try {
+    const raw = readFileSync(peersPath, 'utf-8')
+    const parsed = parseDocument(raw).toJS() as { peers?: SignedRecognitionEntry[] } | null
+    entries = parsed && Array.isArray(parsed.peers) ? parsed.peers : []
+  } catch {
+    return { file, present: true, count: 0, entries: [] }
+  }
+
+  const summarized: FlywayStatusPeerEntry[] = []
+  for (const entry of entries) {
+    let recognitionValid = false
+    if (ourDidDocument) {
+      try {
+        recognitionValid = await verifyRecognitionEntry(entry, ourDidDocument)
+      } catch {
+        recognitionValid = false
+      }
+    }
+    summarized.push({
+      did: entry.did,
+      sourceName: entry.sourceName,
+      recognizedAt: entry.recognizedAt,
+      recognitionValid,
+    })
+  }
+
+  return { file, present: true, count: summarized.length, entries: summarized }
+}
+
+function readOptionalJson<T>(path: string): T | undefined {
+  if (!existsSync(path)) return undefined
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as T
+  } catch {
+    return undefined
+  }
 }
 
 function inspectAgreements(cwd: string): FlywayStatusAgreements {

@@ -66,5 +66,18 @@ export type {
   FlywayStatusAgreements,
   FlywayStatusIdentity,
   FlywayStatusPeers,
+  FlywayStatusPeerEntry,
 } from './status.js'
 export { flywayStatus } from './status.js'
+export type {
+  RecognitionEntry,
+  RecognizePeerInput,
+  RecognizePeerOutput,
+  SignedRecognitionEntry,
+} from './recognize.js'
+export {
+  fingerprintEntityStatement,
+  peerCachePathSegments,
+  recognizePeer,
+  verifyRecognitionEntry,
+} from './recognize.js'
