@@ -6,7 +6,7 @@
 
 flyway is the shared corridor that lets autonomous murmurations discover one another, recognize each other, exchange signals, and coordinate work without surrendering sovereignty to a central controller.
 
-**Status (May 2026):** the protocol surface, agent skill, and MCP server are wired, typed, and tested. Six of the nine tools run end-to-end: **`flyway_init`** produces a cryptographically signed identity (DID document, EdDSA-signed entity statement, ed25519 keypair); **`flyway_status`** reads it back and verifies signatures; **`flyway_recognize`** (+ `unrecognize`) writes signed peer-recognition entries; **`flyway_check`** reads and verifies incoming signals; **`flyway_tension`** signs and delivers the first cross-murmuration signal envelope (S3 *Navigate via Tension*); and **`flyway_respond`** completes the round-trip — a peer can `acknowledge` / `dispute` / `dissolve` / `transfer` an incoming tension, signing the response under `DOMAIN_RESPOND` with `refs.tensionId` pointing back at the subject. Signals travel via the ADR-0008 local-fs transport. Signing is pluggable through the `Signer` interface ([ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md)); a future `flyway-cardano` package will add a Cardano-resident signer and on-chain anchoring without touching `flyway-core`. The remaining three tools (`flyway_discover`, `flyway_propose`, `flyway_exit`) still return "not yet implemented", and proposal responses are not yet wired through `flyway_respond` — that's the next milestone.
+**Status (May 2026 · SHA `d5ad56f`):** see [`docs/status.md`](./docs/status.md) for the full dashboard ([visual companion](./docs/status.html)). In short: the protocol surface, agent skill, and MCP server are wired, typed, and tested. Six of the nine tools run end-to-end: **`flyway_init`** produces a cryptographically signed identity (DID document, EdDSA-signed entity statement, ed25519 keypair); **`flyway_status`** reads it back and verifies signatures; **`flyway_recognize`** (+ `unrecognize`) writes signed peer-recognition entries; **`flyway_check`** reads and verifies incoming signals; **`flyway_tension`** signs and delivers the first cross-murmuration signal envelope (S3 *Navigate via Tension*); and **`flyway_respond`** completes the round-trip — a peer can `acknowledge` / `dispute` / `dissolve` / `transfer` an incoming tension, signing the response under `DOMAIN_RESPOND` with `refs.tensionId` pointing back at the subject. Signals travel via the ADR-0008 local-fs transport. Signing is pluggable through the `Signer` interface ([ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md)); a future `flyway-cardano` package will add a Cardano-resident signer and on-chain anchoring without touching `flyway-core`. The remaining three tools (`flyway_discover`, `flyway_propose`, `flyway_exit`) still return "not yet implemented", and proposal responses are not yet wired through `flyway_respond` — that's the next milestone.
 
 ## What Is A Murmuration?
 
@@ -172,8 +172,11 @@ flyway/
 └── tsconfig.base.json
 ```
 
-**How does it actually work?**
-See [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — concrete sequence diagrams, state machines, and contracts. Versioned against code SHA. A visual companion with hand-crafted SVG diagrams lives at [`docs/architecture/how-flyway-works.html`](./docs/architecture/how-flyway-works.html) (open in a browser).
+**Where to start (for reviewers):**
+
+- [`docs/status.md`](./docs/status.md) — current status dashboard ([visual](./docs/status.html)): tools wired, milestones, walkthroughs, open issues, ADR digest.
+- [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — concrete sequence diagrams, state machines, and contracts. Versioned against code SHA. A visual companion with hand-crafted SVG diagrams lives at [`docs/architecture/how-flyway-works.html`](./docs/architecture/how-flyway-works.html) (open in a browser).
+- [`docs/walkthroughs/`](./docs/walkthroughs/) — three executable walkthroughs (Tier 1 / 2 / 3) prove the protocol carries real cross-murmuration acts end-to-end.
 
 Accepted ADRs:
 

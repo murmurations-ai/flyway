@@ -1,7 +1,7 @@
 ---
-date: 2026-05-19
+date: 2026-05-25
 protocol-version: 0.1.0
-code-sha: eec423c
+code-sha: d5ad56f
 status: living document — updated as the system evolves
 ---
 
@@ -12,11 +12,11 @@ state machines, data flow, and contracts. Versioned against the code SHA
 above; future revisions update this document and bump the SHA.
 
 > **Reading order.** §1 gives the mental model in one page. §2 shows the
-> packages and where artifacts live. §3 walks through what actually works
-> today (flyway_init, skill install) with real sequence diagrams. §4
-> shows the conceptual flow for cross-murmuration consent (the protocol
-> surface; tool execution for it is not yet implemented). §5 covers state
-> machines for the load-bearing entities. §6 lists the contracts.
+> packages and where artifacts live. §3 walks through every tool wired
+> today (six of nine), with sequence diagrams. §4 covers what the
+> remaining three tools will do when they land. §5 documents the
+> cryptographic spine (signing, domain separation, antecedent
+> verification). §6 covers state machines. §7 lists the contracts.
 
 ---
 
@@ -31,10 +31,12 @@ flyway is a **protocol for cross-murmuration collaboration**. Three layers:
 2. **The surface** — 9 typed tools (`flyway_init` … `flyway_exit`) plus
    one schema (`FLYWAY_AGREEMENT_SCHEMA`). These are the contract
    between agents and the protocol.
-3. **The transport** — GitHub. Each Source's repository is the
-   system-of-record for its identity, its peers, and the agreements
-   it has signed. There is no central server; peers see each other
-   only through committed files in each other's repos.
+3. **The transport** — Git repositories. Each Source's repo is the
+   system-of-record for its identity, its peers, and the agreements it
+   has signed. There is no central server; peers see each other only
+   through committed files in each other's repos. v0.1 ships a
+   local-filesystem signal transport (ADR-0008); GitHub-PR and
+   URL-webhook transports are reserved.
 
 The agent does not "talk to flyway." The agent **loads a skill** that
 teaches it the protocol's vocabulary and operations, and then it reads
@@ -52,9 +54,9 @@ Source produces:
 flowchart TB
   subgraph mono["flyway packages (this repo)"]
     direction TB
-    CORE["<b>flyway-core</b><br/>types, schemas, pure logic<br/>(tools, instructions, agreement schema, flywayInit)"]
+    CORE["<b>flyway-core</b><br/>types, schemas, pure logic<br/>signing, signal envelope,<br/>tension/respond/recognize/check"]
     AGENT["<b>flyway-agent</b><br/>SKILL.md generator<br/>(FLYWAY_SKILL_MD)"]
-    CLI["<b>flyway-cli</b><br/>flyway init<br/>flyway skill install/list/uninstall"]
+    CLI["<b>flyway-cli</b><br/>init / status / recognize /<br/>unrecognize / tension /<br/>respond / check / skill"]
     MCP["<b>flyway-mcp</b><br/>stdio MCP server<br/>(tools/list, tools/call)"]
     HARN["<b>flyway-harness</b><br/>stub"]
 
@@ -67,11 +69,14 @@ flowchart TB
   subgraph repo["A Source's repository"]
     direction TB
     DID[".well-known/did.json<br/>(DID document)"]
-    ES["flyway/entity-statement.json<br/>(Source metadata)"]
+    ES["flyway/entity-statement.json<br/>(signed Source metadata)"]
     KEYS["flyway/keys/source.key<br/>(private key — gitignored)"]
-    PEERS["flyway/peers.yaml<br/>(recognized peers)"]
-    AGREE["flyway/agreements/&lt;id&gt;.yaml<br/>(signed agreements)"]
-    TENS["flyway/tensions/&lt;id&gt;.json<br/>(open tensions)"]
+    PEERS["flyway/peers.yaml<br/>(signed recognition entries)"]
+    PCACHE["flyway/peers/&lt;host&gt;/&lt;owner&gt;/&lt;repo&gt;/<br/>(per-peer cached did.json + entity-statement)"]
+    INBOX["flyway/inbox/&lt;sender-segments&gt;/&lt;id&gt;.yaml<br/>(received signals)"]
+    OUTBOX["flyway/outbox/&lt;recipient-segments&gt;/&lt;id&gt;.yaml<br/>(sent signals)"]
+    UNREC["flyway/unrecognized/&lt;safe-did&gt;.yaml<br/>(signed unrecognition records)"]
+    AGREE["flyway/agreements/&lt;id&gt;.yaml<br/>(signed agreements — pending)"]
     SKILL[".claude/skills/flyway/SKILL.md<br/>(installed skill)"]
   end
 
@@ -84,6 +89,12 @@ flowchart TB
   CLI -- "flyway init" --> DID
   CLI -- "flyway init" --> ES
   CLI -- "flyway init" --> KEYS
+  CLI -- "flyway recognize" --> PEERS
+  CLI -- "flyway recognize" --> PCACHE
+  CLI -- "flyway tension" --> OUTBOX
+  CLI -- "flyway tension" --> INBOX
+  CLI -- "flyway respond" --> OUTBOX
+  CLI -- "flyway respond" --> INBOX
   CLI -- "flyway skill install" --> SKILL
 
   SKILL -. "loaded by" .-> CC
@@ -96,11 +107,29 @@ flowchart TB
 
 Key invariant: **every flyway operation either reads or writes a file
 under `.well-known/` or `flyway/`.** Nothing leaves the Source's
-authority except by becoming a committed artifact under that authority.
+authority except by becoming a committed (or committable) artifact under
+that authority.
 
 ---
 
 ## 3. What works today
+
+Six of the nine tools run end-to-end with executable walkthroughs. The
+list, in dependency order:
+
+| # | Tool | Wired at | What it does |
+| - | ---- | -------- | ------------ |
+| 1 | `flyway_init` | `eec423c` | Issue a DID + signed entity statement + Ed25519 keypair |
+| 2 | `flyway_status` | `02a1f09` | Read identity, peers, agreements; verify signatures |
+| 3 | `flyway_recognize` (+ `unrecognize`) | `1712232` → `f9911fd` | Verify a peer; produce a signed recognition entry |
+| 4 | `flyway_check` | `3ce02ec` | Read incoming signals; verify per-signal signatures |
+| 5 | `flyway_tension` | `bfaf1db` | Sign + deliver an S3 tension to a recognized peer |
+| 6 | `flyway_respond` | `64b112a` | Sign + deliver a tension response (acknowledge / dispute / dissolve / transfer) |
+
+Each tool exists in *three* parity layers: pure logic in `flyway-core`,
+a CLI wrapper in `flyway-cli`, a stateless MCP handler in `flyway-mcp`.
+The CLI and MCP layers are interchangeable: an agent reaches the same
+core via either path.
 
 ### 3.1 Skill installation (ADR-0006)
 
@@ -133,8 +162,7 @@ vocabulary, the tool surface, and the consent invariants.
 
 ### 3.2 Identity issuance (`flyway_init`) — via CLI
 
-The Source creates their flyway identity. This is a one-time operation
-per Source.
+The Source creates their flyway identity. One-time per Source.
 
 ```mermaid
 sequenceDiagram
@@ -142,117 +170,391 @@ sequenceDiagram
   participant CLI as flyway-cli (bin)
   participant INIT as flyway-cli/init.ts
   participant CORE as flyway-core/init.ts
-  participant CRYPTO as Node crypto
+  participant SIGN as core/signing.ts
   participant FS as Source's repo
 
   S->>CLI: flyway init --repo-url URL --source-name NAME --mode MODE
-  CLI->>INIT: runInit({repoUrl, sourceName, mode, cwd})
-  INIT->>INIT: check no existing identity (else require --force)
-  INIT->>CORE: flywayInit({repoUrl, sourceName, mode})
+  CLI->>INIT: runInit({...})
+  INIT->>CORE: flywayInit({...})
   CORE->>CORE: parseRepoUrl → ParsedRepoUrl
   CORE->>CORE: deriveDid → "did:web:github.com:org:repo"
-  CORE->>CRYPTO: generateKeyPairSync('ed25519')
-  CRYPTO-->>CORE: {publicKey, privateKey}
+  CORE->>CORE: generateEd25519Keypair → {publicKeyJwk, privateKeyPem}
   CORE->>CORE: buildDidDocument (W3C DID + JsonWebKey2020)
-  CORE->>CORE: buildEntityStatement (Source metadata)
+  CORE->>SIGN: signArtifactInline(DOMAIN_ENTITY_STATEMENT, statement, signer)
+  SIGN-->>CORE: SignedEntityStatement
   CORE-->>INIT: FlywayInitArtifacts
   INIT->>FS: write .well-known/did.json
   INIT->>FS: write flyway/entity-statement.json
-  INIT->>FS: write flyway/keys/source.key (mode 0o600)
+  INIT->>FS: write flyway/keys/source.key (0o600)
   INIT->>FS: ensure .gitignore excludes flyway/keys/
   INIT-->>CLI: result
   CLI-->>S: "Initialized flyway identity: did:web:..."
 ```
 
-After this, the Source has a cryptographic identity (did:web) and can be
-discovered, recognized, and engaged with by peers.
+After this, the Source has a cryptographic identity and a self-attested
+entity statement. The MCP path is structurally identical but stateless —
+core returns the artifacts; the caller persists them.
 
-### 3.3 Identity issuance — via MCP
+### 3.3 Recognition (`flyway_recognize`)
 
-The same operation, but invoked by an agent through the MCP server. The
-MCP server is **stateless** — it returns the artifacts to the agent
-rather than writing them. The agent decides how to persist them (often
-by then running the CLI or writing the files itself).
+A unilateral, signed attestation: Source A says "I have verified Source
+B's identity and am willing to engage with them." There is no "mutual"
+recognition envelope; mutual recognition means each Source independently
+produces their own signed entry.
 
 ```mermaid
 sequenceDiagram
-  participant A as Agent (LLM with flyway skill loaded)
-  participant MCP as flyway-mcp (stdio JSON-RPC)
-  participant H as handlers.ts (callFlywayTool)
-  participant CORE as flyway-core/init.ts
-  participant S as Source (human)
+  actor A as Source A
+  participant ACLI as flyway-cli (A)
+  participant CORE as flyway-core/recognize.ts
+  participant BFS as B's repo (local path)
+  participant AFS as A's repo
 
-  Note over A: SKILL.md instructions tell agent<br/>how to use flyway_init
-  A->>MCP: tools/call flyway_init {repoUrl, sourceName, mode}
-  MCP->>H: dispatch by name
-  H->>H: validate arguments
-  H->>CORE: flywayInit(input)
-  CORE-->>H: FlywayInitArtifacts
-  H-->>MCP: {did, didDocument, entityStatement, keypair, note}
-  MCP-->>A: CallToolResult (JSON)
-  A->>S: surface artifacts; ask for confirmation before persisting
-  Note over A,S: Agent does not write files autonomously.<br/>Source sovereignty invariant.
+  A->>ACLI: flyway recognize <B's path> [--note ...]
+  ACLI->>BFS: read .well-known/did.json
+  ACLI->>BFS: read flyway/entity-statement.json
+  ACLI->>CORE: recognizePeer({peerDidDocument, peerEntityStatement, recognizedByDid, signer})
+  CORE->>CORE: verify peer entity statement signature
+  CORE->>CORE: refuse if self-recognition or DID mismatch
+  CORE->>CORE: compute entityStatementFingerprint (sha256)
+  CORE->>CORE: bind peer's verificationKey inline (G1 fix)
+  CORE->>CORE: sign entry under DOMAIN_RECOGNITION
+  CORE-->>ACLI: SignedRecognitionEntry
+  ACLI->>AFS: append to flyway/peers.yaml
+  ACLI->>AFS: cache B's did.json + entity-statement at flyway/peers/&lt;segs&gt;/
+  ACLI-->>A: "Recognized did:web:..."
 ```
 
-Why stateless? Because Source sovereignty says only the Source decides
-what gets written under their authority. The MCP server is a *generator*
-of artifacts; the act of persisting them is a Source-authorized step.
+The peer's verification key is **inlined** into the recognition entry
+(`peerPublicKey`, `peerVerificationKeyId`). This means a later key
+rotation is detectable from the entry alone, without re-fetching the
+peer's DID document.
+
+`flyway unrecognize <peer-did>` is the inverse: produces a signed
+`UnrecognitionRecord` under `flyway/unrecognized/` and removes the entry
+from `peers.yaml`. The peer cache is retained for audit.
+
+### 3.4 Signal transport (ADR-0008)
+
+Every cross-murmuration message is a **signed signal envelope** sitting
+on disk. v0.1 ships a single transport (local-fs); ADR-0008 reserves
+slots for GitHub-PR and URL-webhook.
+
+```
+type SignalKind = 'tension' | 'proposal' | 'respond' | 'exit'
+
+SignalEnvelope {
+  schema: 'flyway-signal-v0'
+  id        // sender-unique, time-sortable
+  from, to  // DIDs
+  sentAt    // RFC 3339
+  kind      // SignalKind
+  body      // kind-specific payload
+  refs?     // {inReplyTo?, tensionId?, proposalId?}
+}
+SignedSignalEnvelope = SignalEnvelope & { signature: SignatureEnvelope }
+```
+
+The envelope is signed under a **kind-specific domain tag**
+(`DOMAIN_TENSION`, `DOMAIN_PROPOSAL`, `DOMAIN_RESPOND`, `DOMAIN_EXIT`)
+so a signature over one kind cannot be replayed as another. Mutating
+`kind` after signing invalidates the signature; the verifier reads
+`kind` from the signed envelope and derives the expected domain.
+
+```
+sender repo:
+  flyway/outbox/<host>/<owner>/<repo>/<id>.yaml   # sent to this DID
+
+recipient repo:
+  flyway/inbox/<host>/<owner>/<repo>/<id>.yaml    # received from this DID
+```
+
+The sender always writes to their own outbox **first** (durable record
+of the act), then attempts delivery to the recipient's inbox via the
+chosen transport. Idempotency: re-delivering the same `(from, id)` is a
+no-op; a different signature with the same id is refused with an
+explicit error (`flag: 'wx'` enforces atomicity at the write).
+
+### 3.5 First sender — `flyway_tension`
+
+S3 §IV.1.2 "Navigate via Tension." A Source surfaces a situation worth
+shared attention, before any proposal is on the table.
+
+```mermaid
+sequenceDiagram
+  actor A as Source A
+  participant ACLI as flyway-cli (A)
+  participant CORE as flyway-core/tension.ts
+  participant AFS as A's repo
+  participant BFS as B's repo (local path)
+
+  A->>ACLI: flyway tension <B's path> --conditions "..." --effect "..."
+  ACLI->>AFS: read own identity (.well-known/did.json, entity-statement, keys)
+  ACLI->>BFS: read .well-known/did.json (discover B's DID)
+  ACLI->>AFS: check B is in flyway/peers.yaml (trust gate)
+  ACLI->>CORE: createTension({from, to, body, signer, refs?})
+  CORE->>CORE: validate conditions/effect non-empty
+  CORE->>CORE: build envelope; sign under DOMAIN_TENSION
+  CORE-->>ACLI: SignedSignalEnvelope
+  ACLI->>AFS: writeSignalToOutbox (durable record)
+  ACLI->>BFS: writeSignalToInbox (local-fs delivery)
+  ACLI-->>A: "Flagged tension to did:web:..."
+```
+
+What `flyway_check` sees on B's side: a `tension` signal in
+`flyway/inbox/<A-segments>/<id>.yaml`. It looks up A in `peers.yaml`,
+loads A's DID document from the recognition-time cache, and verifies
+the signature against it.
+
+### 3.6 First dialogue — `flyway_respond` (tensions only)
+
+The reply path. B reads A's tension and signs back `acknowledge`,
+`dispute`, `dissolve`, or `transfer`.
+
+```mermaid
+sequenceDiagram
+  actor B as Source B
+  participant BCLI as flyway-cli (B)
+  participant CORE as flyway-core/respond.ts
+  participant BFS as B's repo
+  participant AFS as A's repo (local path)
+
+  B->>BCLI: flyway respond <A's path> --subject-id ID --decision DEC [--reason ...]
+  BCLI->>BFS: read own identity
+  BCLI->>AFS: read .well-known/did.json (discover A's DID)
+  BCLI->>BFS: check A is in flyway/peers.yaml (trust gate)
+  BCLI->>BFS: load A's cached did.json (ADR-0009 — not from AFS!)
+  BCLI->>BFS: findInboxSignalById(B, subjectId) — locate the subject
+  BCLI->>BCLI: refuse if subject.from != A's DID
+  BCLI->>BCLI: refuse if subject.kind != 'tension' (v0.1)
+  BCLI->>CORE: createTensionResponse({from, to, body, refs, subjectEnvelope, subjectSenderDidDocument, signer})
+  Note right of CORE: ADR-0009 antecedent verification:<br/>kind / id / sender / DID-doc<br/>binding / signature
+  CORE->>CORE: build envelope; sign under DOMAIN_RESPOND
+  CORE-->>BCLI: SignedSignalEnvelope
+  BCLI->>BFS: writeSignalToOutbox
+  BCLI->>AFS: writeSignalToInbox
+  BCLI-->>B: "Responded to tension <id> from <A's DID>"
+```
+
+What A sees: a `respond` signal in
+`flyway/inbox/<B-segments>/<id>.yaml`. Its `refs.tensionId` matches A's
+original tension id (part of the signed payload — re-pointing breaks the
+signature). A's `flyway_check` verifies B's signature against B's
+cached did.json.
+
+After this round-trip, **both sides hold complete signed records**:
+
+| Side | `flyway/outbox/...` | `flyway/inbox/...`        |
+| ---- | ------------------- | ------------------------- |
+| A    | the tension         | the acknowledge           |
+| B    | the acknowledge     | the tension               |
+
+Neither side holds canonical state about the other. Both can audit the
+exchange against artifacts they themselves signed or attested to at
+recognition time.
+
+### 3.7 Reading the inbox — `flyway_check`
+
+Transport-agnostic. Reads whatever is in `flyway/inbox/<segments>/*.yaml`
+and reports per-signal status.
+
+```mermaid
+flowchart LR
+  INBOX["flyway/inbox/&lt;segs&gt;/*.yaml"] --> PARSE["parse envelope"]
+  PARSE -->|malformed| ISSUE1["issue: malformed"]
+  PARSE -->|ok| PEER["lookup sender in peers.yaml"]
+  PEER -->|unrecognized| ISSUE2["flag unrecognized;<br/>refuse to verify"]
+  PEER -->|recognized| CACHE["load cached DID document<br/>from flyway/peers/&lt;segs&gt;/did.json"]
+  CACHE --> DOMAIN["derive domain from envelope.kind"]
+  DOMAIN --> VERIFY["verifyInlineSignedArtifact"]
+  VERIFY -->|fail| ISSUE3["issue: signature INVALID"]
+  VERIFY -->|ok| ORDER["check sentAt &gt;= recognizedAt"]
+  ORDER -->|fail| ISSUE4["issue: predates recognition"]
+  ORDER -->|ok| VALID["sig valid"]
+```
+
+Per-signal output: envelope, path, `fromRecognized`, `signatureValid`,
+`fromPathMatchesEnvelope`, `issues[]`. A signal is counted in
+`validCount` only if it is recognized, signature-valid, AND has no
+issues — so the recognition-window-ordering check (SEC-3 from the
+2026-05-25 security review) excludes a signal from the valid count
+even if its signature itself is fine.
 
 ---
 
-## 4. Cross-murmuration consent (conceptual — surface defined, execution
-pending)
+## 4. What's pending
 
-The largest reason flyway exists. Two or more recognized peer
-murmurations negotiate an agreement through a structured consent cycle.
-Tool surface is defined today; actual GitHub I/O lands in future tool
-implementations.
+Three tools remain stubbed; one wired tool has a remaining branch:
+
+| Tool / branch | What it will do | Status |
+| ------------- | --------------- | ------ |
+| `flyway_propose` | Send a directive / project / engagement agreement; supports the S3 staging chain (driver → requirements → draft → refinement → final); enforces `FLYWAY_AGREEMENT_SCHEMA` for agreement bodies | Schema defined; tool returns "not yet implemented" |
+| `flyway_respond` (proposal branch) | `accept` / `object` / `exit` decisions on proposals; first-class `concernsToRecord` field per Issue #3 | Tension branch wired; proposal branch returns "not yet implemented" |
+| `flyway_exit` | Cleanly leave a peer relationship, project, or syndicate; produces a signed exit record | Schema defined; tool returns "not yet implemented" |
+| `flyway_discover` | Look up murmurations in a flyway directory; first non-local-fs operation | Schema defined; tool returns "not yet implemented" |
+
+Sequence diagram for the full cross-murmuration consent flow (conceptual
+until `flyway_propose` lands):
 
 ```mermaid
 sequenceDiagram
-  participant A as Murmuration A (agent)
-  participant ARepo as A's GitHub repo
-  participant BRepo as B's GitHub repo
-  participant B as Murmuration B (agent)
+  participant A as Murmuration A
+  participant ARepo as A's repo
+  participant BRepo as B's repo
+  participant B as Murmuration B
 
-  Note over A,B: Phase 1 — Tension surfaced (S3 §IV.1.2 Navigate via Tension)
+  Note over A,B: Phase 1 — Tension surfaced (✓ implemented, S3 §IV.1.2)
   A->>ARepo: flyway_tension {peerDid: B, conditions, effect, relevance}
-  Note over ARepo,BRepo: Mirrored as a GitHub issue<br/>under flyway/tensions/T-001
-  B->>BRepo: flyway_check (reads incoming signals)
-  B->>BRepo: flyway_respond {subjectId: T-001, decision: acknowledge}
+  A->>BRepo: deliver via local-fs transport
+  B->>BRepo: flyway_check sees the tension
+  B->>BRepo: flyway_respond {subjectId, decision: acknowledge}
+  B->>ARepo: deliver
 
-  Note over A,B: Phase 2 — Proposal forming (S3 §IV.1.9-1.10)
-  A->>ARepo: flyway_propose stage: driver
-  B->>BRepo: flyway_respond decision: accept (no objections to advancing)
+  Note over A,B: Phase 2 — Proposal forming (PENDING, S3 §IV.1.9-1.10)
+  A->>ARepo: flyway_propose stage: driver, refs.tensionId: T-001
+  B->>ARepo: flyway_respond decision: accept (no objections to advancing)
   A->>ARepo: flyway_propose stage: requirements
-  B->>BRepo: flyway_respond decision: object {reason: premise + conclusion}
-  Note over A,B: Phase 3 — Resolve Objections (S3 §IV.1.7)
+  B->>ARepo: flyway_respond decision: object {reason}
+  Note over A,B: Phase 3 — Resolve Objections (PENDING, S3 §IV.1.7)
   A->>ARepo: flyway_propose stage: refinement (integrates B's objection)
-  B->>BRepo: flyway_respond decision: accept
-  A->>ARepo: flyway_propose stage: draft
-  B->>BRepo: flyway_respond decision: accept
+  B->>ARepo: flyway_respond decision: accept
   A->>ARepo: flyway_propose stage: final
 
-  Note over A,B: Phase 4 — Sign (Consent reached)
-  B->>BRepo: flyway_respond decision: accept
+  Note over A,B: Phase 4 — Sign (PENDING — co-signed agreement)
+  B->>ARepo: flyway_respond decision: accept
   A->>ARepo: write flyway/agreements/01HZ.yaml (signed by A)
   B->>BRepo: write flyway/agreements/01HZ.yaml (signed by B, byte-identical)
   Note over A,B: state: agreed
 ```
 
 The byte-identity of `flyway/agreements/<id>.yaml` across both repos is
-what "co-signed" means. There is no authoritative copy; each repo is.
+what "co-signed" will mean. There is no authoritative copy; each repo
+is.
 
-For a **trial walkthrough** of this flow (3-party plus facilitator,
-producing a real consent cycle including a textbook §IV.1.6 objection and
-its §IV.1.7 integration), see
-[`docs/walkthroughs/2026-05-13-3party-retrospective-cadence.md`](../walkthroughs/2026-05-13-3party-retrospective-cadence.md).
+The Tier 3 walkthrough
+([2026-05-25-tier3-signal-dialogue.md](../walkthroughs/2026-05-25-tier3-signal-dialogue.md))
+exercises Phase 1 end-to-end with real signatures. Phases 2–4 stay
+narrative in the
+[2026-05-13 walkthrough](../walkthroughs/2026-05-13-3party-retrospective-cadence.md)
+until `flyway_propose` lands.
 
 ---
 
-## 5. State machines
+## 5. Cryptographic spine
 
-### 5.1 Identity
+### 5.1 Signing primitives (ADR-0007)
+
+Every signed artifact uses the same `Signer` interface:
+
+```typescript
+interface Signer {
+  readonly id: string                // e.g. 'local-ed25519:did:web:.../#key-1'
+  readonly verificationKeyId: string // 'did:web:...#key-1'
+  readonly publicKeyJwk: PublicKeyJwk
+  sign(bytes: Uint8Array): Promise<Uint8Array>
+}
+```
+
+v0.1 ships one implementation (`localEd25519Signer`). ADR-0007 reserves
+the seam for future `cardanoHotSigner`, `kmsSigner`, etc. — they drop
+in without touching artifact-producing code.
+
+Every signature is wrapped in an envelope carrying its verification
+metadata:
+
+```typescript
+interface SignatureEnvelope {
+  verificationKeyId: string
+  algorithm: 'EdDSA'
+  canonicalization: 'flyway-jcs-v1'
+  domain: string                     // kind-specific; see §5.2
+  signature: string                  // base64url
+}
+```
+
+### 5.2 Domain separation
+
+Each artifact kind has a distinct domain tag. A signature over one kind
+cannot be replayed as another:
+
+| Domain | Used by |
+| ------ | ------- |
+| `flyway-v1:entity-statement` | `flywayInit` |
+| `flyway-v1:recognition` | `recognizePeer` |
+| `flyway-v1:unrecognition` | `unrecognizePeer` |
+| `flyway-v1:tension` | `createTension` |
+| `flyway-v1:proposal` | `createProposal` *(pending)* |
+| `flyway-v1:respond` | `createTensionResponse` |
+| `flyway-v1:exit` | `createExit` *(pending)* |
+| `flyway-v1:agreement` | future co-signed agreements |
+
+The signed payload always includes the discriminating field (e.g.
+`kind` for signals). The verifier reads that field, derives the
+expected domain, and verifies. Tampering with the field after signing
+invalidates the signature.
+
+### 5.3 Canonicalization
+
+A minimal JCS-style scheme (`flyway-jcs-v1`):
+
+- Objects: keys sorted by UTF-16 code-unit ordering
+- `undefined` values dropped (treated as "not present")
+- No insignificant whitespace
+- Numbers via `JSON.stringify` (RFC 8259 compatible)
+- Signatures are excluded from canonicalization (chicken-and-egg)
+
+Deterministic across implementations, environments, and serializer
+versions. Tested across 8 representative cases in `signing.test.ts`.
+
+### 5.4 Antecedent verification (ADR-0009)
+
+A signer never signs an attestation over an unverified antecedent
+artifact. This is the load-bearing rule that lets a signature chain mean
+anything: if I sign over a peer's tension and my signature verifies,
+that's a claim about the tension's authenticity, not just a claim about
+my reply.
+
+The rule is enforced **in core**, at the signing primitive itself —
+adapters can't skip it:
+
+- `recognizePeer(peerDidDocument, peerEntityStatement, …)` verifies
+  the peer entity statement before signing the recognition entry.
+- `createTensionResponse(subjectEnvelope, subjectSenderDidDocument, …)`
+  verifies the subject tension before signing the response.
+- Future `createProposal` (when promoting a tension), `createProposalResponse`,
+  and `createExit` will all carry the same structural requirement.
+
+**The verifying key is the recognition-time cached copy** — loaded from
+`flyway/peers/<segments>/did.json`, the artifact we attested to when we
+recognized the peer. Adapters MUST NOT use a freshly-read
+`.well-known/did.json` from a peer-controlled path for verification.
+Doing so would let an attacker who controls that path supply a matching
+public key for an artifact they fabricated.
+
+Five checks at the signing primitive, in order:
+
+1. **Kind match.** Antecedent's `kind` matches what the primitive expects.
+2. **Id match.** Reference fields (e.g. `refs.tensionId`) point at the antecedent's `id`.
+3. **Sender match.** Antecedent's `from` equals the new artifact's `to`.
+4. **DID-document binding.** Supplied `subjectSenderDidDocument.id` matches `antecedent.from`.
+5. **Signature verification.** Antecedent verifies under the supplied DID document and its kind-specific domain.
+
+Any failure aborts the operation; no signed artifact is produced.
+
+### 5.5 Path-traversal safety
+
+Peer DIDs become directory names. `peerCachePathSegments(did)` is the
+single point of contact and is locked down: every segment must match
+`[A-Za-z0-9._-]+` and must not equal `.` or `..`. A peer who controls
+their `.well-known/did.json` can publish any DID string, but they
+cannot coerce `peerCachePathSegments` into writing outside the cache
+subtree.
+
+---
+
+## 6. State machines
+
+### 6.1 Identity
 
 ```mermaid
 stateDiagram-v2
@@ -262,23 +564,35 @@ stateDiagram-v2
   initialized --> [*]: (future) revoked
 ```
 
-### 5.2 Tension
+### 6.2 Tension dialogue (✓ implemented through `acknowledged`)
 
 ```mermaid
 stateDiagram-v2
-  [*] --> open: flyway_tension raised
-  open --> acknowledged: flyway_respond decision: acknowledge
-  open --> disputed: flyway_respond decision: dispute (+ reason)
-  open --> dissolved: flyway_respond decision: dissolve (+ reason)
-  open --> transferred: flyway_respond decision: transfer (+ transferTo)
-  acknowledged --> promoted: flyway_propose links via originTensionId
+  [*] --> raised: flyway_tension signed and delivered
+  raised --> acknowledged: flyway_respond decision: acknowledge
+  raised --> disputed: flyway_respond decision: dispute (+ reason)
+  raised --> dissolved: flyway_respond decision: dissolve (+ reason)
+  raised --> transferred: flyway_respond decision: transfer (+ transferTo)
+  acknowledged --> promoted: (pending) flyway_propose with refs.tensionId
   promoted --> [*]
   disputed --> [*]
   dissolved --> [*]
   transferred --> [*]
 ```
 
-### 5.3 Proposal (within an agreement)
+### 6.3 Recognition
+
+```mermaid
+stateDiagram-v2
+  [*] --> unknown
+  unknown --> recognized: flyway_recognize
+  recognized --> recognized: (force) re-recognize (key rotation)
+  recognized --> unrecognized: flyway_unrecognize
+  unrecognized --> [*]
+  unrecognized --> recognized: re-recognize after gap
+```
+
+### 6.4 Proposal (within an agreement — pending)
 
 ```mermaid
 stateDiagram-v2
@@ -296,12 +610,7 @@ stateDiagram-v2
   signed --> [*]
 ```
 
-Stages are **optional**: routine proposals can go straight to `final`.
-Novel or high-stakes proposals walk through the earlier stages so
-divergence surfaces cheaply before a fully-drafted proposal becomes hard
-to revise.
-
-### 5.4 Agreement (`FLYWAY_AGREEMENT_STATES`)
+### 6.5 Agreement (`FLYWAY_AGREEMENT_STATES` — pending wire-up)
 
 ```mermaid
 stateDiagram-v2
@@ -318,50 +627,49 @@ stateDiagram-v2
 
 ---
 
-## 6. Contracts
+## 7. Contracts
 
-### 6.1 Tool surface (9 tools)
+### 7.1 Tool surface (9 tools)
 
-| Tool               | Inputs (load-bearing)                                                          | Effect                                                                  |
-| ------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `flyway_init`      | repoUrl, sourceName, mode                                                      | Generates DID + entity statement + ed25519 keypair (**implemented**)    |
-| `flyway_status`    | (none)                                                                         | Reports current peers, agreements, open signals (not yet implemented)   |
-| `flyway_discover`  | query, directoryUrl?                                                           | Looks up peers in a flyway directory (not yet implemented)              |
-| `flyway_recognize` | peerDid, note?                                                                 | Proposes mutual recognition with a peer (not yet implemented)           |
-| `flyway_tension`   | peerDid, conditions, effect, relevance?, proposedOwner?                        | Surfaces an S3 §IV.1.2 tension (not yet implemented)                    |
-| `flyway_propose`   | peerDid, type, title, body, deadline?, stage?, previousStageId?                | Sends a directive/project/agreement at a given S3 stage (not yet impl.) |
-| `flyway_respond`   | subjectId, decision, reason?, transferTo?                                      | Accepts/objects/exits a proposal or acknowledges/disputes a tension     |
-| `flyway_check`     | since?, peerDid?                                                               | Reads unread incoming signals (not yet implemented)                     |
-| `flyway_exit`      | target, targetType, reason?                                                    | Cleanly leaves a peer/project/syndicate (not yet implemented)           |
+| Tool | Inputs (load-bearing) | Effect | Wired? |
+| ---- | --------------------- | ------ | ------ |
+| `flyway_init` | repoUrl, sourceName, mode | Generates signed DID document + entity statement + Ed25519 keypair | ✅ |
+| `flyway_status` | (none) | Reports identity, peers, agreements, signature validity, inbox issues | ✅ |
+| `flyway_discover` | query, directoryUrl? | Looks up peers in a flyway directory | ⏳ |
+| `flyway_recognize` | peerDid, note? | Produces a signed recognition entry binding peer's key fingerprint | ✅ |
+| `flyway_tension` | peerDid, conditions, effect, relevance?, proposedOwner? | Signs an S3 §IV.1.2 tension envelope; delivers to peer inbox | ✅ |
+| `flyway_propose` | peerDid, type, title, body, deadline?, stage?, previousStageId? | Sends a directive / project / agreement at an S3 stage | ⏳ |
+| `flyway_respond` | subjectId, decision, reason?, transferTo? | Signs a response binding `refs.tensionId` (or proposalId) | ✅ (tensions only) |
+| `flyway_check` | since?, peerDid? | Reads inbox; per-signal signature + sentAt/recognizedAt ordering | ✅ |
+| `flyway_exit` | target, targetType, reason? | Cleanly leaves a peer / project / syndicate | ⏳ |
 
 Schemas are exported as JSON Schema from `@murmurations-ai/flyway-core`
 (`FLYWAY_TOOLS`) and as a `SKILL.md` document from
 `@murmurations-ai/flyway-agent` (`FLYWAY_SKILL_MD`).
 
-### 6.2 Agreement (`FLYWAY_AGREEMENT_SCHEMA`)
+### 7.2 Agreement (`FLYWAY_AGREEMENT_SCHEMA`)
 
 11 required fields mapped to the six S3 §IV.7.1 success criteria:
 
-| Required field    | What it carries                                       | S3 grounding                       |
-| ----------------- | ----------------------------------------------------- | ---------------------------------- |
-| `id`              | Unique identifier (ULID/UUID/hash)                    | flyway bookkeeping                 |
-| `schemaVersion`   | Agreement schema version                              | flyway bookkeeping                 |
-| `createdAt`       | ISO 8601 datetime                                     | §IV.7.2                            |
-| `participants[]`  | DIDs of Sources party to the agreement                | §IV.7.1 voluntary involvement      |
-| `driver`          | {conditions, effect, relevance?}                      | §IV.1.3                            |
-| `purpose`         | Intended outcome                                      | §IV.7.1 shared understanding       |
-| `expectations[]`  | Per-participant commitments                           | §IV.7.1 "what is expected"         |
-| `decisionRule`    | s3-consent (default) / lazy-consent / dual-source-sign / weighted-vote-bounded / apache-vote | flyway pluggability         |
-| `review`          | {cadence, nextDate?, protocol?}                       | §IV.7.1 regular review meetings    |
-| `exit`            | {notice, breach?, inFlightWork?}                      | §IV.7.1 termination protocol       |
-| `state`           | proposed / agreed / in-flight / suspended / closed    | flyway lifecycle                   |
+| Required field   | What it carries                                       | S3 grounding                       |
+| ---------------- | ----------------------------------------------------- | ---------------------------------- |
+| `id`             | Unique identifier (ULID/UUID/hash)                    | flyway bookkeeping                 |
+| `schemaVersion`  | Agreement schema version                              | flyway bookkeeping                 |
+| `createdAt`      | ISO 8601 datetime                                     | §IV.7.2                            |
+| `participants[]` | DIDs of Sources party to the agreement                | §IV.7.1 voluntary involvement      |
+| `driver`         | {conditions, effect, relevance?}                      | §IV.1.3                            |
+| `purpose`        | Intended outcome                                      | §IV.7.1 shared understanding       |
+| `expectations[]` | Per-participant commitments                           | §IV.7.1 "what is expected"         |
+| `decisionRule`   | s3-consent / lazy-consent / dual-source-sign / weighted-vote-bounded / apache-vote | flyway pluggability |
+| `review`         | {cadence, nextDate?, protocol?}                       | §IV.7.1 regular review meetings    |
+| `exit`           | {notice, breach?, inFlightWork?}                      | §IV.7.1 termination protocol       |
+| `state`          | proposed / agreed / in-flight / suspended / closed    | flyway lifecycle                   |
 
-Plus optional `signatures[]` (required at state ≥ agreed),
-`culture`, `term`, `metrics`, `disputeResolution`, `constraints`,
-`concerns`. See
+Plus optional `signatures[]` (required at state ≥ agreed), `culture`,
+`term`, `metrics`, `disputeResolution`, `constraints`, `concerns`. See
 [`docs/concepts/agreement-template.md`](../concepts/agreement-template.md).
 
-### 6.3 Entity statement (produced by `flyway_init`)
+### 7.3 Entity statement (produced by `flyway_init`)
 
 ```typescript
 interface EntityStatement {
@@ -374,9 +682,46 @@ interface EntityStatement {
   toolsSupported: string[]         // ['flyway_init', ...]
   schemasSupported: string[]       // ['agreement@0.1.0']
 }
+// Signed inline under DOMAIN_ENTITY_STATEMENT.
 ```
 
-### 6.4 DID document (produced by `flyway_init`)
+### 7.4 Recognition entry (produced by `flyway_recognize`)
+
+```typescript
+interface RecognitionEntry {
+  did: string                                // peer's DID
+  sourceName: string
+  mode: string
+  peerVerificationKeyId: string              // bound inline (G1)
+  peerPublicKey: PublicKeyJwk                // bound inline (G1)
+  entityStatementFingerprint: string         // sha256 of canonical bytes
+  recognizedAt: string                       // ISO 8601
+  recognizedBy: string                       // recognizer's DID
+  note?: string
+}
+// Signed inline under DOMAIN_RECOGNITION by the recognizer.
+```
+
+### 7.5 Signal envelope (produced by senders)
+
+See §3.4. The envelope itself is `kind`-agnostic; bodies vary:
+
+```typescript
+interface TensionBody {
+  conditions: string
+  effect: string
+  relevance?: string
+  proposedOwner?: string
+}
+
+interface TensionResponseBody {
+  decision: 'acknowledge' | 'dispute' | 'dissolve' | 'transfer'
+  reason?: string       // required for dispute/dissolve/transfer
+  transferTo?: string   // required for transfer
+}
+```
+
+### 7.6 DID document (produced by `flyway_init`)
 
 W3C DID core + JsonWebKey2020 verification method. Resolves at
 `https://<host>/<path-with-slashes>/.well-known/did.json`. For
@@ -384,7 +729,7 @@ GitHub-hosted Sources this requires GitHub Pages (or a custom resolver
 that fetches raw content). DID resolution is the Source's
 responsibility — the flyway protocol just writes the file.
 
-### 6.5 Invariants (enforced by convention; future: by code)
+### 7.7 Invariants
 
 1. **Source sovereignty.** No tool can override a Source's authority
    over what their murmuration accepts, forwards, recognizes, or
@@ -393,25 +738,30 @@ responsibility — the flyway protocol just writes the file.
    cycle exists to integrate objections into a stronger proposal, not
    to bully one through.
 3. **Exit follows process.** Exit is always a valid outcome, but it
-   ends a good-faith consent-seeking effort — never substitutes for
-   one.
-4. **No proposals to unrecognized peers.** `flyway_propose` requires
-   the peer to be in `flyway/peers.yaml`.
+   ends a good-faith consent-seeking effort — never substitutes for one.
+4. **No signals to unrecognized peers.** `flyway_tension` and
+   `flyway_respond` refuse to send to a peer not in `peers.yaml`.
+   Recognition is the trust gate.
 5. **Respond to everything.** Silence is not a valid protocol state.
 6. **Cryptographic identity.** Every Source action that affects another
-   party is (will be) signed by the Source's private key. The public
-   key lives in the DID document.
-7. **Append-only history.** Decisions, once made, are recorded
+   party is signed by the Source's private key under the kind-specific
+   domain. Domain separation prevents cross-kind replay.
+7. **Antecedent verification.** A signer never signs over an unverified
+   antecedent artifact (ADR-0009). Verifying keys come from the
+   recognition-time cache, not from peer-controlled paths.
+8. **Append-only history.** Decisions, once made, are recorded
    immutably and replayable from each repo.
 
 ---
 
-## 7. Reading further
+## 8. Reading further
 
-- [`docs/adr/`](../adr/) — architectural decisions, in order
+- [`docs/status.md`](../status.md) — current status snapshot with tool maturity, milestone timeline, open issues
+- [`docs/status.html`](../status.html) — visual companion
+- [`docs/adr/`](../adr/) — architectural decisions in order (9 accepted)
+- [`docs/walkthroughs/`](../walkthroughs/) — protocol traces with verbatim transcripts
 - [`docs/concepts/`](../concepts/) — Source, S3, consent mechanisms, agreement template, canonical S3 PDF
-- [`docs/walkthroughs/`](../walkthroughs/) — protocol traces of real consent cycles
 - [`docs/retrospectives/`](../retrospectives/) — honest looks at build cycles
-- [`packages/core/src/`](../../packages/core/src/) — types, schemas, pure logic
-- [`packages/cli/src/`](../../packages/cli/src/) — `flyway init`, `flyway skill ...`
+- [`packages/core/src/`](../../packages/core/src/) — types, schemas, pure logic, signing
+- [`packages/cli/src/`](../../packages/cli/src/) — `flyway init/status/recognize/unrecognize/tension/respond/check/skill`
 - [`packages/mcp/src/`](../../packages/mcp/src/) — MCP server exposing the 9 tools
