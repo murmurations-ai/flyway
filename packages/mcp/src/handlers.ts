@@ -2,7 +2,10 @@ import {
   type DidDocument,
   FLYWAY_TOOLS,
   type FlywayMode,
+  type SignalRefs,
   type SignedEntityStatement,
+  type TensionBody,
+  createTension,
   flywayCheck,
   flywayInit,
   flywayStatus,
@@ -41,8 +44,85 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleRecognize(args)
     case 'flyway_check':
       return handleCheck(args)
+    case 'flyway_tension':
+      return handleTension(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleTension(
+  args: Record<string, unknown> | undefined,
+): Promise<CallToolResult> {
+  // Stateless: the calling agent supplies its own identity and the peer
+  // DID; the handler signs an envelope and returns it. The caller is
+  // responsible for writing to its own outbox and delivering to the
+  // peer's inbox — the flyway CLI's `tension` subcommand does this.
+  if (!args || typeof args !== 'object') {
+    return errorResult(
+      'flyway_tension requires arguments: ownDidDocument, ownPrivateKeyPem, peerDid, conditions, effect',
+    )
+  }
+  const a = args as Record<string, unknown>
+  if (
+    typeof a.ownPrivateKeyPem !== 'string' ||
+    typeof a.ownDidDocument !== 'object' ||
+    a.ownDidDocument === null ||
+    typeof a.peerDid !== 'string' ||
+    typeof a.conditions !== 'string' ||
+    typeof a.effect !== 'string'
+  ) {
+    return errorResult(
+      'flyway_tension requires: ownDidDocument (object), ownPrivateKeyPem (string), peerDid (string), conditions (string), effect (string)',
+    )
+  }
+  const ownDidDocument = a.ownDidDocument as DidDocument
+  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  if (!ownVerificationMethod) {
+    return errorResult('flyway_tension: ownDidDocument has no verificationMethod')
+  }
+  const body: TensionBody = {
+    conditions: a.conditions,
+    effect: a.effect,
+    ...(typeof a.relevance === 'string' ? { relevance: a.relevance } : {}),
+    ...(typeof a.proposedOwner === 'string' ? { proposedOwner: a.proposedOwner } : {}),
+  }
+  const refs =
+    a.refs && typeof a.refs === 'object' ? (a.refs as SignalRefs) : undefined
+  try {
+    const signer = localEd25519Signer({
+      privateKeyPem: a.ownPrivateKeyPem,
+      publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+      verificationKeyId: ownVerificationMethod.id,
+    })
+    const envelope = await createTension({
+      from: ownDidDocument.id,
+      to: a.peerDid,
+      body,
+      signer,
+      ...(refs !== undefined ? { refs } : {}),
+    })
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              envelope,
+              note:
+                'Write this envelope to flyway/outbox/<peer-segments>/<id>.yaml ' +
+                'in your repo and deliver it to the peer at ' +
+                'flyway/inbox/<your-segments>/<id>.yaml in their repo. The flyway ' +
+                'CLI `tension` subcommand does both.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  } catch (e) {
+    return errorResult(`flyway_tension failed: ${(e as Error).message}`)
   }
 }
 

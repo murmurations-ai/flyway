@@ -7,6 +7,7 @@ import {
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
 import { runRecognize } from '../recognize.js'
+import { runTension } from '../tension.js'
 import { runUnrecognize } from '../unrecognize.js'
 import {
   inferTarget,
@@ -45,6 +46,14 @@ Commands:
   check [--json]                      Inspect flyway/inbox/ and report
                                       signals received from peers, with
                                       per-signal signature validity.
+
+  tension <peer-repo-path> --conditions "..." --effect "..."
+          [--relevance "..."] [--proposed-owner "<did>"]
+                                      Flag a tension to a recognized peer
+                                      (S3 Navigate via Tension). Signs an
+                                      envelope, writes it to your outbox,
+                                      and delivers it to the peer's inbox
+                                      via the local-fs transport.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -320,6 +329,49 @@ async function handleUnrecognizeCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleTensionCommand(args: string[]): Promise<number> {
+  const { value: conditions, rest: r1 } = parseFlag(args, '--conditions')
+  const { value: effect, rest: r2 } = parseFlag(r1, '--effect')
+  const { value: relevance, rest: r3 } = parseFlag(r2, '--relevance')
+  const { value: proposedOwner, rest: positional } = parseFlag(r3, '--proposed-owner')
+  const [peerRepoPath] = positional
+  if (!peerRepoPath) {
+    process.stderr.write('error: flyway tension requires a peer repo path\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!conditions || !effect) {
+    process.stderr.write(
+      'error: flyway tension requires --conditions and --effect\n\n',
+    )
+    process.stderr.write(HELP)
+    return 2
+  }
+  try {
+    const result = await runTension({
+      cwd: process.cwd(),
+      peerRepoPath,
+      body: {
+        conditions,
+        effect,
+        ...(relevance !== undefined ? { relevance } : {}),
+        ...(proposedOwner !== undefined ? { proposedOwner } : {}),
+      },
+    })
+    process.stdout.write(
+      `Flagged tension to ${result.peerDid}\n` +
+        `  id:       ${result.signal.id}\n` +
+        `  sentAt:   ${result.signal.sentAt}\n` +
+        `  wrote ${result.outboxPath}\n` +
+        `  delivered ${result.inboxPath}\n`,
+    )
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function handleCheckCommand(args: string[]): Promise<number> {
   const { present: asJson } = parseBoolFlag(args, '--json')
   try {
@@ -371,6 +423,8 @@ async function main(argv: string[]): Promise<number> {
       return handleUnrecognizeCommand(rest)
     case 'check':
       return handleCheckCommand(rest)
+    case 'tension':
+      return handleTensionCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

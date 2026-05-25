@@ -102,6 +102,92 @@ describe('callFlywayTool — flyway_status (implemented)', () => {
   })
 })
 
+describe('callFlywayTool — flyway_tension (implemented)', () => {
+  async function makeIdentity() {
+    const init = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_init',
+        arguments: {
+          repoUrl: 'https://github.com/xeeban/a',
+          sourceName: 'Nori',
+          mode: 'interactive',
+        },
+      },
+    })
+    const first = init.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    return JSON.parse(first.text) as {
+      did: string
+      didDocument: unknown
+      keypair: { privateKeyPem: string }
+    }
+  }
+
+  it('returns a signed tension envelope for valid input', async () => {
+    const me = await makeIdentity()
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_tension',
+        arguments: {
+          ownDidDocument: me.didDocument,
+          ownPrivateKeyPem: me.keypair.privateKeyPem,
+          peerDid: 'did:web:github.com:emergent:praxis',
+          conditions: 'Sprint reviews run long.',
+          effect: 'Retros are being skipped.',
+          relevance: 'Both teams lose feedback loop quality.',
+        },
+      },
+    })
+    expect(result.isError).toBeUndefined()
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(first.text)
+    expect(payload.envelope.kind).toBe('tension')
+    expect(payload.envelope.from).toBe(me.did)
+    expect(payload.envelope.to).toBe('did:web:github.com:emergent:praxis')
+    expect(payload.envelope.signature.domain).toBe('flyway-v1:tension')
+    expect(payload.envelope.body.conditions).toBe('Sprint reviews run long.')
+    expect(payload.envelope.body.relevance).toBe('Both teams lose feedback loop quality.')
+  })
+
+  it('returns isError for missing required fields', async () => {
+    const me = await makeIdentity()
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_tension',
+        arguments: {
+          ownDidDocument: me.didDocument,
+          ownPrivateKeyPem: me.keypair.privateKeyPem,
+          peerDid: 'did:web:github.com:emergent:praxis',
+          // conditions and effect missing
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+
+  it('returns isError when body validation fails (empty conditions)', async () => {
+    const me = await makeIdentity()
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_tension',
+        arguments: {
+          ownDidDocument: me.didDocument,
+          ownPrivateKeyPem: me.keypair.privateKeyPem,
+          peerDid: 'did:web:github.com:emergent:praxis',
+          conditions: '',
+          effect: 'Y',
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+})
+
 describe('callFlywayTool — other tools (not yet implemented)', () => {
   it('returns isError for unimplemented tools', async () => {
     const result = await callFlywayTool({

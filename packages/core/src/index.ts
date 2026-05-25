@@ -95,6 +95,8 @@ export type {
   FlywayStatusPeerEntry,
 } from './status.js'
 export { flywayStatus } from './status.js'
+export type { CreateTensionInput, TensionBody } from './tension.js'
+export { createTension } from './tension.js'
 export type {
   RecognitionEntry,
   RecognizePeerInput,
