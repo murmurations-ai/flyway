@@ -2,6 +2,8 @@
 import {
   FLYWAY_PROTOCOL_VERSION,
   type FlywayMode,
+  TENSION_DECISIONS,
+  type TensionDecision,
   flywayCheck,
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
@@ -382,6 +384,10 @@ async function handleTensionCommand(args: string[]): Promise<number> {
   }
 }
 
+function isTensionDecision(value: string): value is TensionDecision {
+  return (TENSION_DECISIONS as readonly string[]).includes(value)
+}
+
 async function handleRespondCommand(args: string[]): Promise<number> {
   const { value: subjectId, rest: r1 } = parseFlag(args, '--subject-id')
   const { value: decisionRaw, rest: r2 } = parseFlag(r1, '--decision')
@@ -400,11 +406,9 @@ async function handleRespondCommand(args: string[]): Promise<number> {
     process.stderr.write(HELP)
     return 2
   }
-  const tensionDecisions = ['acknowledge', 'dispute', 'dissolve', 'transfer'] as const
-  type TensionDecisionLocal = (typeof tensionDecisions)[number]
-  if (!tensionDecisions.includes(decisionRaw as TensionDecisionLocal)) {
+  if (!isTensionDecision(decisionRaw)) {
     process.stderr.write(
-      `error: --decision must be one of ${tensionDecisions.join(', ')} (got: ${decisionRaw})\n` +
+      `error: --decision must be one of ${TENSION_DECISIONS.join(', ')} (got: ${decisionRaw})\n` +
         '       proposal decisions (accept/object/exit) are not yet wired in v0.1.\n',
     )
     return 2
@@ -414,7 +418,7 @@ async function handleRespondCommand(args: string[]): Promise<number> {
       cwd: process.cwd(),
       peerRepoPath,
       subjectId,
-      decision: decisionRaw as TensionDecisionLocal,
+      decision: decisionRaw,
       ...(reason !== undefined ? { reason } : {}),
       ...(transferTo !== undefined ? { transferTo } : {}),
     })

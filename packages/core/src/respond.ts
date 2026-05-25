@@ -18,11 +18,13 @@
  * is wired.
  */
 
+import type { DidDocument } from './init.js'
 import {
   type BuildSignedSignalInput,
   type SignalRefs,
   type SignedSignalEnvelope,
   buildSignedSignal,
+  verifySignedSignal,
 } from './signal.js'
 import type { Signer } from './signing.js'
 
@@ -63,6 +65,9 @@ export interface TensionResponseBody {
   readonly transferTo?: string
 }
 
+/** Refs required on a tension response — tensionId is load-bearing. */
+export type TensionResponseRefs = SignalRefs & { readonly tensionId: string }
+
 export interface CreateTensionResponseInput {
   /** Responder DID — must match signer.verificationKeyId modulo fragment. */
   readonly from: string
@@ -74,7 +79,21 @@ export interface CreateTensionResponseInput {
    * Required refs. `tensionId` (and `inReplyTo`) must be the id of the
    * prior tension; a response with no subject is not a response.
    */
-  readonly refs: SignalRefs & { readonly tensionId: string }
+  readonly refs: TensionResponseRefs
+  /**
+   * The tension this is responding to (as cached in the responder's
+   * inbox). Required: per ADR-0009 we never sign a response over an
+   * unverified antecedent artifact.
+   */
+  readonly subjectEnvelope: SignedSignalEnvelope
+  /**
+   * The subject's sender DID document, loaded from the responder's
+   * recognition-time cache (`flyway/peers/<segments>/did.json`). MUST
+   * be the cached copy, not a fresh read from the peer's repo —
+   * otherwise an attacker who can control that path can supply a
+   * matching public key for a tension they fabricated.
+   */
+  readonly subjectSenderDidDocument: DidDocument
   /** Signer for the responding Source. */
   readonly signer: Signer
   /** Override id generation. */
@@ -90,12 +109,17 @@ export interface CreateTensionResponseInput {
  *  - decision is one of the four tension decisions
  *  - reason is non-empty when the decision requires it
  *  - transferTo is provided iff decision === 'transfer'
- *  - refs.tensionId is present (a response with no subject is not a response)
+ *  - refs.tensionId is present and matches subjectEnvelope.id
+ *  - the subject envelope is a tension
+ *  - the subject envelope's `from` matches the response's `to`
+ *  - **the subject envelope's signature verifies against the cached
+ *    sender DID document** (ADR-0009 antecedent verification — we
+ *    never launder a broken signature into our signed reply chain).
  */
 export async function createTensionResponse(
   input: CreateTensionResponseInput,
 ): Promise<SignedSignalEnvelope> {
-  const { body, refs } = input
+  const { body, refs, subjectEnvelope, subjectSenderDidDocument } = input
   if (!TENSION_DECISIONS.includes(body.decision)) {
     throw new Error(
       `createTensionResponse: decision must be one of ${TENSION_DECISIONS.join(', ')} ` +
@@ -124,6 +148,42 @@ export async function createTensionResponse(
   if (typeof refs.tensionId !== 'string' || refs.tensionId.trim() === '') {
     throw new Error(
       'createTensionResponse: refs.tensionId is required — a response must point at a subject',
+    )
+  }
+
+  // Antecedent verification (ADR-0009). The subject envelope must
+  // resolve to a real tension from the peer we're replying to and must
+  // verify under that peer's recognition-time-cached key. Each check
+  // is its own error path so failures are diagnosable.
+  if (subjectEnvelope.kind !== 'tension') {
+    throw new Error(
+      `createTensionResponse: subjectEnvelope.kind must be 'tension' ` +
+        `(got: ${subjectEnvelope.kind})`,
+    )
+  }
+  if (subjectEnvelope.id !== refs.tensionId) {
+    throw new Error(
+      `createTensionResponse: refs.tensionId (${refs.tensionId}) does not match ` +
+        `subjectEnvelope.id (${subjectEnvelope.id})`,
+    )
+  }
+  if (subjectEnvelope.from !== input.to) {
+    throw new Error(
+      `createTensionResponse: subjectEnvelope.from (${subjectEnvelope.from}) does not ` +
+        `match response 'to' (${input.to}) — responses go back to the subject's sender`,
+    )
+  }
+  if (subjectSenderDidDocument.id !== subjectEnvelope.from) {
+    throw new Error(
+      `createTensionResponse: subjectSenderDidDocument.id (${subjectSenderDidDocument.id}) ` +
+        `does not match subjectEnvelope.from (${subjectEnvelope.from})`,
+    )
+  }
+  const subjectOk = await verifySignedSignal(subjectEnvelope, subjectSenderDidDocument)
+  if (!subjectOk) {
+    throw new Error(
+      `createTensionResponse: subjectEnvelope signature does not verify against the ` +
+        `cached sender DID document. Refusing to respond to a tampered or stale tension.`,
     )
   }
 

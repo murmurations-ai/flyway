@@ -9,6 +9,7 @@ import {
   type TensionBody,
   type TensionDecision,
   type TensionResponseBody,
+  type TensionResponseRefs,
   createTension,
   createTensionResponse,
   flywayCheck,
@@ -16,7 +17,6 @@ import {
   flywayStatus,
   localEd25519Signer,
   recognizePeer,
-  verifySignedSignal,
 } from '@murmurations-ai/flyway-core'
 import type {
   CallToolRequest,
@@ -63,11 +63,10 @@ async function handleRespond(
   args: Record<string, unknown> | undefined,
 ): Promise<CallToolResult> {
   // Stateless: the calling agent supplies its own identity, the subject
-  // envelope (as it received it), the peer's DID document (for subject
-  // verification), and the decision. The handler verifies the subject
-  // signature and returns a signed response envelope. The caller is
-  // responsible for filesystem persistence — the flyway CLI's `respond`
-  // subcommand does this.
+  // envelope (as it received it), the peer's *recognition-time-cached*
+  // DID document, and the decision. The handler delegates to
+  // createTensionResponse which performs ADR-0009 antecedent
+  // verification (kind + id + sender + signature) before signing.
   if (!args || typeof args !== 'object') {
     return errorResult(
       'flyway_respond requires arguments: ownDidDocument, ownPrivateKeyPem, ' +
@@ -96,37 +95,33 @@ async function handleRespond(
         '(proposal decisions are not yet wired in v0.1)',
     )
   }
+  // Minimal shape check on subjectEnvelope — verifySignedSignal would
+  // throw a confusing error if these are missing.
+  const rawSubject = a.subjectEnvelope as Record<string, unknown>
+  if (
+    typeof rawSubject.id !== 'string' ||
+    typeof rawSubject.from !== 'string' ||
+    typeof rawSubject.kind !== 'string' ||
+    typeof rawSubject.signature !== 'object'
+  ) {
+    return errorResult(
+      'flyway_respond: subjectEnvelope is missing required fields (id, from, kind, signature)',
+    )
+  }
   const ownDidDocument = a.ownDidDocument as DidDocument
   const peerDidDocument = a.peerDidDocument as DidDocument
-  const subject = a.subjectEnvelope as SignedSignalEnvelope
+  const subject = rawSubject as unknown as SignedSignalEnvelope
   const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_respond: ownDidDocument has no verificationMethod')
   }
-  if (subject.kind !== 'tension') {
-    return errorResult(
-      `flyway_respond: subjectEnvelope.kind must be 'tension' in v0.1 (got: ${subject.kind})`,
-    )
-  }
-  if (subject.from !== peerDidDocument.id) {
-    return errorResult(
-      `flyway_respond: subjectEnvelope.from (${subject.from}) does not match ` +
-        `peerDidDocument.id (${peerDidDocument.id})`,
-    )
-  }
   try {
-    const subjectOk = await verifySignedSignal(subject, peerDidDocument)
-    if (!subjectOk) {
-      return errorResult(
-        'flyway_respond: subjectEnvelope signature does not verify against peerDidDocument',
-      )
-    }
     const body: TensionResponseBody = {
       decision: a.decision as TensionDecision,
       ...(typeof a.reason === 'string' ? { reason: a.reason } : {}),
       ...(typeof a.transferTo === 'string' ? { transferTo: a.transferTo } : {}),
     }
-    const refs: SignalRefs & { tensionId: string } = {
+    const refs: TensionResponseRefs = {
       tensionId: subject.id,
       inReplyTo: subject.id,
     }
@@ -140,6 +135,8 @@ async function handleRespond(
       to: peerDidDocument.id,
       body,
       refs,
+      subjectEnvelope: subject,
+      subjectSenderDidDocument: peerDidDocument,
       signer,
     })
     return {

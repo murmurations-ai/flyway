@@ -52,6 +52,25 @@ export interface DidDocument {
   readonly authentication: readonly string[]
 }
 
+/**
+ * Return the primary verification method of a DID document. Throws with
+ * a descriptive error if the document has none — better than the cryptic
+ * `TypeError` you'd get from a `!` non-null assertion on
+ * `verificationMethod[0]`. v0.1 always treats `verificationMethod[0]`
+ * as the primary key; rotation policy lives outside this helper.
+ */
+export function getPrimaryVerificationKey(
+  doc: DidDocument,
+): DidVerificationMethod {
+  const vm = doc.verificationMethod[0]
+  if (!vm) {
+    throw new Error(
+      `getPrimaryVerificationKey: DID document ${doc.id} has no verificationMethod`,
+    )
+  }
+  return vm
+}
+
 export type FlywayMode = 'persistent' | 'interactive' | 'async' | 'ephemeral'
 
 export interface EntityStatement {

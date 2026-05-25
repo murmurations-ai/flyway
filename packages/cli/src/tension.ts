@@ -22,6 +22,7 @@ import {
   type SignedSignalEnvelope,
   type TensionBody,
   createTension,
+  getPrimaryVerificationKey,
   localEd25519Signer,
   writeSignalToInbox,
   writeSignalToOutbox,
@@ -98,11 +99,12 @@ export async function runTension(options: RunTensionOptions): Promise<RunTension
   }
 
   // 4. Build the signer and the signed envelope.
+  const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
   const verificationKeyId =
     ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
-    publicKeyJwk: ourDidDocument.verificationMethod[0]!.publicKeyJwk,
+    publicKeyJwk: ownVerificationMethod.publicKeyJwk,
     verificationKeyId,
   })
   const signal = await createTension({

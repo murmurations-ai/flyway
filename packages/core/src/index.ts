@@ -38,6 +38,7 @@ export {
   deriveDid,
   flywayInit,
   generateEd25519Keypair,
+  getPrimaryVerificationKey,
   parseRepoUrl,
 } from './init.js'
 export type {
@@ -73,7 +74,9 @@ export {
   SIGNAL_KINDS,
   SIGNAL_SCHEMA_VERSION,
   buildSignedSignal,
+  collectYamlFiles,
   domainForSignalKind,
+  findInboxSignalById,
   generateSignalId,
   readSignalFile,
   signalInboxPath,
@@ -101,6 +104,7 @@ export type {
   CreateTensionResponseInput,
   TensionDecision,
   TensionResponseBody,
+  TensionResponseRefs,
 } from './respond.js'
 export { TENSION_DECISIONS, createTensionResponse } from './respond.js'
 export type {

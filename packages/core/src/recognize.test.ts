@@ -196,4 +196,22 @@ describe('peerCachePathSegments', () => {
   it('rejects DIDs with no path components', () => {
     expect(() => peerCachePathSegments('did:web:example.com')).toThrow(/path components/)
   })
+
+  // Path-traversal safety. Each of these would write outside the
+  // intended subtree if not rejected — the peer publishes their own
+  // did.json so this string is attacker-controlled in practice.
+  it.each([
+    'did:web:github.com:..:..:..:tmp:pwn',
+    'did:web:github.com:.:owner:repo',
+    'did:web:github.com:xeeban:repo:..',
+    'did:web::owner:repo',
+    'did:web:github.com::repo',
+    'did:web:github.com:xee/ban:repo',
+    'did:web:github.com:xee\\ban:repo',
+    'did:web:github.com:xeeban:re po',
+  ])('rejects unsafe DID: %s', (did) => {
+    expect(() => peerCachePathSegments(did)).toThrow(
+      /unsafe segment|characters outside/,
+    )
+  })
 })

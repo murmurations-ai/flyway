@@ -16,7 +16,7 @@
  *     ADR-0008 local-fs transport.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type DidDocument,
@@ -24,10 +24,10 @@ import {
   type SignedSignalEnvelope,
   type TensionDecision,
   createTensionResponse,
+  findInboxSignalById,
+  getPrimaryVerificationKey,
   localEd25519Signer,
   peerCachePathSegments,
-  readSignalFile,
-  verifySignedSignal,
   writeSignalToInbox,
   writeSignalToOutbox,
 } from '@murmurations-ai/flyway-core'
@@ -81,16 +81,22 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
   ) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
-  // 2. Resolve the peer DID from their published did.json.
-  const peerDidDocPath = join(peerRepoPath, '.well-known', 'did.json')
-  if (!existsSync(peerDidDocPath)) {
+  // 2. Resolve the peer DID. The peer's *.well-known/did.json* is used
+  //    only as a discovery hint (which peer does this path correspond
+  //    to?). The DID document we will pass to the verifier is the
+  //    recognition-time cached copy at flyway/peers/<segments>/did.json
+  //    — the cached copy is the artifact we attested to when we
+  //    recognized the peer. Using a freshly-read copy would let an
+  //    attacker who controls peerRepoPath supply any public key.
+  const peerHintPath = join(peerRepoPath, '.well-known', 'did.json')
+  if (!existsSync(peerHintPath)) {
     throw new Error(
-      `flyway respond: peer DID document missing at ${peerDidDocPath}. ` +
-        `Is ${peerRepoPath} a flyway-initialized repo?`,
+      `flyway respond: peer DID document missing at ${peerHintPath}. ` +
+        `Run \`flyway init\` in ${peerRepoPath} first.`,
     )
   }
-  const peerDidDocument = JSON.parse(readFileSync(peerDidDocPath, 'utf-8')) as DidDocument
-  const peerDid = peerDidDocument.id
+  const peerHintDidDocument = JSON.parse(readFileSync(peerHintPath, 'utf-8')) as DidDocument
+  const peerDid = peerHintDidDocument.id
 
   // 3. Refuse to respond to an unrecognized peer. Signing the response
   //    only makes sense if we've affirmatively engaged with them.
@@ -103,16 +109,32 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     )
   }
 
-  // 4. Find the subject signal in our inbox by id.
+  // 4. Load the cached peer DID document — the trusted copy.
+  const cachedPeerDidPath = join(
+    cwd,
+    'flyway',
+    'peers',
+    ...peerCachePathSegments(peerDid),
+    'did.json',
+  )
+  if (!existsSync(cachedPeerDidPath)) {
+    throw new Error(
+      `flyway respond: cached peer DID document missing at ${cachedPeerDidPath}. ` +
+        `Run \`flyway recognize ${peerRepoPath} --force\` to refresh the cache.`,
+    )
+  }
+  const peerDidDocument = JSON.parse(readFileSync(cachedPeerDidPath, 'utf-8')) as DidDocument
+
+  // 5. Find the subject signal in our inbox by id.
   const subject = findInboxSignalById(cwd, subjectId)
   if (!subject) {
     throw new Error(
       `flyway respond: no signal with id '${subjectId}' found in ${join(cwd, 'flyway', 'inbox')}. ` +
-        'Did you mean to run `flyway check` first to see what is in your inbox?',
+        'Run `flyway check` first to see what is in your inbox.',
     )
   }
 
-  // 5. Cross-check: the subject must be from the peer we're responding to.
+  // 6. Cross-check: the subject must be from the peer we're responding to.
   if (subject.from !== peerDid) {
     throw new Error(
       `flyway respond: subject signal '${subjectId}' is from ${subject.from} but ` +
@@ -121,8 +143,10 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     )
   }
 
-  // 6. v0.1 wires tension responses only. Refuse proposals explicitly so
+  // 7. v0.1 wires tension responses only. Refuse proposals explicitly so
   //    the failure is informative rather than a downstream domain mismatch.
+  //    Core's createTensionResponse will reject this too; we surface a
+  //    friendlier error here.
   if (subject.kind !== 'tension') {
     throw new Error(
       `flyway respond: responding to '${subject.kind}' signals is not yet wired in v0.1. ` +
@@ -130,23 +154,15 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     )
   }
 
-  // 7. Verify the subject signal's signature before responding. We refuse
-  //    to sign a response to a tampered tension — doing so would launder
-  //    the broken signature into our reply chain.
-  const subjectVerifies = await verifySignedSignal(subject, peerDidDocument)
-  if (!subjectVerifies) {
-    throw new Error(
-      `flyway respond: subject signal '${subjectId}' signature does not verify against ` +
-        `peer DID document. Refusing to respond to a tampered or stale tension.`,
-    )
-  }
-
-  // 8. Build the signer and the signed response.
+  // 8. Build the signer and the signed response. Antecedent verification
+  //    (per ADR-0009) is performed inside createTensionResponse — passing
+  //    the cached peer DID document and the subject envelope is sufficient.
+  const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
   const verificationKeyId =
     ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
-    publicKeyJwk: ourDidDocument.verificationMethod[0]!.publicKeyJwk,
+    publicKeyJwk: ownVerificationMethod.publicKeyJwk,
     verificationKeyId,
   })
   const response = await createTensionResponse({
@@ -158,6 +174,8 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
       ...(options.transferTo !== undefined ? { transferTo: options.transferTo } : {}),
     },
     refs: { tensionId: subjectId, inReplyTo: subjectId },
+    subjectEnvelope: subject,
+    subjectSenderDidDocument: peerDidDocument,
     signer,
   })
 
@@ -174,52 +192,3 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
   }
 }
 
-// ────────────────────────────────────────────────────────────────────────
-// Inbox lookup helper.
-// ────────────────────────────────────────────────────────────────────────
-
-function findInboxSignalById(cwd: string, id: string): SignedSignalEnvelope | null {
-  const inboxRoot = join(cwd, 'flyway', 'inbox')
-  if (!existsSync(inboxRoot)) return null
-  for (const path of collectYamlFiles(inboxRoot)) {
-    const env = readSignalFile(path)
-    if (env && env.id === id) return env
-  }
-  return null
-}
-
-function collectYamlFiles(root: string): string[] {
-  const out: string[] = []
-  const stack = [root]
-  while (stack.length > 0) {
-    const dir = stack.pop()!
-    let entries: string[]
-    try {
-      entries = readdirSync(dir)
-    } catch {
-      continue
-    }
-    for (const name of entries) {
-      if (name.startsWith('.')) continue
-      const full = join(dir, name)
-      let stat
-      try {
-        stat = statSync(full)
-      } catch {
-        continue
-      }
-      if (stat.isDirectory()) {
-        stack.push(full)
-      } else if (stat.isFile() && name.endsWith('.yaml')) {
-        out.push(full)
-      }
-    }
-  }
-  return out
-}
-
-/**
- * Re-export for callers (mostly: peerCachePathSegments) that want to compose
- * inbox / outbox paths without going through flyway-core directly.
- */
-export { peerCachePathSegments }

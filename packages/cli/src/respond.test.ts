@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { flywayCheck, readSignalFile } from '@murmurations-ai/flyway-core'
@@ -213,7 +213,7 @@ describe('runRespond — refuses unsafe operations', () => {
       'a',
       `${subjectId}.yaml`,
     )
-    const original = (await import('node:fs')).readFileSync(inboxFile, 'utf-8')
+    const original = readFileSync(inboxFile, 'utf-8')
     writeFileSync(inboxFile, original.replace('conditions: X', 'conditions: TAMPERED'))
     await expect(
       runRespond({

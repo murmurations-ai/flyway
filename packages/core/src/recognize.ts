@@ -229,16 +229,44 @@ export function fingerprintEntityStatement(
  * URL layout. E.g. did:web:github.com:foo:bar → 'github.com/foo/bar'.
  *
  * Throws on non-did:web DIDs; v0.1 only supports did:web.
+ *
+ * Path-traversal safety: every segment of the DID after `did:web:` is
+ * used as a directory name when composing inbox / outbox / peer-cache
+ * paths. A peer who controls their `.well-known/did.json` can publish
+ * *any* DID string, so this function MUST reject anything that would
+ * escape the intended subtree or coerce a non-file-name into a file
+ * name. Rejected: `.`, `..`, segments containing `/`, `\`, NUL, or
+ * any character outside the conservative `[A-Za-z0-9._-]` set
+ * (which is a strict superset of what did:web's host + path-segment
+ * grammar permits in practice).
  */
+const SAFE_SEGMENT_RE = /^[A-Za-z0-9._-]+$/
+
 export function peerCachePathSegments(did: string): readonly string[] {
   const prefix = 'did:web:'
-  if (!did.startsWith(prefix)) {
-    throw new Error(`peerCachePathSegments: only did:web DIDs supported (got: ${did})`)
+  if (typeof did !== 'string' || !did.startsWith(prefix)) {
+    throw new Error(`peerCachePathSegments: only did:web DIDs supported (got: ${String(did)})`)
   }
   const tail = did.slice(prefix.length)
-  const segments = tail.split(':').filter((s) => s.length > 0)
+  // Split on ':' but do NOT filter empties — an empty segment indicates
+  // a malformed DID (e.g. "did:web::owner:repo"), which we surface
+  // rather than silently coerce.
+  const segments = tail.split(':')
   if (segments.length < 2) {
     throw new Error(`peerCachePathSegments: did:web missing path components (got: ${did})`)
+  }
+  for (const segment of segments) {
+    if (segment === '' || segment === '.' || segment === '..') {
+      throw new Error(
+        `peerCachePathSegments: rejected unsafe segment '${segment}' in did (${did})`,
+      )
+    }
+    if (!SAFE_SEGMENT_RE.test(segment)) {
+      throw new Error(
+        `peerCachePathSegments: did segment '${segment}' contains characters outside ` +
+          `[A-Za-z0-9._-] (got: ${did})`,
+      )
+    }
   }
   return segments
 }

@@ -185,6 +185,7 @@ Accepted ADRs:
 - [ADR-0006](./docs/adr/0006-skill-distribution-and-installation.md) — skill distribution and installation
 - [ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md) — pluggable signers and on-chain anchoring (optional)
 - [ADR-0008](./docs/adr/0008-signal-transport-convention.md) — signal transport convention (envelope + inbox/outbox + pluggable transports)
+- [ADR-0009](./docs/adr/0009-antecedent-verification-before-signing.md) — antecedent verification before signing (the rule lives in core; adapters can't skip it)
 
 ## MVP Direction
 

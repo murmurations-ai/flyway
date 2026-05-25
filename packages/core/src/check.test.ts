@@ -166,6 +166,43 @@ describe('flywayCheck — signal from a recognized peer', () => {
   })
 })
 
+describe('flywayCheck — sentAt vs recognizedAt ordering', () => {
+  let tmp: string
+  beforeEach(() => {
+    tmp = freshTmp()
+  })
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('flags a signal whose sentAt predates the peer recognizedAt (no retroactive validation)', async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const sender = await makeMurmuration('emergent', 'p')
+    await seedReceiverWithRecognizedPeer(tmp, sender, recipient)
+    // seedReceiverWithRecognizedPeer hardcodes recognizedAt=2026-05-21T00:00:00.000Z;
+    // sign a tension dated *before* that.
+    const env = await buildSignedSignal({
+      from: sender.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'X', effect: 'Y' },
+      signer: sender.signer,
+      id: 'predates-1',
+      now: new Date('2026-04-01T00:00:00.000Z'),
+    })
+    writeSignalToInbox(tmp, env)
+
+    const result = await flywayCheck(tmp)
+    expect(result.totalCount).toBe(1)
+    expect(result.validCount).toBe(0)
+    const entry = result.signals[0]!
+    expect(entry.signatureValid).toBe(true) // signature itself is valid
+    expect(
+      entry.issues.some((i) => /predates peer recognizedAt/.test(i)),
+    ).toBe(true)
+  })
+})
+
 describe('flywayCheck — signal from an unrecognized sender', () => {
   let tmp: string
   beforeEach(() => {

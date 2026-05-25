@@ -17,7 +17,14 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { parseDocument, stringify as yamlStringify } from 'yaml'
 import type { DidDocument } from './init.js'
@@ -217,7 +224,19 @@ function writeSignalFile(
 ): { path: string; created: boolean } {
   const dir = path.substring(0, path.lastIndexOf('/'))
   mkdirSync(dir, { recursive: true })
-  if (existsSync(path)) {
+  const content = header + yamlStringify(envelope)
+  // Atomic-create-or-fail. Closes the TOCTOU window where two concurrent
+  // writers (or a racing attacker) could both pass an existsSync check
+  // and have the second writer overwrite without the
+  // "differently-signed envelope" guard ever firing.
+  try {
+    writeFileSync(path, content, { flag: 'wx' })
+    return { path, created: true }
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
+    // File already exists — compare signatures. Identical re-delivery
+    // is a no-op; differing signatures with the same (from, id) are an
+    // attempt to overwrite history.
     const existing = readSignalFile(path)
     if (existing && existing.signature.signature === envelope.signature.signature) {
       return { path, created: false }
@@ -226,8 +245,6 @@ function writeSignalFile(
       `writeSignal: refusing to overwrite ${path} with a differently-signed envelope (id reuse?)`,
     )
   }
-  writeFileSync(path, header + yamlStringify(envelope))
-  return { path, created: true }
 }
 
 export function readSignalFile(path: string): SignedSignalEnvelope | null {
@@ -241,4 +258,59 @@ export function readSignalFile(path: string): SignedSignalEnvelope | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Walk `root` and return every `.yaml` file path. Stable sorted output.
+ * Used by `flyway_check` and `flyway_respond` to enumerate the inbox
+ * tree. Dot-prefixed files and entries that fail stat are skipped.
+ */
+export function collectYamlFiles(root: string): string[] {
+  const out: string[] = []
+  const stack = [root]
+  while (stack.length > 0) {
+    const dir = stack.pop()!
+    let entries: string[]
+    try {
+      entries = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of entries) {
+      if (name.startsWith('.')) continue
+      const full = join(dir, name)
+      let stat
+      try {
+        stat = statSync(full)
+      } catch {
+        continue
+      }
+      if (stat.isDirectory()) {
+        stack.push(full)
+      } else if (stat.isFile() && name.endsWith('.yaml')) {
+        out.push(full)
+      }
+    }
+  }
+  return out.sort()
+}
+
+/**
+ * Find the first signal in `<cwd>/flyway/inbox/` whose envelope id
+ * matches. "First" is defined by `collectYamlFiles`' sorted output; if
+ * two files share an id (which would itself be a protocol violation),
+ * the lexicographically-earlier path wins. Returns null when no match
+ * is found or the inbox directory does not exist.
+ */
+export function findInboxSignalById(
+  cwd: string,
+  id: string,
+): SignedSignalEnvelope | null {
+  const inboxRoot = join(cwd, 'flyway', 'inbox')
+  if (!existsSync(inboxRoot)) return null
+  for (const path of collectYamlFiles(inboxRoot)) {
+    const env = readSignalFile(path)
+    if (env && env.id === id) return env
+  }
+  return null
 }

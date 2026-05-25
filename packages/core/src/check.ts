@@ -15,7 +15,7 @@
  * Lifecycle management (archive, mark-read) lives in later tools.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { parseDocument } from 'yaml'
 import type { DidDocument } from './init.js'
@@ -27,6 +27,7 @@ import {
   SIGNAL_SCHEMA_VERSION,
   type SignalKind,
   type SignedSignalEnvelope,
+  collectYamlFiles,
   domainForSignalKind,
   readSignalFile,
   verifySignedSignal,
@@ -76,7 +77,9 @@ export async function flywayCheck(cwd: string): Promise<FlywaySignalInbox> {
     const entry = await inspectSignalFile(cwd, path, inboxRoot, recognizedPeers, issues)
     if (entry) {
       signals.push(entry)
-      if (entry.fromRecognized && entry.signatureValid) validCount++
+      if (entry.fromRecognized && entry.signatureValid && entry.issues.length === 0) {
+        validCount++
+      }
     }
   }
 
@@ -141,6 +144,17 @@ async function inspectSignalFile(
     }
   }
 
+  // Reject signals dated before recognition: a peer cannot retroactively
+  // gain recognition over older signed material. This also flags
+  // "ghost" signals dropped into the inbox before the sender was a
+  // peer.
+  if (peerEntry?.recognizedAt && envelope.sentAt < peerEntry.recognizedAt) {
+    perEntryIssues.push(
+      `signal sentAt (${envelope.sentAt}) predates peer recognizedAt ` +
+        `(${peerEntry.recognizedAt}) — refusing retroactive validation`,
+    )
+  }
+
   // Load cached peer DID document and verify.
   let signatureValid = false
   try {
@@ -183,32 +197,3 @@ function readRecognizedPeerSet(cwd: string): Map<string, SignedRecognitionEntry>
   }
 }
 
-function collectYamlFiles(root: string): string[] {
-  const out: string[] = []
-  const stack = [root]
-  while (stack.length > 0) {
-    const dir = stack.pop()!
-    let entries: string[]
-    try {
-      entries = readdirSync(dir)
-    } catch {
-      continue
-    }
-    for (const name of entries) {
-      if (name.startsWith('.')) continue
-      const full = join(dir, name)
-      let stat
-      try {
-        stat = statSync(full)
-      } catch {
-        continue
-      }
-      if (stat.isDirectory()) {
-        stack.push(full)
-      } else if (stat.isFile() && name.endsWith('.yaml')) {
-        out.push(full)
-      }
-    }
-  }
-  return out.sort()
-}
