@@ -17,6 +17,7 @@ as GitHub issues.
 | ---------- | ------------------------------------------------------------------------------- | ------------ | -------- | --------- | -------------------------------------------------------------------------------------- |
 | 2026-05-13 | [3-party retrospective cadence](./2026-05-13-3party-retrospective-cadence.md)   | narrative    | 0.1.0    | `02e1bfa` | Consent reached after one objection-integration cycle. 8 gaps surfaced.                |
 | 2026-05-21 | [Tier 1 — mutual recognition](./2026-05-21-tier1-mutual-recognition.md)         | executable   | 0.1.0    | `1712232` | Two murmurations mutually recognize each other with verified signatures. 3 new gaps.   |
+| 2026-05-25 | [Tier 2 — first signal exchange](./2026-05-25-tier2-signal-exchange.md)         | executable   | 0.1.0    | `bfaf1db` | A signed tension envelope crosses A → B; B's flyway_check verifies it. 3 new gaps.     |
 
 ## Two kinds of walkthrough
 
