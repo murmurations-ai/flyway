@@ -7,6 +7,7 @@ import {
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
 import { runRecognize } from '../recognize.js'
+import { runRespond } from '../respond.js'
 import { runTension } from '../tension.js'
 import { runUnrecognize } from '../unrecognize.js'
 import {
@@ -54,6 +55,15 @@ Commands:
                                       envelope, writes it to your outbox,
                                       and delivers it to the peer's inbox
                                       via the local-fs transport.
+
+  respond <peer-repo-path> --subject-id <id> --decision <d>
+          [--reason "..."] [--transfer-to "<did>"]
+                                      Respond to an incoming tension from
+                                      a peer (v0.1 supports tensions only).
+                                      Decisions: acknowledge | dispute |
+                                      dissolve | transfer. Verifies the
+                                      subject signal first; refuses to
+                                      respond to a tampered tension.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -372,6 +382,57 @@ async function handleTensionCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleRespondCommand(args: string[]): Promise<number> {
+  const { value: subjectId, rest: r1 } = parseFlag(args, '--subject-id')
+  const { value: decisionRaw, rest: r2 } = parseFlag(r1, '--decision')
+  const { value: reason, rest: r3 } = parseFlag(r2, '--reason')
+  const { value: transferTo, rest: positional } = parseFlag(r3, '--transfer-to')
+  const [peerRepoPath] = positional
+  if (!peerRepoPath) {
+    process.stderr.write('error: flyway respond requires a peer repo path\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!subjectId || !decisionRaw) {
+    process.stderr.write(
+      'error: flyway respond requires --subject-id and --decision\n\n',
+    )
+    process.stderr.write(HELP)
+    return 2
+  }
+  const tensionDecisions = ['acknowledge', 'dispute', 'dissolve', 'transfer'] as const
+  type TensionDecisionLocal = (typeof tensionDecisions)[number]
+  if (!tensionDecisions.includes(decisionRaw as TensionDecisionLocal)) {
+    process.stderr.write(
+      `error: --decision must be one of ${tensionDecisions.join(', ')} (got: ${decisionRaw})\n` +
+        '       proposal decisions (accept/object/exit) are not yet wired in v0.1.\n',
+    )
+    return 2
+  }
+  try {
+    const result = await runRespond({
+      cwd: process.cwd(),
+      peerRepoPath,
+      subjectId,
+      decision: decisionRaw as TensionDecisionLocal,
+      ...(reason !== undefined ? { reason } : {}),
+      ...(transferTo !== undefined ? { transferTo } : {}),
+    })
+    process.stdout.write(
+      `Responded to ${result.subject.kind} ${result.subject.id} from ${result.peerDid}\n` +
+        `  decision: ${(result.response.body as { decision: string }).decision}\n` +
+        `  id:       ${result.response.id}\n` +
+        `  sentAt:   ${result.response.sentAt}\n` +
+        `  wrote ${result.outboxPath}\n` +
+        `  delivered ${result.inboxPath}\n`,
+    )
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function handleCheckCommand(args: string[]): Promise<number> {
   const { present: asJson } = parseBoolFlag(args, '--json')
   try {
@@ -425,6 +486,8 @@ async function main(argv: string[]): Promise<number> {
       return handleCheckCommand(rest)
     case 'tension':
       return handleTensionCommand(rest)
+    case 'respond':
+      return handleRespondCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

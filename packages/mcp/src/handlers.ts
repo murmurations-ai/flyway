@@ -4,13 +4,19 @@ import {
   type FlywayMode,
   type SignalRefs,
   type SignedEntityStatement,
+  type SignedSignalEnvelope,
+  TENSION_DECISIONS,
   type TensionBody,
+  type TensionDecision,
+  type TensionResponseBody,
   createTension,
+  createTensionResponse,
   flywayCheck,
   flywayInit,
   flywayStatus,
   localEd25519Signer,
   recognizePeer,
+  verifySignedSignal,
 } from '@murmurations-ai/flyway-core'
 import type {
   CallToolRequest,
@@ -46,8 +52,117 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleCheck(args)
     case 'flyway_tension':
       return handleTension(args)
+    case 'flyway_respond':
+      return handleRespond(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleRespond(
+  args: Record<string, unknown> | undefined,
+): Promise<CallToolResult> {
+  // Stateless: the calling agent supplies its own identity, the subject
+  // envelope (as it received it), the peer's DID document (for subject
+  // verification), and the decision. The handler verifies the subject
+  // signature and returns a signed response envelope. The caller is
+  // responsible for filesystem persistence — the flyway CLI's `respond`
+  // subcommand does this.
+  if (!args || typeof args !== 'object') {
+    return errorResult(
+      'flyway_respond requires arguments: ownDidDocument, ownPrivateKeyPem, ' +
+        'peerDidDocument, subjectEnvelope, decision',
+    )
+  }
+  const a = args as Record<string, unknown>
+  if (
+    typeof a.ownPrivateKeyPem !== 'string' ||
+    typeof a.ownDidDocument !== 'object' ||
+    a.ownDidDocument === null ||
+    typeof a.peerDidDocument !== 'object' ||
+    a.peerDidDocument === null ||
+    typeof a.subjectEnvelope !== 'object' ||
+    a.subjectEnvelope === null ||
+    typeof a.decision !== 'string'
+  ) {
+    return errorResult(
+      'flyway_respond requires: ownDidDocument (object), ownPrivateKeyPem (string), ' +
+        'peerDidDocument (object), subjectEnvelope (object), decision (string)',
+    )
+  }
+  if (!TENSION_DECISIONS.includes(a.decision as TensionDecision)) {
+    return errorResult(
+      `flyway_respond: decision must be one of ${TENSION_DECISIONS.join(', ')} ` +
+        '(proposal decisions are not yet wired in v0.1)',
+    )
+  }
+  const ownDidDocument = a.ownDidDocument as DidDocument
+  const peerDidDocument = a.peerDidDocument as DidDocument
+  const subject = a.subjectEnvelope as SignedSignalEnvelope
+  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  if (!ownVerificationMethod) {
+    return errorResult('flyway_respond: ownDidDocument has no verificationMethod')
+  }
+  if (subject.kind !== 'tension') {
+    return errorResult(
+      `flyway_respond: subjectEnvelope.kind must be 'tension' in v0.1 (got: ${subject.kind})`,
+    )
+  }
+  if (subject.from !== peerDidDocument.id) {
+    return errorResult(
+      `flyway_respond: subjectEnvelope.from (${subject.from}) does not match ` +
+        `peerDidDocument.id (${peerDidDocument.id})`,
+    )
+  }
+  try {
+    const subjectOk = await verifySignedSignal(subject, peerDidDocument)
+    if (!subjectOk) {
+      return errorResult(
+        'flyway_respond: subjectEnvelope signature does not verify against peerDidDocument',
+      )
+    }
+    const body: TensionResponseBody = {
+      decision: a.decision as TensionDecision,
+      ...(typeof a.reason === 'string' ? { reason: a.reason } : {}),
+      ...(typeof a.transferTo === 'string' ? { transferTo: a.transferTo } : {}),
+    }
+    const refs: SignalRefs & { tensionId: string } = {
+      tensionId: subject.id,
+      inReplyTo: subject.id,
+    }
+    const signer = localEd25519Signer({
+      privateKeyPem: a.ownPrivateKeyPem,
+      publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+      verificationKeyId: ownVerificationMethod.id,
+    })
+    const envelope = await createTensionResponse({
+      from: ownDidDocument.id,
+      to: peerDidDocument.id,
+      body,
+      refs,
+      signer,
+    })
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              envelope,
+              note:
+                'Write this response to flyway/outbox/<peer-segments>/<id>.yaml ' +
+                'in your repo and deliver to ' +
+                'flyway/inbox/<your-segments>/<id>.yaml in the peer’s repo. The ' +
+                'flyway CLI `respond` subcommand does both.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  } catch (e) {
+    return errorResult(`flyway_respond failed: ${(e as Error).message}`)
   }
 }
 

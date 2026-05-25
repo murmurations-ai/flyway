@@ -188,6 +188,140 @@ describe('callFlywayTool — flyway_tension (implemented)', () => {
   })
 })
 
+describe('callFlywayTool — flyway_respond (implemented, tensions only)', () => {
+  async function makeIdentity(owner: string, name: string) {
+    const init = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_init',
+        arguments: {
+          repoUrl: `https://github.com/${owner}/${name}`,
+          sourceName: owner,
+          mode: 'interactive',
+        },
+      },
+    })
+    const first = init.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    return JSON.parse(first.text) as {
+      did: string
+      didDocument: unknown
+      keypair: { privateKeyPem: string }
+    }
+  }
+
+  async function signTension(me: Awaited<ReturnType<typeof makeIdentity>>, toDid: string) {
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_tension',
+        arguments: {
+          ownDidDocument: me.didDocument,
+          ownPrivateKeyPem: me.keypair.privateKeyPem,
+          peerDid: toDid,
+          conditions: 'X',
+          effect: 'Y',
+        },
+      },
+    })
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    return JSON.parse(first.text).envelope
+  }
+
+  it('B can sign an acknowledge response to A’s tension', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const B = await makeIdentity('emergent', 'praxis')
+    const tension = await signTension(A, B.did)
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_respond',
+        arguments: {
+          ownDidDocument: B.didDocument,
+          ownPrivateKeyPem: B.keypair.privateKeyPem,
+          peerDidDocument: A.didDocument,
+          subjectEnvelope: tension,
+          decision: 'acknowledge',
+        },
+      },
+    })
+    expect(result.isError).toBeUndefined()
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(first.text)
+    expect(payload.envelope.kind).toBe('respond')
+    expect(payload.envelope.from).toBe(B.did)
+    expect(payload.envelope.to).toBe(A.did)
+    expect(payload.envelope.signature.domain).toBe('flyway-v1:respond')
+    expect(payload.envelope.refs.tensionId).toBe(tension.id)
+    expect(payload.envelope.body.decision).toBe('acknowledge')
+  })
+
+  it('returns isError for proposal subjects (not yet wired)', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const B = await makeIdentity('emergent', 'praxis')
+    const tension = await signTension(A, B.did)
+    const fakeProposal = { ...tension, kind: 'proposal' }
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_respond',
+        arguments: {
+          ownDidDocument: B.didDocument,
+          ownPrivateKeyPem: B.keypair.privateKeyPem,
+          peerDidDocument: A.didDocument,
+          subjectEnvelope: fakeProposal,
+          decision: 'acknowledge',
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+
+  it('returns isError when subject signature does not verify', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const B = await makeIdentity('emergent', 'praxis')
+    const tension = await signTension(A, B.did)
+    // Tamper with the body after signing.
+    const tampered = { ...tension, body: { ...tension.body, conditions: 'TAMPERED' } }
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_respond',
+        arguments: {
+          ownDidDocument: B.didDocument,
+          ownPrivateKeyPem: B.keypair.privateKeyPem,
+          peerDidDocument: A.didDocument,
+          subjectEnvelope: tampered,
+          decision: 'acknowledge',
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+
+  it('returns isError for proposal-style decisions', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const B = await makeIdentity('emergent', 'praxis')
+    const tension = await signTension(A, B.did)
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_respond',
+        arguments: {
+          ownDidDocument: B.didDocument,
+          ownPrivateKeyPem: B.keypair.privateKeyPem,
+          peerDidDocument: A.didDocument,
+          subjectEnvelope: tension,
+          decision: 'accept',
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+})
+
 describe('callFlywayTool — other tools (not yet implemented)', () => {
   it('returns isError for unimplemented tools', async () => {
     const result = await callFlywayTool({
