@@ -59,14 +59,17 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
   }
 }
 
+/**
+ * flyway_respond is a kind-dispatcher: the subject envelope's `kind`
+ * determines which response builder runs. v0.1 wires only the
+ * tension branch; the proposal branch returns an informative error
+ * until `flyway_propose` lands. Keeping the dispatch shape here means
+ * adding the proposal branch later is mechanical — no rewriting of
+ * existing logic.
+ */
 async function handleRespond(
   args: Record<string, unknown> | undefined,
 ): Promise<CallToolResult> {
-  // Stateless: the calling agent supplies its own identity, the subject
-  // envelope (as it received it), the peer's *recognition-time-cached*
-  // DID document, and the decision. The handler delegates to
-  // createTensionResponse which performs ADR-0009 antecedent
-  // verification (kind + id + sender + signature) before signing.
   if (!args || typeof args !== 'object') {
     return errorResult(
       'flyway_respond requires arguments: ownDidDocument, ownPrivateKeyPem, ' +
@@ -89,12 +92,6 @@ async function handleRespond(
         'peerDidDocument (object), subjectEnvelope (object), decision (string)',
     )
   }
-  if (!TENSION_DECISIONS.includes(a.decision as TensionDecision)) {
-    return errorResult(
-      `flyway_respond: decision must be one of ${TENSION_DECISIONS.join(', ')} ` +
-        '(proposal decisions are not yet wired in v0.1)',
-    )
-  }
   // Minimal shape check on subjectEnvelope — verifySignedSignal would
   // throw a confusing error if these are missing.
   const rawSubject = a.subjectEnvelope as Record<string, unknown>
@@ -108,9 +105,35 @@ async function handleRespond(
       'flyway_respond: subjectEnvelope is missing required fields (id, from, kind, signature)',
     )
   }
+  // Dispatch on subject kind.
+  switch (rawSubject.kind) {
+    case 'tension':
+      return handleTensionResponse(a)
+    case 'proposal':
+      return errorResult(
+        'flyway_respond: proposal responses (accept / object / exit) are not yet wired in v0.1. ' +
+          'Only tension responses are supported until flyway_propose lands.',
+      )
+    default:
+      return errorResult(
+        `flyway_respond: cannot respond to subjectEnvelope.kind='${String(rawSubject.kind)}' ` +
+          `(only 'tension' is wired in v0.1; 'proposal' is reserved).`,
+      )
+  }
+}
+
+async function handleTensionResponse(
+  a: Record<string, unknown>,
+): Promise<CallToolResult> {
+  if (!TENSION_DECISIONS.includes(a.decision as TensionDecision)) {
+    return errorResult(
+      `flyway_respond: decision must be one of ${TENSION_DECISIONS.join(', ')} ` +
+        'when responding to a tension (proposal decisions are not yet wired in v0.1)',
+    )
+  }
   const ownDidDocument = a.ownDidDocument as DidDocument
   const peerDidDocument = a.peerDidDocument as DidDocument
-  const subject = rawSubject as unknown as SignedSignalEnvelope
+  const subject = a.subjectEnvelope as SignedSignalEnvelope
   const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_respond: ownDidDocument has no verificationMethod')
@@ -126,7 +149,7 @@ async function handleRespond(
       inReplyTo: subject.id,
     }
     const signer = localEd25519Signer({
-      privateKeyPem: a.ownPrivateKeyPem,
+      privateKeyPem: a.ownPrivateKeyPem as string,
       publicKeyJwk: ownVerificationMethod.publicKeyJwk,
       verificationKeyId: ownVerificationMethod.id,
     })

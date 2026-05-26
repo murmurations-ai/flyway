@@ -30,6 +30,7 @@ import {
   collectYamlFiles,
   domainForSignalKind,
   readSignalFile,
+  signalOutboxPath,
   verifySignedSignal,
 } from './signal.js'
 
@@ -173,6 +174,14 @@ async function inspectSignalFile(
     perEntryIssues.push(`signature verification failed: ${(e as Error).message}`)
   }
 
+  // Cross-reference refs against our outbox (Issue #14 / G7). A response
+  // signal claims to point at a prior signal we sent; if that signal
+  // isn't actually in our outbox — or doesn't have the right shape —
+  // the response is structurally suspect even when its own signature
+  // verifies. Caught here rather than at the responder so we surface
+  // forged references in our own audit log.
+  verifyRefsResolve(cwd, envelope, perEntryIssues)
+
   return {
     envelope,
     path,
@@ -181,6 +190,71 @@ async function inspectSignalFile(
     signatureValid,
     kind: envelope.kind,
     issues: perEntryIssues,
+  }
+}
+
+/**
+ * For signals that claim to reference a prior artifact (currently:
+ * `respond` signals via `refs.tensionId`), verify the reference resolves
+ * to a real signal in our outbox with the expected shape. Issues are
+ * appended to `perEntryIssues`; no return value.
+ *
+ * v0.1 only verifies `refs.tensionId`. When `flyway_propose` lands the
+ * same shape will check `refs.proposalId` and (for promoted tensions
+ * carrying both) the consistency between them.
+ */
+function verifyRefsResolve(
+  cwd: string,
+  envelope: SignedSignalEnvelope,
+  perEntryIssues: string[],
+): void {
+  // Respond signals MUST carry refs.tensionId per createTensionResponse;
+  // surface a structural issue if absent (would only happen for
+  // hand-crafted or malformed envelopes).
+  if (envelope.kind === 'respond' && !envelope.refs?.tensionId) {
+    perEntryIssues.push(
+      'respond signal missing refs.tensionId — every response must point at a subject',
+    )
+    return
+  }
+  const tensionId = envelope.refs?.tensionId
+  if (!tensionId) return // no ref to verify
+
+  // The referenced prior signal lives in OUR outbox, addressed to the
+  // sender of THIS signal (the responder).
+  let outboxPath: string
+  try {
+    outboxPath = signalOutboxPath(cwd, envelope.from, tensionId)
+  } catch (e) {
+    perEntryIssues.push(`refs.tensionId verification failed: ${(e as Error).message}`)
+    return
+  }
+  const subject = readSignalFile(outboxPath)
+  if (!subject) {
+    perEntryIssues.push(
+      `refs.tensionId='${tensionId}' has no matching signal in our outbox at ` +
+        `flyway/outbox/<responder-segments>/${tensionId}.yaml — ` +
+        'response points at a subject we never sent',
+    )
+    return
+  }
+  if (subject.id !== tensionId) {
+    perEntryIssues.push(
+      `refs.tensionId='${tensionId}' resolves to a file whose envelope.id is ` +
+        `'${subject.id}' (file/envelope id mismatch — possible tampering)`,
+    )
+  }
+  if (subject.kind !== 'tension') {
+    perEntryIssues.push(
+      `refs.tensionId='${tensionId}' resolves to a ${subject.kind} signal, ` +
+        `not a tension`,
+    )
+  }
+  if (subject.to !== envelope.from) {
+    perEntryIssues.push(
+      `refs.tensionId='${tensionId}' resolves to a tension we sent to ` +
+        `${subject.to}, not to ${envelope.from} (the responder)`,
+    )
   }
 }
 

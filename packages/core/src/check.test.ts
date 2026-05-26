@@ -5,7 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { flywayCheck } from './check.js'
 import { flywayInit } from './init.js'
 import { fingerprintEntityStatement } from './recognize.js'
-import { buildSignedSignal, signalInboxPath, writeSignalToInbox } from './signal.js'
+import {
+  buildSignedSignal,
+  signalInboxPath,
+  writeSignalToInbox,
+  writeSignalToOutbox,
+} from './signal.js'
 import { localEd25519Signer } from './signing.js'
 
 function freshTmp(): string {
@@ -200,6 +205,178 @@ describe('flywayCheck — sentAt vs recognizedAt ordering', () => {
     expect(
       entry.issues.some((i) => /predates peer recognizedAt/.test(i)),
     ).toBe(true)
+  })
+})
+
+describe('flywayCheck — refs.tensionId resolution (Issue #14 / G7)', () => {
+  let tmp: string
+  beforeEach(() => {
+    tmp = freshTmp()
+  })
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('accepts a respond signal whose refs.tensionId resolves to a real tension in our outbox', async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const responder = await makeMurmuration('emergent', 'p')
+    await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
+
+    // We previously sent responder a tension (now in our outbox).
+    const ourTension = await buildSignedSignal({
+      from: recipient.artifacts.did,
+      to: responder.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'X', effect: 'Y' },
+      signer: recipient.signer,
+      id: 'our-tension-1',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+    })
+    writeSignalToOutbox(tmp, ourTension)
+
+    // Responder signs back a respond signal pointing at it.
+    const theirResponse = await buildSignedSignal({
+      from: responder.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      refs: { tensionId: 'our-tension-1', inReplyTo: 'our-tension-1' },
+      signer: responder.signer,
+      id: 'their-response-1',
+      now: new Date('2026-05-25T12:30:00.000Z'),
+    })
+    writeSignalToInbox(tmp, theirResponse)
+
+    const result = await flywayCheck(tmp)
+    expect(result.totalCount).toBe(1)
+    expect(result.validCount).toBe(1)
+    expect(result.signals[0]?.issues).toEqual([])
+  })
+
+  it("flags a respond signal whose refs.tensionId doesn't exist in our outbox (fabricated reference)", async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const responder = await makeMurmuration('emergent', 'p')
+    await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
+
+    // No prior tension in our outbox. Responder claims to be replying anyway.
+    const fabricated = await buildSignedSignal({
+      from: responder.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      refs: { tensionId: 'never-existed', inReplyTo: 'never-existed' },
+      signer: responder.signer,
+      id: 'fabricated-1',
+      now: new Date('2026-05-25T12:30:00.000Z'),
+    })
+    writeSignalToInbox(tmp, fabricated)
+
+    const result = await flywayCheck(tmp)
+    expect(result.totalCount).toBe(1)
+    expect(result.validCount).toBe(0)
+    const issues = result.signals[0]?.issues ?? []
+    expect(issues.some((i) => /no matching signal in our outbox/.test(i))).toBe(true)
+  })
+
+  it("flags a respond signal whose refs.tensionId resolves to a tension we sent to someone else", async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const responder = await makeMurmuration('emergent', 'p')
+    const third = await makeMurmuration('third', 'party')
+    await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
+
+    // Our outbox: a tension to `third`, not to `responder`.
+    const tensionToThird = await buildSignedSignal({
+      from: recipient.artifacts.did,
+      to: third.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'X', effect: 'Y' },
+      signer: recipient.signer,
+      id: 'sent-to-third',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+    })
+    writeSignalToOutbox(tmp, tensionToThird)
+
+    // Responder claims to respond to a tension that was actually for third.
+    // (Won't actually find the file at responder's outbox path, so this
+    // fires the "no matching signal" branch — refs are looked up under the
+    // SENDER's segments, which is responder, not third.)
+    const misdirected = await buildSignedSignal({
+      from: responder.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      refs: { tensionId: 'sent-to-third' },
+      signer: responder.signer,
+      id: 'misdirected-1',
+      now: new Date('2026-05-25T12:30:00.000Z'),
+    })
+    writeSignalToInbox(tmp, misdirected)
+
+    const result = await flywayCheck(tmp)
+    const issues = result.signals[0]?.issues ?? []
+    expect(issues.some((i) => /no matching signal in our outbox/.test(i))).toBe(true)
+    expect(result.validCount).toBe(0)
+  })
+
+  it('flags a respond signal that has no refs.tensionId at all', async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const responder = await makeMurmuration('emergent', 'p')
+    await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
+
+    const noRefs = await buildSignedSignal({
+      from: responder.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      // intentionally no refs
+      signer: responder.signer,
+      id: 'no-refs-1',
+      now: new Date('2026-05-25T12:30:00.000Z'),
+    })
+    writeSignalToInbox(tmp, noRefs)
+
+    const result = await flywayCheck(tmp)
+    const issues = result.signals[0]?.issues ?? []
+    expect(issues.some((i) => /missing refs\.tensionId/.test(i))).toBe(true)
+    expect(result.validCount).toBe(0)
+  })
+
+  it("flags a respond signal whose refs.tensionId resolves to a non-tension signal", async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const responder = await makeMurmuration('emergent', 'p')
+    await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
+
+    // Seed a non-tension (a respond, even) at the outbox path the refs lookup
+    // would query. This simulates a corrupted outbox or a malicious refs.
+    const wrongKindAtOutbox = await buildSignedSignal({
+      from: recipient.artifacts.did,
+      to: responder.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      refs: { tensionId: 'wrong-kind-here' },
+      signer: recipient.signer,
+      id: 'wrong-kind-here',
+      now: new Date('2026-05-25T11:00:00.000Z'),
+    })
+    writeSignalToOutbox(tmp, wrongKindAtOutbox)
+
+    const respondToWrongKind = await buildSignedSignal({
+      from: responder.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      refs: { tensionId: 'wrong-kind-here' },
+      signer: responder.signer,
+      id: 'respond-to-wrong-1',
+      now: new Date('2026-05-25T12:30:00.000Z'),
+    })
+    writeSignalToInbox(tmp, respondToWrongKind)
+
+    const result = await flywayCheck(tmp)
+    const target = result.signals.find((s) => s.envelope.id === 'respond-to-wrong-1')
+    expect(target).toBeDefined()
+    const issues = target?.issues ?? []
+    expect(issues.some((i) => /resolves to a respond signal, not a tension/.test(i))).toBe(true)
   })
 })
 
