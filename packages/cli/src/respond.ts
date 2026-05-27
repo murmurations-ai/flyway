@@ -1,8 +1,8 @@
 /**
- * CLI wrapper for flyway_respond (tension responses only at v0.1).
+ * CLI wrapper for flyway_respond — kind-dispatcher.
  *
- * The pure envelope construction lives in flyway-core
- * (createTensionResponse); this file owns:
+ * The pure envelope construction lives in flyway-core (createTensionResponse
+ * / createProposalResponse); this file owns:
  *
  *   - Loading the responder's identity from cwd.
  *   - Resolving the peer (response target) from a local repo path.
@@ -10,7 +10,11 @@
  *   - Cross-checking that the subject signal's sender matches the
  *     peer-repo-path's DID (refuses on "wrong peer for this subject").
  *   - Verifying the subject signal's signature before responding —
- *     refuse to send a signed acknowledgement of a tampered tension.
+ *     refuse to send a signed acknowledgement of a tampered subject
+ *     (per ADR-0009, performed inside the core primitives).
+ *   - Dispatching by subject.kind: tension responses get the four S3
+ *     tension decisions; proposal responses get accept/object/exit
+ *     with concernsToRecord (Issues #3, #15).
  *   - Writing the response to the responder's outbox first
  *     (durable record), then delivering to the peer's inbox via the
  *     ADR-0008 local-fs transport.
@@ -20,9 +24,13 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type DidDocument,
+  PROPOSAL_DECISIONS,
+  type ProposalDecision,
   type SignedEntityStatement,
   type SignedSignalEnvelope,
+  TENSION_DECISIONS,
   type TensionDecision,
+  createProposalResponse,
   createTensionResponse,
   findInboxSignalById,
   getPrimaryVerificationKey,
@@ -40,12 +48,19 @@ export interface RunRespondOptions {
   readonly peerRepoPath: string
   /** The id of the signal we are responding to (from flyway_check output). */
   readonly subjectId: string
-  /** Tension decision. Proposal decisions are not yet wired. */
-  readonly decision: TensionDecision
-  /** Reason — required when decision is dispute / dissolve / transfer. */
+  /**
+   * Decision keyword. Must be a tension decision when responding to a
+   * tension (acknowledge/dispute/dissolve/transfer) or a proposal
+   * decision when responding to a proposal (accept/object/exit).
+   * Validated after the subject is located.
+   */
+  readonly decision: TensionDecision | ProposalDecision
+  /** Reason. Required for tension dispute/dissolve/transfer and for proposal object/exit. */
   readonly reason?: string
-  /** DID to transfer the tension to — required when decision is 'transfer'. */
+  /** DID to transfer the tension to — required when responding to a tension with decision='transfer'. */
   readonly transferTo?: string
+  /** Concerns to record (Issues #3, #15). Only valid when responding to a proposal. */
+  readonly concernsToRecord?: readonly string[]
 }
 
 export interface RunRespondResult {
@@ -143,20 +158,7 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     )
   }
 
-  // 7. v0.1 wires tension responses only. Refuse proposals explicitly so
-  //    the failure is informative rather than a downstream domain mismatch.
-  //    Core's createTensionResponse will reject this too; we surface a
-  //    friendlier error here.
-  if (subject.kind !== 'tension') {
-    throw new Error(
-      `flyway respond: responding to '${subject.kind}' signals is not yet wired in v0.1. ` +
-        'Only tension responses are supported until flyway_propose lands.',
-    )
-  }
-
-  // 8. Build the signer and the signed response. Antecedent verification
-  //    (per ADR-0009) is performed inside createTensionResponse — passing
-  //    the cached peer DID document and the subject envelope is sufficient.
+  // 7. Build the signer once; the kind-specific branches reuse it.
   const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
   const verificationKeyId =
     ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
@@ -165,19 +167,68 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     publicKeyJwk: ownVerificationMethod.publicKeyJwk,
     verificationKeyId,
   })
-  const response = await createTensionResponse({
-    from: ourEntityStatement.did,
-    to: peerDid,
-    body: {
-      decision,
-      ...(options.reason !== undefined ? { reason: options.reason } : {}),
-      ...(options.transferTo !== undefined ? { transferTo: options.transferTo } : {}),
-    },
-    refs: { tensionId: subjectId, inReplyTo: subjectId },
-    subjectEnvelope: subject,
-    subjectSenderDidDocument: peerDidDocument,
-    signer,
-  })
+
+  // 8. Dispatch by subject kind. Antecedent verification is enforced
+  //    inside the core primitives (ADR-0009).
+  let response: SignedSignalEnvelope
+  if (subject.kind === 'tension') {
+    if (!(TENSION_DECISIONS as readonly string[]).includes(decision)) {
+      throw new Error(
+        `flyway respond: decision '${decision}' is not a tension decision. ` +
+          `Tension decisions are ${TENSION_DECISIONS.join(', ')}.`,
+      )
+    }
+    if (options.concernsToRecord !== undefined) {
+      throw new Error(
+        'flyway respond: --concerns-to-record is only valid when responding to a proposal.',
+      )
+    }
+    response = await createTensionResponse({
+      from: ourEntityStatement.did,
+      to: peerDid,
+      body: {
+        decision: decision as TensionDecision,
+        ...(options.reason !== undefined ? { reason: options.reason } : {}),
+        ...(options.transferTo !== undefined ? { transferTo: options.transferTo } : {}),
+      },
+      refs: { tensionId: subjectId, inReplyTo: subjectId },
+      subjectEnvelope: subject,
+      subjectSenderDidDocument: peerDidDocument,
+      signer,
+    })
+  } else if (subject.kind === 'proposal') {
+    if (!(PROPOSAL_DECISIONS as readonly string[]).includes(decision)) {
+      throw new Error(
+        `flyway respond: decision '${decision}' is not a proposal decision. ` +
+          `Proposal decisions are ${PROPOSAL_DECISIONS.join(', ')}.`,
+      )
+    }
+    if (options.transferTo !== undefined) {
+      throw new Error(
+        'flyway respond: --transfer-to is only valid when responding to a tension.',
+      )
+    }
+    response = await createProposalResponse({
+      from: ourEntityStatement.did,
+      to: peerDid,
+      body: {
+        decision: decision as ProposalDecision,
+        ...(options.reason !== undefined ? { reason: options.reason } : {}),
+        ...(options.concernsToRecord !== undefined
+          ? { concernsToRecord: options.concernsToRecord }
+          : {}),
+      },
+      refs: { proposalId: subjectId, inReplyTo: subjectId },
+      subjectEnvelope: subject,
+      subjectSenderDidDocument: peerDidDocument,
+      signer,
+    })
+  } else {
+    throw new Error(
+      `flyway respond: cannot respond to '${subject.kind}' signals. ` +
+        `Only tension and proposal subjects are wired.`,
+    )
+  }
 
   // 9. Write outbox first, then deliver to inbox.
   const outbox = writeSignalToOutbox(cwd, response)

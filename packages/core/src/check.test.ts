@@ -337,7 +337,7 @@ describe('flywayCheck — refs.tensionId resolution (Issue #14 / G7)', () => {
 
     const result = await flywayCheck(tmp)
     const issues = result.signals[0]?.issues ?? []
-    expect(issues.some((i) => /missing refs\.tensionId/.test(i))).toBe(true)
+    expect(issues.some((i) => /missing both refs\.tensionId and refs\.proposalId/.test(i))).toBe(true)
     expect(result.validCount).toBe(0)
   })
 

@@ -79,6 +79,11 @@ export interface FlywayAgreementMetric {
   readonly monitoringSchedule?: string
 }
 
+export interface FlywayAgreementAcceptanceCriterion {
+  readonly id: string
+  readonly description: string
+}
+
 export interface FlywayAgreement {
   readonly id: string
   readonly schemaVersion: string
@@ -98,6 +103,10 @@ export interface FlywayAgreement {
   readonly disputeResolution?: string
   readonly constraints?: readonly string[]
   readonly concerns?: readonly string[]
+  /** Optional operable trigger — the observable event that activates this agreement. (Issue #7) */
+  readonly trigger?: string
+  /** Optional acceptance criteria — what counts as "this agreement is being honored." (Issue #7) */
+  readonly acceptanceCriteria?: readonly FlywayAgreementAcceptanceCriterion[]
 }
 
 export const FLYWAY_DECISION_RULES: readonly FlywayDecisionRule[] = [
@@ -350,6 +359,30 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
         'Optional: concerns recorded during the consent round that did not ' +
         'block agreement but are noted (S3 §IV.1.5 Step 9: Consider Concerns).',
       items: { type: 'string' },
+    },
+    trigger: {
+      type: 'string',
+      description:
+        'Optional: operable trigger — the observable event that activates ' +
+        'this agreement. Lets parties know when the agreement is in force ' +
+        'without having to interpret start dates.',
+    },
+    acceptanceCriteria: {
+      type: 'array',
+      description:
+        'Optional: criteria that establish whether the agreement is being ' +
+        'honored. Each criterion has a stable id (for referencing in ' +
+        'review notes) and a description. Distinct from metrics: ' +
+        'acceptance criteria are binary (met/not met); metrics are ' +
+        'continuous signals.',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          description: { type: 'string' },
+        },
+        required: ['id', 'description'],
+      },
     },
   },
   required: [

@@ -95,3 +95,19 @@ describe('FLYWAY_AGREEMENT_SCHEMA_VERSION', () => {
     expect(FLYWAY_AGREEMENT_SCHEMA_VERSION).toMatch(/^\d+\.\d+\.\d+$/)
   })
 })
+
+describe('FLYWAY_AGREEMENT_SCHEMA — operable trigger + acceptance criteria (Issue #7)', () => {
+  it('carries an optional trigger field', () => {
+    expect(FLYWAY_AGREEMENT_SCHEMA.properties).toHaveProperty('trigger')
+    expect(FLYWAY_AGREEMENT_SCHEMA.properties?.['trigger']?.type).toBe('string')
+    expect(FLYWAY_AGREEMENT_SCHEMA.required).not.toContain('trigger')
+  })
+
+  it('carries an optional acceptanceCriteria array of {id, description}', () => {
+    const ac = FLYWAY_AGREEMENT_SCHEMA.properties?.['acceptanceCriteria']
+    expect(ac).toBeDefined()
+    expect(ac?.type).toBe('array')
+    expect(ac?.items?.required).toEqual(['id', 'description'])
+    expect(FLYWAY_AGREEMENT_SCHEMA.required).not.toContain('acceptanceCriteria')
+  })
+})

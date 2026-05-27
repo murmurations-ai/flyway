@@ -4,6 +4,7 @@ export { FLYWAY_INSTRUCTIONS } from './instructions.js'
 export { FLYWAY_PROTOCOL_VERSION, createFlywaySkill } from './skill.js'
 export type {
   FlywayAgreement,
+  FlywayAgreementAcceptanceCriterion,
   FlywayAgreementDriver,
   FlywayAgreementExit,
   FlywayAgreementExpectation,
@@ -101,12 +102,38 @@ export { flywayStatus } from './status.js'
 export type { CreateTensionInput, TensionBody } from './tension.js'
 export { createTension } from './tension.js'
 export type {
+  CreateProposalInput,
+  ProposalAgreementBody,
+  ProposalAntecedent,
+  ProposalBody,
+  ProposalDirectiveBody,
+  ProposalProjectBody,
+  ProposalRequirement,
+  ProposalStage,
+  ProposalType,
+} from './propose.js'
+export {
+  PROPOSAL_STAGES,
+  PROPOSAL_TYPES,
+  createProposal,
+  isValidStageTransition,
+} from './propose.js'
+export type {
+  CreateProposalResponseInput,
   CreateTensionResponseInput,
+  ProposalDecision,
+  ProposalResponseBody,
+  ProposalResponseRefs,
   TensionDecision,
   TensionResponseBody,
   TensionResponseRefs,
 } from './respond.js'
-export { TENSION_DECISIONS, createTensionResponse } from './respond.js'
+export {
+  PROPOSAL_DECISIONS,
+  TENSION_DECISIONS,
+  createProposalResponse,
+  createTensionResponse,
+} from './respond.js'
 export type {
   RecognitionEntry,
   RecognizePeerInput,

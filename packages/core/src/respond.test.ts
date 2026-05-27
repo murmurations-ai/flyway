@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { flywayInit } from './init.js'
-import { createTensionResponse } from './respond.js'
+import { createProposal, type ProposalBody } from './propose.js'
+import { createProposalResponse, createTensionResponse } from './respond.js'
 import { type SignedSignalEnvelope, buildSignedSignal, verifySignedSignal } from './signal.js'
 import { DOMAIN_RESPOND, localEd25519Signer } from './signing.js'
 import { createTension } from './tension.js'
@@ -345,5 +346,229 @@ describe('createTensionResponse — cross-kind replay', () => {
     const tampered = { ...env, kind: 'tension' as const }
     const ok = await verifySignedSignal(tampered, B.artifacts.didDocument)
     expect(ok).toBe(false)
+  })
+})
+
+// ════════════════════════════════════════════════════════════════════════
+// createProposalResponse (S+5)
+// ════════════════════════════════════════════════════════════════════════
+
+interface ProposalFixture {
+  A: Awaited<ReturnType<typeof makeMurmuration>>
+  B: Awaited<ReturnType<typeof makeMurmuration>>
+  proposal: SignedSignalEnvelope
+}
+
+async function proposalFixture(): Promise<ProposalFixture> {
+  const A = await makeMurmuration('xeeban', 'a')
+  const B = await makeMurmuration('emergent', 'praxis')
+  const proposal = await createProposal({
+    from: A.artifacts.did,
+    to: B.artifacts.did,
+    body: {
+      type: 'directive',
+      title: 'Weekly retro',
+      body: 'Please attend the weekly retro on Fridays.',
+    },
+    signer: A.signer,
+    id: 'proposal-1',
+  })
+  return { A, B, proposal }
+}
+
+describe('createProposalResponse — happy paths', () => {
+  it('signs an accept response that verifies under DOMAIN_RESPOND', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    const env = await createProposalResponse({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { decision: 'accept' },
+      refs: { proposalId: proposal.id },
+      subjectEnvelope: proposal,
+      subjectSenderDidDocument: A.artifacts.didDocument,
+      signer: B.signer,
+    })
+    expect(env.kind).toBe('respond')
+    expect(env.signature.domain).toBe(DOMAIN_RESPOND)
+    expect((env.body as { decision: string }).decision).toBe('accept')
+    expect(env.refs?.proposalId).toBe(proposal.id)
+    expect(env.refs?.inReplyTo).toBe(proposal.id)
+    const ok = await verifySignedSignal(env, B.artifacts.didDocument)
+    expect(ok).toBe(true)
+  })
+
+  it('signs an object response with a reason', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    const env = await createProposalResponse({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { decision: 'object', reason: 'Fridays conflict with our planning' },
+      refs: { proposalId: proposal.id },
+      subjectEnvelope: proposal,
+      subjectSenderDidDocument: A.artifacts.didDocument,
+      signer: B.signer,
+    })
+    const body = env.body as { decision: string; reason: string }
+    expect(body.decision).toBe('object')
+    expect(body.reason).toBe('Fridays conflict with our planning')
+  })
+
+  it('records concernsToRecord (Issues #3 + #15)', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    const env = await createProposalResponse({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: {
+        decision: 'accept',
+        concernsToRecord: [
+          'Verify the retro cadence at the first review',
+          'Check whether async option is needed for Praxis members in EU',
+        ],
+      },
+      refs: { proposalId: proposal.id },
+      subjectEnvelope: proposal,
+      subjectSenderDidDocument: A.artifacts.didDocument,
+      signer: B.signer,
+    })
+    const body = env.body as { concernsToRecord: string[] }
+    expect(body.concernsToRecord).toHaveLength(2)
+  })
+})
+
+describe('createProposalResponse — body validation', () => {
+  it('rejects an unknown decision', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: A.artifacts.did,
+        // biome-ignore lint/suspicious/noExplicitAny: validating runtime input
+        body: { decision: 'maybe' as any },
+        refs: { proposalId: proposal.id },
+        subjectEnvelope: proposal,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/decision must be one of/)
+  })
+
+  it('rejects object / exit with no reason', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    for (const decision of ['object', 'exit'] as const) {
+      await expect(
+        createProposalResponse({
+          from: B.artifacts.did,
+          to: A.artifacts.did,
+          body: { decision },
+          refs: { proposalId: proposal.id },
+          subjectEnvelope: proposal,
+          subjectSenderDidDocument: A.artifacts.didDocument,
+          signer: B.signer,
+        }),
+      ).rejects.toThrow(/requires a non-empty reason/)
+    }
+  })
+
+  it('rejects empty concernsToRecord array', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: A.artifacts.did,
+        body: { decision: 'accept', concernsToRecord: [] },
+        refs: { proposalId: proposal.id },
+        subjectEnvelope: proposal,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/non-empty array of strings/)
+  })
+
+  it('rejects empty proposalId', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: A.artifacts.did,
+        body: { decision: 'accept' },
+        refs: { proposalId: '' },
+        subjectEnvelope: proposal,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/proposalId/)
+  })
+})
+
+describe('createProposalResponse — antecedent verification (ADR-0009)', () => {
+  it("rejects when subjectEnvelope.kind is not 'proposal'", async () => {
+    const { A, B } = await proposalFixture()
+    const tension = await createTension({
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' },
+      signer: A.signer,
+    })
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: A.artifacts.did,
+        body: { decision: 'accept' },
+        refs: { proposalId: tension.id },
+        subjectEnvelope: tension,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/subjectEnvelope\.kind must be 'proposal'/)
+  })
+
+  it("rejects when refs.proposalId doesn't match subjectEnvelope.id", async () => {
+    const { A, B, proposal } = await proposalFixture()
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: A.artifacts.did,
+        body: { decision: 'accept' },
+        refs: { proposalId: 'fabricated' },
+        subjectEnvelope: proposal,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/refs\.proposalId .* does not match subjectEnvelope\.id/)
+  })
+
+  it("rejects when subjectEnvelope.from is not the response's 'to'", async () => {
+    const { A, B, proposal } = await proposalFixture()
+    const C = await makeMurmuration('third', 'party')
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: C.artifacts.did,
+        body: { decision: 'accept' },
+        refs: { proposalId: proposal.id },
+        subjectEnvelope: proposal,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/responses go back to the subject's sender/)
+  })
+
+  it('rejects a tampered subject (body mutated post-signing)', async () => {
+    const { A, B, proposal } = await proposalFixture()
+    const tampered: SignedSignalEnvelope = {
+      ...proposal,
+      body: { ...(proposal.body as ProposalBody), title: 'CHANGED' },
+    }
+    await expect(
+      createProposalResponse({
+        from: B.artifacts.did,
+        to: A.artifacts.did,
+        body: { decision: 'accept' },
+        refs: { proposalId: tampered.id },
+        subjectEnvelope: tampered,
+        subjectSenderDidDocument: A.artifacts.didDocument,
+        signer: B.signer,
+      }),
+    ).rejects.toThrow(/tampered or stale proposal/)
   })
 })

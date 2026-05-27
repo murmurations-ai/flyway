@@ -194,65 +194,75 @@ async function inspectSignalFile(
 }
 
 /**
- * For signals that claim to reference a prior artifact (currently:
- * `respond` signals via `refs.tensionId`), verify the reference resolves
- * to a real signal in our outbox with the expected shape. Issues are
- * appended to `perEntryIssues`; no return value.
- *
- * v0.1 only verifies `refs.tensionId`. When `flyway_propose` lands the
- * same shape will check `refs.proposalId` and (for promoted tensions
- * carrying both) the consistency between them.
+ * For respond signals, verify the referenced prior artifact resolves to
+ * a real signal in our outbox with the expected shape. A response must
+ * point at either a prior tension (refs.tensionId) or a prior proposal
+ * (refs.proposalId); the resolved subject must live in our outbox
+ * (we sent it), have the right kind, and have been addressed to the
+ * responder.
  */
 function verifyRefsResolve(
   cwd: string,
   envelope: SignedSignalEnvelope,
   perEntryIssues: string[],
 ): void {
-  // Respond signals MUST carry refs.tensionId per createTensionResponse;
-  // surface a structural issue if absent (would only happen for
-  // hand-crafted or malformed envelopes).
-  if (envelope.kind === 'respond' && !envelope.refs?.tensionId) {
+  if (envelope.kind !== 'respond') return
+  const tensionId = envelope.refs?.tensionId
+  const proposalId = envelope.refs?.proposalId
+  if (!tensionId && !proposalId) {
     perEntryIssues.push(
-      'respond signal missing refs.tensionId — every response must point at a subject',
+      'respond signal missing both refs.tensionId and refs.proposalId — ' +
+        'every response must point at a subject',
     )
     return
   }
-  const tensionId = envelope.refs?.tensionId
-  if (!tensionId) return // no ref to verify
+  if (tensionId) {
+    verifyOneRef(cwd, envelope, 'tensionId', 'tension', tensionId, perEntryIssues)
+  }
+  if (proposalId) {
+    verifyOneRef(cwd, envelope, 'proposalId', 'proposal', proposalId, perEntryIssues)
+  }
+}
 
-  // The referenced prior signal lives in OUR outbox, addressed to the
-  // sender of THIS signal (the responder).
+function verifyOneRef(
+  cwd: string,
+  envelope: SignedSignalEnvelope,
+  refKey: 'tensionId' | 'proposalId',
+  expectedKind: 'tension' | 'proposal',
+  refId: string,
+  perEntryIssues: string[],
+): void {
   let outboxPath: string
   try {
-    outboxPath = signalOutboxPath(cwd, envelope.from, tensionId)
+    outboxPath = signalOutboxPath(cwd, envelope.from, refId)
   } catch (e) {
-    perEntryIssues.push(`refs.tensionId verification failed: ${(e as Error).message}`)
+    perEntryIssues.push(`refs.${refKey} verification failed: ${(e as Error).message}`)
     return
   }
   const subject = readSignalFile(outboxPath)
   if (!subject) {
     perEntryIssues.push(
-      `refs.tensionId='${tensionId}' has no matching signal in our outbox at ` +
-        `flyway/outbox/<responder-segments>/${tensionId}.yaml — ` +
+      `refs.${refKey}='${refId}' has no matching signal in our outbox at ` +
+        `flyway/outbox/<responder-segments>/${refId}.yaml — ` +
         'response points at a subject we never sent',
     )
     return
   }
-  if (subject.id !== tensionId) {
+  if (subject.id !== refId) {
     perEntryIssues.push(
-      `refs.tensionId='${tensionId}' resolves to a file whose envelope.id is ` +
+      `refs.${refKey}='${refId}' resolves to a file whose envelope.id is ` +
         `'${subject.id}' (file/envelope id mismatch — possible tampering)`,
     )
   }
-  if (subject.kind !== 'tension') {
+  if (subject.kind !== expectedKind) {
     perEntryIssues.push(
-      `refs.tensionId='${tensionId}' resolves to a ${subject.kind} signal, ` +
-        `not a tension`,
+      `refs.${refKey}='${refId}' resolves to a ${subject.kind} signal, ` +
+        `not a ${expectedKind}`,
     )
   }
   if (subject.to !== envelope.from) {
     perEntryIssues.push(
-      `refs.tensionId='${tensionId}' resolves to a tension we sent to ` +
+      `refs.${refKey}='${refId}' resolves to a ${expectedKind} we sent to ` +
         `${subject.to}, not to ${envelope.from} (the responder)`,
     )
   }

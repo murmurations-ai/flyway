@@ -2,12 +2,20 @@
 import {
   FLYWAY_PROTOCOL_VERSION,
   type FlywayMode,
+  PROPOSAL_DECISIONS,
+  type ProposalDecision,
+  type ProposalRequirement,
+  type ProposalStage,
+  PROPOSAL_STAGES,
+  PROPOSAL_TYPES,
+  type ProposalType,
   TENSION_DECISIONS,
   type TensionDecision,
   flywayCheck,
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
+import { runPropose } from '../propose.js'
 import { runRecognize } from '../recognize.js'
 import { runRespond } from '../respond.js'
 import { runTension } from '../tension.js'
@@ -60,12 +68,33 @@ Commands:
 
   respond <peer-repo-path> --subject-id <id> --decision <d>
           [--reason "..."] [--transfer-to "<did>"]
-                                      Respond to an incoming tension from
-                                      a peer (v0.1 supports tensions only).
-                                      Decisions: acknowledge | dispute |
-                                      dissolve | transfer. Verifies the
-                                      subject signal first; refuses to
-                                      respond to a tampered tension.
+          [--concern "..." ...]
+                                      Respond to an incoming tension or
+                                      proposal from a peer.
+                                      Tension decisions:  acknowledge |
+                                      dispute | dissolve | transfer.
+                                      Proposal decisions: accept |
+                                      object | exit.
+                                      --concern (repeatable) records an
+                                      S3 §IV.1.5 Step 9 concern alongside
+                                      a proposal accept/object.
+
+  propose <peer-repo-path> --type <directive|project|agreement>
+          --title "..." --body "..."
+          [--stage <driver|requirements|draft|refinement|final>]
+          [--previous-stage-id <id>] [--promote-tension-id <id>]
+          [--deadline <ISO 8601>]
+          [--agreement-file <path>] [--requirements-file <path>]
+                                      Propose a directive, project, or
+                                      engagement agreement to a recognized
+                                      peer. Stage defaults to 'final'.
+                                      For type=agreement, --agreement-file
+                                      points at a YAML/JSON file conforming
+                                      to FLYWAY_AGREEMENT_SCHEMA. For
+                                      stage=requirements,
+                                      --requirements-file points at a
+                                      YAML/JSON list of
+                                      {id,description,mustOrShould?,rationale?}.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -388,11 +417,44 @@ function isTensionDecision(value: string): value is TensionDecision {
   return (TENSION_DECISIONS as readonly string[]).includes(value)
 }
 
+function isProposalDecision(value: string): value is ProposalDecision {
+  return (PROPOSAL_DECISIONS as readonly string[]).includes(value)
+}
+
+function isProposalType(value: string): value is ProposalType {
+  return (PROPOSAL_TYPES as readonly string[]).includes(value)
+}
+
+function isProposalStage(value: string): value is ProposalStage {
+  return (PROPOSAL_STAGES as readonly string[]).includes(value)
+}
+
+/** Collect every `--<flag>` occurrence and return its values + the rest of argv. */
+function parseRepeatedFlag(
+  args: string[],
+  flag: string,
+): { values: string[]; rest: string[] } {
+  const values: string[] = []
+  const rest: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === flag && i + 1 < args.length) {
+      const next = args[i + 1]
+      if (next !== undefined) values.push(next)
+      i++
+    } else {
+      const item = args[i]
+      if (item !== undefined) rest.push(item)
+    }
+  }
+  return { values, rest }
+}
+
 async function handleRespondCommand(args: string[]): Promise<number> {
   const { value: subjectId, rest: r1 } = parseFlag(args, '--subject-id')
   const { value: decisionRaw, rest: r2 } = parseFlag(r1, '--decision')
   const { value: reason, rest: r3 } = parseFlag(r2, '--reason')
-  const { value: transferTo, rest: positional } = parseFlag(r3, '--transfer-to')
+  const { value: transferTo, rest: r4 } = parseFlag(r3, '--transfer-to')
+  const { values: concerns, rest: positional } = parseRepeatedFlag(r4, '--concern')
   const [peerRepoPath] = positional
   if (!peerRepoPath) {
     process.stderr.write('error: flyway respond requires a peer repo path\n\n')
@@ -406,10 +468,10 @@ async function handleRespondCommand(args: string[]): Promise<number> {
     process.stderr.write(HELP)
     return 2
   }
-  if (!isTensionDecision(decisionRaw)) {
+  if (!isTensionDecision(decisionRaw) && !isProposalDecision(decisionRaw)) {
     process.stderr.write(
-      `error: --decision must be one of ${TENSION_DECISIONS.join(', ')} (got: ${decisionRaw})\n` +
-        '       proposal decisions (accept/object/exit) are not yet wired in v0.1.\n',
+      `error: --decision must be a tension decision (${TENSION_DECISIONS.join(', ')}) ` +
+        `or a proposal decision (${PROPOSAL_DECISIONS.join(', ')}); got: ${decisionRaw}\n`,
     )
     return 2
   }
@@ -421,12 +483,133 @@ async function handleRespondCommand(args: string[]): Promise<number> {
       decision: decisionRaw,
       ...(reason !== undefined ? { reason } : {}),
       ...(transferTo !== undefined ? { transferTo } : {}),
+      ...(concerns.length > 0 ? { concernsToRecord: concerns } : {}),
     })
     process.stdout.write(
       `Responded to ${result.subject.kind} ${result.subject.id} from ${result.peerDid}\n` +
         `  decision: ${(result.response.body as { decision: string }).decision}\n` +
         `  id:       ${result.response.id}\n` +
         `  sentAt:   ${result.response.sentAt}\n` +
+        `  wrote ${result.outboxPath}\n` +
+        `  delivered ${result.inboxPath}\n`,
+    )
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
+async function handleProposeCommand(args: string[]): Promise<number> {
+  const { value: typeRaw, rest: r1 } = parseFlag(args, '--type')
+  const { value: title, rest: r2 } = parseFlag(r1, '--title')
+  const { value: body, rest: r3 } = parseFlag(r2, '--body')
+  const { value: stageRaw, rest: r4 } = parseFlag(r3, '--stage')
+  const { value: previousStageId, rest: r5 } = parseFlag(r4, '--previous-stage-id')
+  const { value: promoteTensionId, rest: r6 } = parseFlag(r5, '--promote-tension-id')
+  const { value: deadline, rest: r7 } = parseFlag(r6, '--deadline')
+  const { value: agreementFile, rest: r8 } = parseFlag(r7, '--agreement-file')
+  const { value: requirementsFile, rest: positional } = parseFlag(
+    r8,
+    '--requirements-file',
+  )
+  const [peerRepoPath] = positional
+
+  if (!peerRepoPath) {
+    process.stderr.write('error: flyway propose requires a peer repo path\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!typeRaw || !title || !body) {
+    process.stderr.write(
+      'error: flyway propose requires --type, --title, and --body\n\n',
+    )
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!isProposalType(typeRaw)) {
+    process.stderr.write(
+      `error: --type must be one of ${PROPOSAL_TYPES.join(', ')} (got: ${typeRaw})\n`,
+    )
+    return 2
+  }
+  let stage: ProposalStage | undefined
+  if (stageRaw !== undefined) {
+    if (!isProposalStage(stageRaw)) {
+      process.stderr.write(
+        `error: --stage must be one of ${PROPOSAL_STAGES.join(', ')} (got: ${stageRaw})\n`,
+      )
+      return 2
+    }
+    stage = stageRaw
+  }
+
+  // Load optional structured sidecars (agreement, requirements).
+  const { readFileSync, existsSync } = await import('node:fs')
+  const { parseDocument } = await import('yaml')
+
+  let agreement: unknown
+  if (typeRaw === 'agreement') {
+    if (!agreementFile) {
+      process.stderr.write(
+        "error: --type=agreement requires --agreement-file <path> pointing at a YAML/JSON FlywayAgreement.\n",
+      )
+      return 2
+    }
+    if (!existsSync(agreementFile)) {
+      process.stderr.write(`error: --agreement-file '${agreementFile}' does not exist.\n`)
+      return 2
+    }
+    const raw = readFileSync(agreementFile, 'utf-8')
+    agreement = parseDocument(raw).toJS()
+  }
+
+  let requirements: ProposalRequirement[] | undefined
+  if (stage === 'requirements') {
+    if (!requirementsFile) {
+      process.stderr.write(
+        "error: --stage=requirements requires --requirements-file <path> pointing at a YAML/JSON list of {id,description,mustOrShould?,rationale?}.\n",
+      )
+      return 2
+    }
+    if (!existsSync(requirementsFile)) {
+      process.stderr.write(`error: --requirements-file '${requirementsFile}' does not exist.\n`)
+      return 2
+    }
+    const raw = readFileSync(requirementsFile, 'utf-8')
+    const parsed = parseDocument(raw).toJS()
+    if (!Array.isArray(parsed)) {
+      process.stderr.write(
+        `error: --requirements-file must parse to a YAML/JSON array.\n`,
+      )
+      return 2
+    }
+    requirements = parsed as ProposalRequirement[]
+  }
+
+  try {
+    const proposalBody = {
+      type: typeRaw,
+      title,
+      body,
+      ...(stage !== undefined ? { stage } : {}),
+      ...(deadline !== undefined ? { deadline } : {}),
+      ...(requirements !== undefined ? { requirements } : {}),
+      ...(typeRaw === 'agreement' ? { agreement } : {}),
+    }
+    const result = await runPropose({
+      cwd: process.cwd(),
+      peerRepoPath,
+      // biome-ignore lint/suspicious/noExplicitAny: discriminated body assembled from CLI flags
+      body: proposalBody as any,
+      ...(previousStageId !== undefined ? { previousStageId } : {}),
+      ...(promoteTensionId !== undefined ? { promoteTensionId } : {}),
+    })
+    process.stdout.write(
+      `Proposed ${typeRaw} to ${result.peerDid}\n` +
+        `  id:       ${result.proposal.id}\n` +
+        `  stage:    ${stage ?? 'final'}\n` +
+        `  sentAt:   ${result.proposal.sentAt}\n` +
         `  wrote ${result.outboxPath}\n` +
         `  delivered ${result.inboxPath}\n`,
     )
@@ -492,6 +675,8 @@ async function main(argv: string[]): Promise<number> {
       return handleTensionCommand(rest)
     case 'respond':
       return handleRespondCommand(rest)
+    case 'propose':
+      return handleProposeCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

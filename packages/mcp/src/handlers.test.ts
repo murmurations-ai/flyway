@@ -258,7 +258,7 @@ describe('callFlywayTool — flyway_respond (implemented, tensions only)', () =>
     expect(payload.envelope.body.decision).toBe('acknowledge')
   })
 
-  it('returns isError for proposal subjects (not yet wired)', async () => {
+  it('returns isError when tension decisions are sent to a proposal subject', async () => {
     const A = await makeIdentity('xeeban', 'a')
     const B = await makeIdentity('emergent', 'praxis')
     const tension = await signTension(A, B.did)
@@ -272,7 +272,7 @@ describe('callFlywayTool — flyway_respond (implemented, tensions only)', () =>
           ownPrivateKeyPem: B.keypair.privateKeyPem,
           peerDidDocument: A.didDocument,
           subjectEnvelope: fakeProposal,
-          decision: 'acknowledge',
+          decision: 'acknowledge', // tension decision, not a proposal one
         },
       },
     })
@@ -319,6 +319,160 @@ describe('callFlywayTool — flyway_respond (implemented, tensions only)', () =>
       },
     })
     expect(result.isError).toBe(true)
+  })
+})
+
+describe('callFlywayTool — flyway_propose (implemented)', () => {
+  async function makeIdentity(owner: string, name: string) {
+    const init = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_init',
+        arguments: {
+          repoUrl: `https://github.com/${owner}/${name}`,
+          sourceName: owner,
+          mode: 'interactive',
+        },
+      },
+    })
+    const first = init.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    return JSON.parse(first.text) as {
+      did: string
+      didDocument: unknown
+      keypair: { privateKeyPem: string }
+    }
+  }
+
+  it('signs a directive proposal', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const B = await makeIdentity('emergent', 'praxis')
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_propose',
+        arguments: {
+          ownDidDocument: A.didDocument,
+          ownPrivateKeyPem: A.keypair.privateKeyPem,
+          peerDid: B.did,
+          body: {
+            type: 'directive',
+            title: 'Weekly digest',
+            body: 'Please send the weekly digest on Fridays.',
+          },
+        },
+      },
+    })
+    expect(result.isError).toBeUndefined()
+    const first = result.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(first.text)
+    expect(payload.envelope.kind).toBe('proposal')
+    expect(payload.envelope.signature.domain).toBe('flyway-v1:proposal')
+    expect(payload.envelope.body.type).toBe('directive')
+    expect(payload.envelope.body.stage).toBe('final')
+  })
+
+  it('returns isError for missing body', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_propose',
+        arguments: {
+          ownDidDocument: A.didDocument,
+          ownPrivateKeyPem: A.keypair.privateKeyPem,
+          peerDid: 'did:web:github.com:emergent:praxis',
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+
+  it('returns isError for unknown proposal type', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_propose',
+        arguments: {
+          ownDidDocument: A.didDocument,
+          ownPrivateKeyPem: A.keypair.privateKeyPem,
+          peerDid: 'did:web:github.com:emergent:praxis',
+          body: { type: 'mandate', title: 'X', body: 'Y' },
+        },
+      },
+    })
+    expect(result.isError).toBe(true)
+  })
+})
+
+describe('callFlywayTool — flyway_respond proposal branch', () => {
+  async function makeIdentity(owner: string, name: string) {
+    const init = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_init',
+        arguments: {
+          repoUrl: `https://github.com/${owner}/${name}`,
+          sourceName: owner,
+          mode: 'interactive',
+        },
+      },
+    })
+    const first = init.content[0]
+    if (first?.type !== 'text') throw new Error('expected text content')
+    return JSON.parse(first.text) as {
+      did: string
+      didDocument: unknown
+      keypair: { privateKeyPem: string }
+    }
+  }
+
+  it('B can accept A’s proposal with concernsToRecord', async () => {
+    const A = await makeIdentity('xeeban', 'a')
+    const B = await makeIdentity('emergent', 'praxis')
+    const proposeResult = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_propose',
+        arguments: {
+          ownDidDocument: A.didDocument,
+          ownPrivateKeyPem: A.keypair.privateKeyPem,
+          peerDid: B.did,
+          body: {
+            type: 'directive',
+            title: 'Weekly retro',
+            body: 'Please attend.',
+          },
+        },
+      },
+    })
+    const proposeFirst = proposeResult.content[0]
+    if (proposeFirst?.type !== 'text') throw new Error('expected text content')
+    const proposal = JSON.parse(proposeFirst.text).envelope
+    const respondResult = await callFlywayTool({
+      method: 'tools/call',
+      params: {
+        name: 'flyway_respond',
+        arguments: {
+          ownDidDocument: B.didDocument,
+          ownPrivateKeyPem: B.keypair.privateKeyPem,
+          peerDidDocument: A.didDocument,
+          subjectEnvelope: proposal,
+          decision: 'accept',
+          concernsToRecord: ['Validate cadence at first review'],
+        },
+      },
+    })
+    expect(respondResult.isError).toBeUndefined()
+    const respondFirst = respondResult.content[0]
+    if (respondFirst?.type !== 'text') throw new Error('expected text content')
+    const payload = JSON.parse(respondFirst.text)
+    expect(payload.envelope.kind).toBe('respond')
+    expect(payload.envelope.refs.proposalId).toBe(proposal.id)
+    expect(payload.envelope.body.decision).toBe('accept')
+    expect(payload.envelope.body.concernsToRecord).toHaveLength(1)
   })
 })
 

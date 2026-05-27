@@ -225,3 +225,108 @@ describe('runRespond — refuses unsafe operations', () => {
     ).rejects.toThrow(/tampered or stale tension|does not verify/)
   })
 })
+
+describe('runRespond — proposal subjects', () => {
+  let pair: Pair
+  beforeEach(async () => {
+    pair = await bootstrapRecognizedPair()
+  })
+  afterEach(() => {
+    rmSync(pair.a, { recursive: true, force: true })
+    rmSync(pair.b, { recursive: true, force: true })
+  })
+
+  async function proposeAtoB(): Promise<{ proposalId: string }> {
+    const { runPropose } = await import('./propose.js')
+    const result = await runPropose({
+      cwd: pair.a,
+      peerRepoPath: pair.b,
+      body: {
+        type: 'directive',
+        title: 'Weekly retro',
+        body: 'Please attend the weekly retro.',
+      },
+    })
+    return { proposalId: result.proposal.id }
+  }
+
+  it('B can accept A’s proposal and the response lands in A’s inbox', async () => {
+    const { proposalId } = await proposeAtoB()
+    const result = await runRespond({
+      cwd: pair.b,
+      peerRepoPath: pair.a,
+      subjectId: proposalId,
+      decision: 'accept',
+    })
+    expect(result.response.kind).toBe('respond')
+    expect(result.response.refs?.proposalId).toBe(proposalId)
+    expect((result.response.body as { decision: string }).decision).toBe('accept')
+    expect(existsSync(result.outboxPath)).toBe(true)
+    expect(existsSync(result.inboxPath)).toBe(true)
+  })
+
+  it('B can object with a reason and concernsToRecord (#3, #15)', async () => {
+    const { proposalId } = await proposeAtoB()
+    const result = await runRespond({
+      cwd: pair.b,
+      peerRepoPath: pair.a,
+      subjectId: proposalId,
+      decision: 'object',
+      reason: 'Fridays clash with our planning',
+      concernsToRecord: [
+        'Validate cadence at first review',
+        'Consider async option for EU members',
+      ],
+    })
+    const body = result.response.body as {
+      decision: string
+      reason: string
+      concernsToRecord: string[]
+    }
+    expect(body.decision).toBe('object')
+    expect(body.concernsToRecord).toHaveLength(2)
+  })
+
+  it('refuses tension decisions on a proposal subject', async () => {
+    const { proposalId } = await proposeAtoB()
+    await expect(
+      runRespond({
+        cwd: pair.b,
+        peerRepoPath: pair.a,
+        subjectId: proposalId,
+        decision: 'acknowledge',
+      }),
+    ).rejects.toThrow(/not a proposal decision/)
+  })
+
+  it('refuses --concerns-to-record on a tension subject', async () => {
+    const { runTension } = await import('./tension.js')
+    const t = await runTension({
+      cwd: pair.a,
+      peerRepoPath: pair.b,
+      body: { conditions: 'X', effect: 'Y' },
+    })
+    await expect(
+      runRespond({
+        cwd: pair.b,
+        peerRepoPath: pair.a,
+        subjectId: t.signal.id,
+        decision: 'acknowledge',
+        concernsToRecord: ['nope'],
+      }),
+    ).rejects.toThrow(/only valid when responding to a proposal/)
+  })
+
+  it('refuses --transfer-to on a proposal subject', async () => {
+    const { proposalId } = await proposeAtoB()
+    await expect(
+      runRespond({
+        cwd: pair.b,
+        peerRepoPath: pair.a,
+        subjectId: proposalId,
+        decision: 'accept',
+        transferTo: 'did:web:github.com:x:y',
+      }),
+    ).rejects.toThrow(/only valid when responding to a tension/)
+  })
+})

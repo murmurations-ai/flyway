@@ -2,6 +2,15 @@ import {
   type DidDocument,
   FLYWAY_TOOLS,
   type FlywayMode,
+  PROPOSAL_DECISIONS,
+  PROPOSAL_TYPES,
+  type ProposalAntecedent,
+  type ProposalBody,
+  type ProposalDecision,
+  type ProposalResponseBody,
+  type ProposalResponseRefs,
+  type ProposalStage,
+  type ProposalType,
   type SignalRefs,
   type SignedEntityStatement,
   type SignedSignalEnvelope,
@@ -10,6 +19,8 @@ import {
   type TensionDecision,
   type TensionResponseBody,
   type TensionResponseRefs,
+  createProposal,
+  createProposalResponse,
   createTension,
   createTensionResponse,
   flywayCheck,
@@ -54,8 +65,119 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleTension(args)
     case 'flyway_respond':
       return handleRespond(args)
+    case 'flyway_propose':
+      return handleProposal(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleProposal(
+  args: Record<string, unknown> | undefined,
+): Promise<CallToolResult> {
+  // Stateless: caller supplies own identity + (optionally) antecedents
+  // for tension promotion / stage chain continuation. Handler delegates
+  // to createProposal which enforces ADR-0009 antecedent verification.
+  if (!args || typeof args !== 'object') {
+    return errorResult(
+      'flyway_propose requires arguments: ownDidDocument, ownPrivateKeyPem, peerDid, body',
+    )
+  }
+  const a = args as Record<string, unknown>
+  if (
+    typeof a.ownPrivateKeyPem !== 'string' ||
+    typeof a.ownDidDocument !== 'object' ||
+    a.ownDidDocument === null ||
+    typeof a.peerDid !== 'string' ||
+    typeof a.body !== 'object' ||
+    a.body === null
+  ) {
+    return errorResult(
+      'flyway_propose requires: ownDidDocument (object), ownPrivateKeyPem (string), peerDid (string), body (object)',
+    )
+  }
+  const ownDidDocument = a.ownDidDocument as DidDocument
+  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  if (!ownVerificationMethod) {
+    return errorResult('flyway_propose: ownDidDocument has no verificationMethod')
+  }
+  const proposalBody = a.body as ProposalBody
+  if (
+    typeof proposalBody.type !== 'string' ||
+    !(PROPOSAL_TYPES as readonly string[]).includes(proposalBody.type)
+  ) {
+    return errorResult(
+      `flyway_propose: body.type must be one of ${PROPOSAL_TYPES.join(', ')}`,
+    )
+  }
+  const tensionAntecedent = extractAntecedent(a.tensionAntecedent)
+  const proposalAntecedent = extractAntecedent(a.proposalAntecedent)
+  if (tensionAntecedent === 'invalid' || proposalAntecedent === 'invalid') {
+    return errorResult(
+      'flyway_propose: when present, tensionAntecedent and proposalAntecedent must each be ' +
+        '{ envelope: SignedSignalEnvelope, senderDidDocument: DidDocument }',
+    )
+  }
+  try {
+    const signer = localEd25519Signer({
+      privateKeyPem: a.ownPrivateKeyPem,
+      publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+      verificationKeyId: ownVerificationMethod.id,
+    })
+    const envelope = await createProposal({
+      from: ownDidDocument.id,
+      to: a.peerDid,
+      body: proposalBody,
+      signer,
+      ...(tensionAntecedent ? { tensionAntecedent } : {}),
+      ...(proposalAntecedent ? { proposalAntecedent } : {}),
+    })
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              envelope,
+              note:
+                'Write this proposal to flyway/outbox/<peer-segments>/<id>.yaml ' +
+                'in your repo and deliver to ' +
+                'flyway/inbox/<your-segments>/<id>.yaml in the peer’s repo. The ' +
+                'flyway CLI `propose` subcommand does both.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  } catch (e) {
+    return errorResult(`flyway_propose failed: ${(e as Error).message}`)
+  }
+}
+
+/**
+ * Best-effort extraction of an antecedent from MCP arguments. Returns
+ * undefined if absent, 'invalid' if present but malformed, or the
+ * structured antecedent otherwise.
+ */
+function extractAntecedent(
+  raw: unknown,
+): ProposalAntecedent | undefined | 'invalid' {
+  if (raw === undefined || raw === null) return undefined
+  if (typeof raw !== 'object') return 'invalid'
+  const r = raw as Record<string, unknown>
+  if (
+    typeof r.envelope !== 'object' ||
+    r.envelope === null ||
+    typeof r.senderDidDocument !== 'object' ||
+    r.senderDidDocument === null
+  ) {
+    return 'invalid'
+  }
+  return {
+    envelope: r.envelope as SignedSignalEnvelope,
+    senderDidDocument: r.senderDidDocument as DidDocument,
   }
 }
 
@@ -110,15 +232,84 @@ async function handleRespond(
     case 'tension':
       return handleTensionResponse(a)
     case 'proposal':
-      return errorResult(
-        'flyway_respond: proposal responses (accept / object / exit) are not yet wired in v0.1. ' +
-          'Only tension responses are supported until flyway_propose lands.',
-      )
+      return handleProposalResponse(a)
     default:
       return errorResult(
         `flyway_respond: cannot respond to subjectEnvelope.kind='${String(rawSubject.kind)}' ` +
-          `(only 'tension' is wired in v0.1; 'proposal' is reserved).`,
+          `(only 'tension' and 'proposal' are wired).`,
       )
+  }
+}
+
+async function handleProposalResponse(
+  a: Record<string, unknown>,
+): Promise<CallToolResult> {
+  if (!PROPOSAL_DECISIONS.includes(a.decision as ProposalDecision)) {
+    return errorResult(
+      `flyway_respond: decision must be one of ${PROPOSAL_DECISIONS.join(', ')} ` +
+        'when responding to a proposal',
+    )
+  }
+  const ownDidDocument = a.ownDidDocument as DidDocument
+  const peerDidDocument = a.peerDidDocument as DidDocument
+  const subject = a.subjectEnvelope as SignedSignalEnvelope
+  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  if (!ownVerificationMethod) {
+    return errorResult('flyway_respond: ownDidDocument has no verificationMethod')
+  }
+  // Optional concernsToRecord array.
+  let concernsToRecord: readonly string[] | undefined
+  if (a.concernsToRecord !== undefined) {
+    if (!Array.isArray(a.concernsToRecord)) {
+      return errorResult('flyway_respond: concernsToRecord must be an array of strings when present')
+    }
+    concernsToRecord = a.concernsToRecord as readonly string[]
+  }
+  try {
+    const body: ProposalResponseBody = {
+      decision: a.decision as ProposalDecision,
+      ...(typeof a.reason === 'string' ? { reason: a.reason } : {}),
+      ...(concernsToRecord !== undefined ? { concernsToRecord } : {}),
+    }
+    const refs: ProposalResponseRefs = {
+      proposalId: subject.id,
+      inReplyTo: subject.id,
+    }
+    const signer = localEd25519Signer({
+      privateKeyPem: a.ownPrivateKeyPem as string,
+      publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+      verificationKeyId: ownVerificationMethod.id,
+    })
+    const envelope = await createProposalResponse({
+      from: ownDidDocument.id,
+      to: peerDidDocument.id,
+      body,
+      refs,
+      subjectEnvelope: subject,
+      subjectSenderDidDocument: peerDidDocument,
+      signer,
+    })
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              envelope,
+              note:
+                'Write this proposal response to flyway/outbox/<peer-segments>/<id>.yaml ' +
+                'in your repo and deliver to ' +
+                'flyway/inbox/<your-segments>/<id>.yaml in the peer’s repo. The ' +
+                'flyway CLI `respond` subcommand does both.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  } catch (e) {
+    return errorResult(`flyway_respond failed: ${(e as Error).message}`)
   }
 }
 
