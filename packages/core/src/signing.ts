@@ -221,3 +221,54 @@ function stripSignature<T extends object>(artifact: T): Omit<T, 'signature'> {
   const { signature: _omit, ...rest } = artifact as T & { signature?: unknown }
   return rest as Omit<T, 'signature'>
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// Detached signature helpers — produce / verify a SignatureEnvelope that
+// travels separately from the artifact it covers. Used when two parties
+// must sign the *same* canonical bytes (e.g. co-signed agreements, where
+// inline attachment would make the second signature cover the first).
+// ────────────────────────────────────────────────────────────────────────
+
+export async function signArtifactDetached(
+  domain: string,
+  artifact: object,
+  signer: Signer,
+): Promise<SignatureEnvelope> {
+  const canonical = canonicalize(artifact)
+  const bytes = domainSeparated(domain, canonical)
+  const sig = await signer.sign(bytes)
+  return {
+    verificationKeyId: signer.verificationKeyId,
+    algorithm: 'EdDSA',
+    canonicalization: 'flyway-jcs-v1',
+    domain,
+    signature: toBase64Url(sig),
+  }
+}
+
+export async function verifyDetachedSignature(
+  expectedDomain: string,
+  artifact: object,
+  envelope: SignatureEnvelope,
+  didDocument: DidDocument,
+): Promise<boolean> {
+  if (envelope.domain !== expectedDomain) return false
+  if (envelope.algorithm !== 'EdDSA') return false
+  if (envelope.canonicalization !== 'flyway-jcs-v1') return false
+
+  const method = didDocument.verificationMethod.find(
+    (m) => m.id === envelope.verificationKeyId,
+  )
+  if (!method) return false
+  if (method.publicKeyJwk.crv !== 'Ed25519') return false
+
+  const canonical = canonicalize(artifact)
+  const bytes = domainSeparated(expectedDomain, canonical)
+  const sigBytes = fromBase64Url(envelope.signature)
+
+  const publicKey = createPublicKey({
+    key: method.publicKeyJwk as unknown as JsonWebKey,
+    format: 'jwk',
+  })
+  return nodeVerify(null, bytes, publicKey, sigBytes)
+}

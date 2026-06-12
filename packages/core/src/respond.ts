@@ -19,6 +19,8 @@
  */
 
 import type { DidDocument } from './init.js'
+import { signAgreement, verifyAgreementSignature } from './materialize.js'
+import type { ProposalAgreementBody, ProposalBody } from './propose.js'
 import {
   type BuildSignedSignalInput,
   type SignalRefs,
@@ -26,7 +28,7 @@ import {
   buildSignedSignal,
   verifySignedSignal,
 } from './signal.js'
-import type { Signer } from './signing.js'
+import type { SignatureEnvelope, Signer } from './signing.js'
 
 export const TENSION_DECISIONS = [
   'acknowledge',
@@ -239,6 +241,14 @@ export interface ProposalResponseBody {
   readonly reason?: string
   /** S3 §IV.1.5 Step 9 concerns to record. (Issues #3, #15) */
   readonly concernsToRecord?: readonly string[]
+  /**
+   * Detached DOMAIN_AGREEMENT signature over the agreement signing target,
+   * present iff this is an `accept` of a final-stage agreement proposal.
+   * Derived by createProposalResponse — callers must NOT supply it. It is
+   * the responder's half of the co-signed agreement; the proposal carries
+   * the proposer's half (S+5b).
+   */
+  readonly agreementSignature?: SignatureEnvelope
 }
 
 export type ProposalResponseRefs = SignalRefs & { readonly proposalId: string }
@@ -300,6 +310,12 @@ export async function createProposalResponse(
       )
     }
   }
+  if (body.agreementSignature !== undefined) {
+    throw new Error(
+      'createProposalResponse: body.agreementSignature is derived by createProposalResponse — ' +
+        'refusing a caller-supplied value (it would launder an unverified signature)',
+    )
+  }
   if (body.concernsToRecord !== undefined) {
     if (!Array.isArray(body.concernsToRecord) || body.concernsToRecord.length === 0) {
       throw new Error(
@@ -353,12 +369,45 @@ export async function createProposalResponse(
     )
   }
 
+  // S+5b: accepting a final-stage agreement proposal is the consent that
+  // completes the co-signing handshake. Before signing our half, verify
+  // the proposer's half — an accept of an agreement we cannot materialize
+  // would leave both repos without the file the consent was about.
+  let agreementSignature: SignatureEnvelope | undefined
+  const subjectBody = subjectEnvelope.body as ProposalBody
+  if (
+    body.decision === 'accept' &&
+    subjectBody.type === 'agreement' &&
+    (subjectBody.stage ?? 'final') === 'final'
+  ) {
+    const agreementSubject = subjectBody as ProposalAgreementBody
+    if (!agreementSubject.agreementSignature) {
+      throw new Error(
+        'createProposalResponse: cannot accept a final-stage agreement proposal that carries ' +
+          'no agreementSignature — neither side could materialize the co-signed file',
+      )
+    }
+    const proposerSigOk = await verifyAgreementSignature(
+      agreementSubject.agreement,
+      agreementSubject.agreementSignature,
+      subjectSenderDidDocument,
+    )
+    if (!proposerSigOk) {
+      throw new Error(
+        'createProposalResponse: the proposal\'s agreementSignature does not verify over the ' +
+          'agreement signing target. Refusing to co-sign a tampered agreement.',
+      )
+    }
+    agreementSignature = await signAgreement(agreementSubject.agreement, input.signer)
+  }
+
   const normalizedBody: ProposalResponseBody = {
     decision: body.decision,
     ...(body.reason !== undefined ? { reason: body.reason } : {}),
     ...(body.concernsToRecord !== undefined
       ? { concernsToRecord: body.concernsToRecord }
       : {}),
+    ...(agreementSignature !== undefined ? { agreementSignature } : {}),
   }
   const normalizedRefs: SignalRefs = {
     proposalId: refs.proposalId,

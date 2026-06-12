@@ -33,7 +33,8 @@ import {
   buildSignedSignal,
   verifySignedSignal,
 } from './signal.js'
-import type { Signer } from './signing.js'
+import { signAgreement } from './materialize.js'
+import type { SignatureEnvelope, Signer } from './signing.js'
 
 // ────────────────────────────────────────────────────────────────────────
 // Types
@@ -106,6 +107,14 @@ export interface ProposalAgreementBody extends ProposalBodyBase {
    * present; participants includes sender and recipient).
    */
   readonly agreement: FlywayAgreement
+  /**
+   * Detached DOMAIN_AGREEMENT signature over the agreement signing target
+   * ({...agreement, state: 'agreed'}, signatures stripped). Derived by
+   * createProposal at stage='final' — callers must NOT supply it. The
+   * accept response carries the responder's counterpart, after which both
+   * parties can materialize flyway/agreements/<id>.yaml independently.
+   */
+  readonly agreementSignature?: SignatureEnvelope
 }
 
 export type ProposalBody =
@@ -186,7 +195,17 @@ export async function createProposal(
   validateStageRequirements(body, stage)
   validateStageTransition(body, input, stage)
 
-  const normalizedBody = normalizeBody(body)
+  let normalizedBody = normalizeBody(body)
+
+  // S+5b: a final-stage agreement proposal carries the sender's detached
+  // agreement signature, so the responder (and later, any participant)
+  // can materialize the co-signed flyway/agreements/<id>.yaml without an
+  // extra signature-exchange round trip.
+  if (normalizedBody.type === 'agreement' && stage === 'final') {
+    const agreementSignature = await signAgreement(normalizedBody.agreement, input.signer)
+    normalizedBody = { ...normalizedBody, agreementSignature }
+  }
+
   const refs = computeRefs(input)
 
   const buildInput: BuildSignedSignalInput = {
@@ -235,9 +254,21 @@ function validateTypeSpecificFields(
   input: CreateProposalInput,
 ): void {
   if (body.type !== 'agreement') return
+  if (body.agreementSignature !== undefined) {
+    throw new Error(
+      'createProposal: body.agreementSignature is derived by createProposal — ' +
+        'refusing a caller-supplied value (it would launder an unverified signature)',
+    )
+  }
   const agreement = body.agreement
   if (!agreement || typeof agreement !== 'object') {
     throw new Error("createProposal: type='agreement' requires body.agreement (FlywayAgreement object)")
+  }
+  if (typeof agreement.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(agreement.id)) {
+    throw new Error(
+      'createProposal: body.agreement.id must match [A-Za-z0-9_-]{1,128} — ' +
+        `it becomes the flyway/agreements/<id>.yaml filename (got: ${String(agreement.id)})`,
+    )
   }
   if (agreement.schemaVersion !== FLYWAY_AGREEMENT_SCHEMA_VERSION) {
     throw new Error(

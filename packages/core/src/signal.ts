@@ -306,9 +306,20 @@ export function findInboxSignalById(
   cwd: string,
   id: string,
 ): SignedSignalEnvelope | null {
-  const inboxRoot = join(cwd, 'flyway', 'inbox')
-  if (!existsSync(inboxRoot)) return null
-  for (const path of collectYamlFiles(inboxRoot)) {
+  return findSignalById(join(cwd, 'flyway', 'inbox'), id)
+}
+
+/** Outbox counterpart of findInboxSignalById — same resolution rules. */
+export function findOutboxSignalById(
+  cwd: string,
+  id: string,
+): SignedSignalEnvelope | null {
+  return findSignalById(join(cwd, 'flyway', 'outbox'), id)
+}
+
+function findSignalById(root: string, id: string): SignedSignalEnvelope | null {
+  if (!existsSync(root)) return null
+  for (const path of collectYamlFiles(root)) {
     const env = readSignalFile(path)
     if (env && env.id === id) return env
   }

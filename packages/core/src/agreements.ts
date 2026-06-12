@@ -65,6 +65,13 @@ export interface FlywayAgreementSignature {
   readonly participant: string
   readonly signedAt: string
   readonly signature: string
+  /**
+   * Optional DID URL of the verification method the signature was made
+   * with (e.g. 'did:web:…#key-1'). Lets the materialized file be
+   * verified standalone, without consulting the signal envelopes that
+   * carried the signature.
+   */
+  readonly verificationKeyId?: string
 }
 
 export interface FlywayAgreementTerm {
@@ -300,6 +307,12 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
             description:
               'Cryptographic signature over the canonical-form agreement ' +
               '(algorithm specified in the signer\'s entity statement).',
+          },
+          verificationKeyId: {
+            type: 'string',
+            description:
+              'Optional DID URL of the verification method the signature ' +
+              'was made with — lets the file be verified standalone.',
           },
         },
         required: ['participant', 'signedAt', 'signature'],

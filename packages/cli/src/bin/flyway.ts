@@ -15,6 +15,7 @@ import {
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
 import { runInit } from '../init.js'
+import { runMaterialize } from '../materialize.js'
 import { runPropose } from '../propose.js'
 import { runRecognize } from '../recognize.js'
 import { runRespond } from '../respond.js'
@@ -95,6 +96,16 @@ Commands:
                                       --requirements-file points at a
                                       YAML/JSON list of
                                       {id,description,mustOrShould?,rationale?}.
+
+  materialize <peer-repo-path> --response-id <id> [--proposal-id <id>]
+                                      Write the co-signed agreement file
+                                      flyway/agreements/<id>.yaml from an
+                                      accepted final-stage agreement
+                                      proposal. Both participants run this
+                                      in their own repos; the files are
+                                      byte-identical (compare the printed
+                                      sha256). --proposal-id defaults to
+                                      the response's refs.proposalId.
 
   skill list                          List available and installed skills
   skill install <name> [--target P]   Install a skill to target directory
@@ -620,6 +631,45 @@ async function handleProposeCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleMaterializeCommand(args: string[]): Promise<number> {
+  const { value: responseId, rest: r1 } = parseFlag(args, '--response-id')
+  const { value: proposalId, rest: positional } = parseFlag(r1, '--proposal-id')
+  const [peerRepoPath] = positional
+  if (!peerRepoPath) {
+    process.stderr.write('error: flyway materialize requires a peer repo path\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!responseId) {
+    process.stderr.write('error: flyway materialize requires --response-id\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  try {
+    const result = await runMaterialize({
+      cwd: process.cwd(),
+      peerRepoPath,
+      responseId,
+      ...(proposalId !== undefined ? { proposalId } : {}),
+    })
+    const { materialized } = result
+    process.stdout.write(
+      `Materialized co-signed agreement with ${result.peerDid}\n` +
+        `  agreement: ${materialized.agreement.id}\n` +
+        `  state:     ${materialized.agreement.state}\n` +
+        `  signers:   ${materialized.agreement.signatures?.map((s) => s.participant).join(', ')}\n` +
+        `  sha256:    ${materialized.sha256}\n` +
+        (result.created ? `  wrote ${result.path}\n` : `  already on file ${result.path} (identical bytes)\n`) +
+        '\nThe peer materializes the same file from their own records — compare\n' +
+        'the sha256 values to confirm byte-identity.\n',
+    )
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function handleCheckCommand(args: string[]): Promise<number> {
   const { present: asJson } = parseBoolFlag(args, '--json')
   try {
@@ -677,6 +727,8 @@ async function main(argv: string[]): Promise<number> {
       return handleRespondCommand(rest)
     case 'propose':
       return handleProposeCommand(rest)
+    case 'materialize':
+      return handleMaterializeCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

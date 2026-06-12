@@ -60,7 +60,9 @@ export {
   canonicalize,
   domainSeparated,
   localEd25519Signer,
+  signArtifactDetached,
   signArtifactInline,
+  verifyDetachedSignature,
   verifyInlineSignedArtifact,
 } from './signing.js'
 export type { Anchor, AnchorReceipt } from './anchoring.js'
@@ -78,6 +80,7 @@ export {
   collectYamlFiles,
   domainForSignalKind,
   findInboxSignalById,
+  findOutboxSignalById,
   generateSignalId,
   readSignalFile,
   signalInboxPath,
@@ -86,6 +89,18 @@ export {
   writeSignalToInbox,
   writeSignalToOutbox,
 } from './signal.js'
+export type {
+  MaterializeAgreementInput,
+  MaterializedAgreement,
+} from './materialize.js'
+export {
+  agreementFilePath,
+  buildAgreementSigningTarget,
+  materializeAgreement,
+  signAgreement,
+  verifyAgreementSignature,
+  writeAgreementFile,
+} from './materialize.js'
 export type {
   FlywaySignalInbox,
   FlywaySignalInboxEntry,
