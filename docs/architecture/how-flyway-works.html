@@ -604,7 +604,7 @@
   </div>
   <div class="meta">
     <div><span class="label">VERSION</span> &nbsp; protocol 0.1.0</div>
-    <div><span class="label">SHA</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway/tree/d5ad56f">d5ad56f</a></div>
+    <div><span class="label">SHA</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway/tree/10d7045">10d7045</a></div>
     <div><span class="label">REPO</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway">murmurations-ai/flyway</a></div>
   </div>
 </header>
@@ -622,7 +622,7 @@
   </p>
   <div class="prose">
     <p>This document is a concrete walk-through of how the system actually works at the code level. It is tied to a specific git SHA; future revisions update the figures and bump the version. Read sequentially, or jump to whichever section you need.</p>
-    <p><strong>Status snapshot:</strong> at SHA <code>d5ad56f</code>, six of nine tools are wired end-to-end (<code>flyway_init</code>, <code>flyway_status</code>, <code>flyway_recognize</code>, <code>flyway_check</code>, <code>flyway_tension</code>, and <code>flyway_respond</code> for tensions). Three executable walkthroughs prove the protocol carries a full S3 navigate-via-tension dialogue between two independent murmurations. The Markdown source of this document — <a href="./how-flyway-works.md">how-flyway-works.md</a> — has the up-to-date sequence diagrams; some figures in this HTML companion still reflect the earlier <code>flyway_init</code>-only milestone. See <a href="../status.html">docs/status.html</a> for the current dashboard.</p>
+    <p><strong>Status snapshot:</strong> at SHA <code>10d7045</code>, seven of nine tools are wired end-to-end (<code>flyway_init</code>, <code>flyway_status</code>, <code>flyway_recognize</code>, <code>flyway_check</code>, <code>flyway_tension</code>, <code>flyway_propose</code>, and <code>flyway_respond</code> for both tensions and proposals). Four executable walkthroughs prove the protocol carries a full S3 cycle — from a navigate-via-tension dialogue through proposal-forming consent to a <strong>co-signed engagement agreement</strong>, materialized byte-identically on both repos. The Markdown source of this document — <a href="./how-flyway-works.md">how-flyway-works.md</a> — has the up-to-date sequence diagrams; some figures in this HTML companion still mark the consent flow as "execution pending" and lag the wired implementation. See <a href="../status.html">docs/status.html</a> for the current dashboard.</p>
   </div>
 
   <nav class="reading-guide" aria-label="Document sections">
@@ -1180,10 +1180,10 @@
      §4 — SEQUENCE: cross-murmuration consent
      ════════════════════════════════════════════════════════════════ -->
 <section id="sequence-consent" aria-labelledby="seq-consent-h">
-  <span class="eyebrow">§4 &nbsp; cross-murmuration consent &nbsp;·&nbsp; surface defined, execution pending</span>
+  <span class="eyebrow">§4 &nbsp; cross-murmuration consent &nbsp;·&nbsp; implemented (S+5a / S+5b)</span>
   <h2 id="seq-consent-h" class="display">From tension to <em>signed agreement</em>.</h2>
   <div class="prose">
-    <p>The protocol's heart. Two recognized peer murmurations negotiate an agreement through a structured consent cycle, integrating objections rather than forcing them. Tool schemas are defined today; the GitHub I/O each step requires lands in future tool implementations. A real trial of this flow with three subagents reasoning independently — including a textbook §IV.1.6 objection and its §IV.1.7 integration — is documented in <code>docs/walkthroughs/2026-05-13-3party-retrospective-cadence.md</code>.</p>
+    <p>The protocol's heart. Two recognized peer murmurations negotiate an agreement through a structured consent cycle, integrating objections rather than forcing them. This flow is now wired end-to-end: <code>flyway_propose</code> drives the staging chain, <code>flyway_respond</code> carries the consent decisions, and <code>flyway materialize</code> writes the byte-identical co-signed agreement to both repos. The executable Tier 4 walkthrough — <code>docs/walkthroughs/2026-06-12-tier4-cosigned-agreement.md</code> — captures a verbatim transcript with a matching SHA-256. (The Fig. 4 diagram below still renders its arrows as "execution pending" and lags the implementation.)</p>
   </div>
 
   <figure class="canvas">
@@ -1345,13 +1345,13 @@
     </svg>
 
     <div class="legend">
-      <span class="item"><span class="swatch deferred"></span> tools whose execution is not yet implemented</span>
+      <span class="item"><span class="swatch deferred"></span> diagram drawn before S+5; these steps are now implemented</span>
       <span class="item"><span class="swatch flow"></span> objection / integration moment (S3 §IV.1.6–1.7)</span>
-      <span class="item"><span class="swatch mirror"></span> peer mirror via GitHub</span>
+      <span class="item"><span class="swatch mirror"></span> peer mirror via local-fs transport (GitHub reserved)</span>
     </div>
   </figure>
 
-  <p class="caption"><span class="figno">Fig. 4</span>The full negotiation arc. The slate arrows are conceptual — the tools' execution layer is pending. The amber arrows mark the load-bearing moments: the structured objection (B), the integration (A's refinement), and the signed byte-identical commit to both repos. Byte-identity is what "co-signed" means in a peer protocol with no central server.</p>
+  <p class="caption"><span class="figno">Fig. 4</span>The full negotiation arc. The slate arrows were drawn when this flow was conceptual; it is now wired end-to-end (S+5a / S+5b — see the Tier 4 walkthrough). The amber arrows mark the load-bearing moments: the structured objection (B), the integration (A's refinement), and the signed byte-identical commit to both repos. Byte-identity is what "co-signed" means in a peer protocol with no central server — now proven by a matching SHA-256.</p>
 </section>
 
 <!-- ════════════════════════════════════════════════════════════════
@@ -1640,12 +1640,12 @@
       <tr>
         <td class="tool">flyway_propose</td>
         <td class="inputs">peerDid · type · title · body · <span class="opt">deadline? · stage? · previousStageId?</span></td>
-        <td><span class="badge deferred">surface defined</span></td>
+        <td><span class="badge implemented">implemented</span></td>
       </tr>
       <tr>
         <td class="tool">flyway_respond</td>
-        <td class="inputs">subjectId · decision · <span class="opt">reason? · transferTo?</span></td>
-        <td><span class="badge implemented">implemented (tensions only)</span></td>
+        <td class="inputs">subjectId · decision · <span class="opt">reason? · transferTo? · concern?</span></td>
+        <td><span class="badge implemented">implemented</span></td>
       </tr>
       <tr>
         <td class="tool">flyway_check</td>
@@ -1751,7 +1751,7 @@
     <div>
       <div class="label">flyway</div>
       <div>runtime-agnostic protocol for cross-murmuration collaboration</div>
-      <div>protocol v0.1.0 · code SHA <a href="https://github.com/murmurations-ai/flyway/tree/d5ad56f">d5ad56f</a></div>
+      <div>protocol v0.1.0 · code SHA <a href="https://github.com/murmurations-ai/flyway/tree/10d7045">10d7045</a></div>
     </div>
     <div>
       <div class="label">read further</div>

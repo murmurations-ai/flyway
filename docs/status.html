@@ -755,8 +755,8 @@
   </div>
   <div class="meta" aria-label="document metadata">
     <div><span class="label">PROTOCOL</span>&nbsp;&nbsp;v0.1.0</div>
-    <div><span class="label">SHA</span>&nbsp;&nbsp;<a href="https://github.com/murmurations-ai/flyway/commit/d5ad56f">d5ad56f</a></div>
-    <div><span class="label">UPDATED</span>&nbsp;&nbsp;2026-05-25</div>
+    <div><span class="label">SHA</span>&nbsp;&nbsp;<a href="https://github.com/murmurations-ai/flyway/commit/10d7045">10d7045</a></div>
+    <div><span class="label">UPDATED</span>&nbsp;&nbsp;2026-06-12</div>
   </div>
 </header>
 
@@ -765,11 +765,12 @@
 <!-- ─── INTRO ──────────────────────────────────────────────────── -->
 <section class="intro" aria-labelledby="intro-h">
   <div class="eyebrow">A · Where we are</div>
-  <h1 id="intro-h" class="display">Six of nine tools wired. <em>Two murmurations talking.</em></h1>
+  <h1 id="intro-h" class="display">Seven of nine tools wired. <em>Two murmurations co-signing.</em></h1>
   <p class="lede">
     Two independent murmurations can now establish <strong>mutual recognition</strong>,
-    exchange a tension, and complete a full S3 <em>navigate-via-tension</em> dialogue —
-    with cryptographic verification on both sides and no shared state.
+    run a full S3 proposal-forming cycle, and <strong>co-sign an engagement agreement</strong> —
+    each side independently materializing a <em>byte-identical</em> agreement file, with
+    cryptographic verification on both sides and no shared state.
   </p>
 
   <div class="stats" role="list" aria-label="at-a-glance statistics">
@@ -779,15 +780,15 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Code SHA</span>
-      <span class="v" style="font-family: var(--mono); font-size: 1.1rem;">d5ad56f</span>
+      <span class="v" style="font-family: var(--mono); font-size: 1.1rem;">10d7045</span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Tools wired</span>
-      <span class="v">6 <span class="of">of 9</span></span>
+      <span class="v">7 <span class="of">of 9</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Walkthroughs</span>
-      <span class="v">3 <span class="of">executable</span></span>
+      <span class="v">4 <span class="of">executable</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">ADRs accepted</span>
@@ -795,11 +796,11 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Tests passing</span>
-      <span class="v">221 <span class="of">/ 18 files</span></span>
+      <span class="v">315 <span class="of">/ 22 files</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Open issues</span>
-      <span class="v">19</span>
+      <span class="v">12</span>
     </div>
     <div class="stat zero" role="listitem">
       <span class="k">Open security</span>
@@ -811,18 +812,21 @@
 <!-- ─── TOOL MATURITY ─────────────────────────────────────────── -->
 <section aria-labelledby="tools-h">
   <div class="eyebrow">B · Tool maturity</div>
-  <h2 id="tools-h" class="display">Nine tools. Six speaking, three pending.</h2>
+  <h2 id="tools-h" class="display">Nine tools. Seven speaking, two pending.</h2>
   <div class="prose">
     <p>
-      The nine tools form the canonical surface of the protocol. The six wired tools cover
-      the <strong>identity</strong>, <strong>recognition</strong>, <strong>send</strong>, <strong>read</strong>, and
-      <strong>respond</strong> primitives. The three pending tools — <code>discover</code>,
-      <code>propose</code>, <code>exit</code> — close the cycle.
+      The nine tools form the canonical surface of the protocol. The seven wired tools cover
+      the <strong>identity</strong>, <strong>recognition</strong>, <strong>send</strong>, <strong>read</strong>,
+      <strong>respond</strong>, and <strong>propose</strong> primitives. The two pending tools —
+      <code>discover</code> and <code>exit</code> — close the cycle. Beyond the nine wire tools,
+      <code>flyway materialize</code> turns an accepted final-stage agreement proposal into the
+      co-signed <code>agreements/&lt;id&gt;.yaml</code> — a local act over records both sides already
+      hold, not a protocol signal.
     </p>
   </div>
 
   <table class="ctable" aria-describedby="tools-h">
-    <caption>Tool surface (S+0 baseline → S+4)</caption>
+    <caption>Tool surface (S+0 baseline → S+5b)</caption>
     <thead>
       <tr>
         <th scope="col" style="width:2.5rem;">#</th>
@@ -871,16 +875,16 @@
       <tr>
         <td class="idx">06</td>
         <td class="tool">flyway_propose</td>
-        <td class="purpose">Send a directive, project, or engagement agreement.</td>
-        <td><span class="badge pending">pending</span></td>
-        <td class="demo none">—</td>
+        <td class="purpose">Send a directive, project, or engagement agreement; full S3 staging chain.</td>
+        <td><span class="badge wired">wired</span></td>
+        <td class="demo"><a href="./walkthroughs/2026-06-12-tier4-cosigned-agreement.md">Tier 4</a></td>
       </tr>
       <tr>
         <td class="idx">07</td>
         <td class="tool">flyway_respond</td>
-        <td class="purpose">Respond to a tension — acknowledge / dispute / dissolve / transfer.</td>
-        <td><span class="badge partial">tensions only</span></td>
-        <td class="demo"><a href="./walkthroughs/2026-05-25-tier3-signal-dialogue.md">Tier 3</a></td>
+        <td class="purpose">Respond to a tension (acknowledge / dispute / dissolve / transfer) or a proposal (accept / object / exit).</td>
+        <td><span class="badge wired">wired</span></td>
+        <td class="demo"><a href="./walkthroughs/2026-06-12-tier4-cosigned-agreement.md">Tier 4</a></td>
       </tr>
       <tr>
         <td class="idx">08</td>
@@ -903,12 +907,13 @@
 <!-- ─── MILESTONE TIMELINE ────────────────────────────────────── -->
 <section aria-labelledby="timeline-h">
   <div class="eyebrow">C · Milestone timeline</div>
-  <h2 id="timeline-h" class="display">Six sprints from <em>schemas-only</em> to <em>two-way dialogue</em>.</h2>
+  <h2 id="timeline-h" class="display">From <em>schemas-only</em> to a <em>co-signed agreement</em>.</h2>
   <div class="prose">
     <p>
       Each milestone lands one capability and one walkthrough that proves it. The orange
       flow line is the load-bearing path from a defined protocol surface, through identity
-      and recognition, into a verified round-trip.
+      and recognition, into a verified round-trip — and on to a full consent cycle that ends
+      in a co-signed agreement.
     </p>
   </div>
 
@@ -916,9 +921,10 @@
     <svg viewBox="0 0 960 360" role="img" aria-labelledby="fig1-title fig1-desc">
       <title id="fig1-title">Milestone timeline S+0 to Review hardening</title>
       <desc id="fig1-desc">
-        Horizontal timeline with six milestones from May 13 to May 25, 2026. Each milestone
+        Horizontal timeline with seven milestones from May 13 to June 12, 2026. Each milestone
         is a labeled node anchored to a baseline rule with a date and SHA underneath and a
-        capability headline above. The flow line is amber-gold.
+        capability headline above. The flow line is amber-gold and ends at the S+5 agreements
+        milestone, marked "here".
       </desc>
 
       <defs>
@@ -938,8 +944,9 @@
       <text x="240" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">IDENTITY</text>
       <text x="400" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">TRANSPORT</text>
       <text x="555" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">SEND</text>
-      <text x="675" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">DIALOGUE</text>
-      <text x="800" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">HARDEN</text>
+      <text x="660" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">DIALOGUE</text>
+      <text x="772" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">HARDEN</text>
+      <text x="868" y="62" class="label-mono" fill="#fbbf24" font-size="10" letter-spacing="2.5">AGREE</text>
 
       <!-- Baseline -->
       <line x1="40" y1="200" x2="920" y2="200" stroke="#2a3a52" stroke-width="1.5"/>
@@ -955,10 +962,10 @@
       </g>
       <text x="40"  y="225" class="label-tiny" text-anchor="middle">may 13</text>
       <text x="540" y="225" class="label-tiny" text-anchor="middle">may 21</text>
-      <text x="860" y="225" class="label-tiny" text-anchor="middle">may 25</text>
+      <text x="860" y="225" class="label-tiny" text-anchor="middle">jun 12</text>
 
       <!-- Flow line through the milestone nodes (gold arc) -->
-      <path d="M 100 180 L 260 180 L 420 180 L 580 180 L 700 180 L 820 180"
+      <path d="M 100 180 L 260 180 L 420 180 L 580 180 L 700 180 L 790 180 L 890 180"
             stroke="#fbbf24" stroke-width="1.5" fill="none" opacity="0.9"
             marker-end="url(#arrowhead)"/>
 
@@ -1025,42 +1032,55 @@
 
       <!-- Review hardening -->
       <g>
-        <circle cx="820" cy="180" r="9" fill="#1a2942" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3 2"/>
-        <circle cx="820" cy="180" r="3" fill="#fbbf24"/>
-        <text x="820" y="135" class="label-mono" font-size="11" fill="#faf7ee" text-anchor="middle" font-weight="500">REVIEW</text>
-        <text x="820" y="120" class="label-mono" font-size="9" fill="#94a3b8" text-anchor="middle">hardening</text>
-        <text x="820" y="250" class="label-tiny" text-anchor="middle">05-25</text>
-        <text x="820" y="265" class="label-tiny" fill="#fbbf24" text-anchor="middle">2a2ac16 → d5ad56f</text>
-        <text x="820" y="295" class="label-small" text-anchor="middle">SEC 1–4 closed</text>
-        <text x="820" y="308" class="label-small" text-anchor="middle">+ ADR-0009</text>
+        <circle cx="790" cy="180" r="9" fill="#1a2942" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="3 2"/>
+        <circle cx="790" cy="180" r="3" fill="#fbbf24"/>
+        <text x="790" y="135" class="label-mono" font-size="11" fill="#faf7ee" text-anchor="middle" font-weight="500">REVIEW</text>
+        <text x="790" y="120" class="label-mono" font-size="9" fill="#94a3b8" text-anchor="middle">hardening</text>
+        <text x="790" y="250" class="label-tiny" text-anchor="middle">05-25</text>
+        <text x="790" y="265" class="label-tiny" fill="#fbbf24" text-anchor="middle">2a2ac16 → d5ad56f</text>
+        <text x="790" y="295" class="label-small" text-anchor="middle">SEC 1–4 closed</text>
+        <text x="790" y="308" class="label-small" text-anchor="middle">+ ADR-0009</text>
+      </g>
+
+      <!-- S+5 — propose + co-signed agreements -->
+      <g>
+        <circle cx="890" cy="180" r="11" fill="#1a2942" stroke="#f59e0b" stroke-width="2"/>
+        <circle cx="890" cy="180" r="4" fill="#f59e0b"/>
+        <text x="890" y="135" class="label-mono" font-size="11" fill="#faf7ee" text-anchor="middle" font-weight="500">S+5</text>
+        <text x="890" y="120" class="label-mono" font-size="9" fill="#fbbf24" text-anchor="middle">agreements</text>
+        <text x="890" y="250" class="label-tiny" text-anchor="middle">05-26 → 06-12</text>
+        <text x="890" y="265" class="label-tiny" fill="#f59e0b" text-anchor="middle">080aaff → 10d7045</text>
+        <text x="890" y="295" class="label-small" text-anchor="middle">propose + co-sign</text>
+        <text x="890" y="308" class="label-small" text-anchor="middle">byte-identical file</text>
       </g>
 
       <!-- "we are here" pointer -->
       <g>
-        <line x1="820" y1="50" x2="820" y2="100" stroke="#d97706" stroke-width="1" stroke-dasharray="2 3"/>
-        <text x="820" y="38" class="label-mono" font-size="9.5" fill="#d97706" text-anchor="middle" letter-spacing="1.5">↓ HERE</text>
+        <line x1="890" y1="50" x2="890" y2="100" stroke="#d97706" stroke-width="1" stroke-dasharray="2 3"/>
+        <text x="890" y="38" class="label-mono" font-size="9.5" fill="#d97706" text-anchor="middle" letter-spacing="1.5">↓ HERE</text>
       </g>
     </svg>
 
     <div class="legend" aria-hidden="true">
       <span class="item"><span class="swatch shipped"></span>shipped milestone</span>
       <span class="item"><span class="swatch review"></span>review pass</span>
-      <span class="item"><span class="swatch" style="background:transparent;border:1.5px solid #fbbf24;"></span>flagship sprint (S+3 / S+4)</span>
+      <span class="item"><span class="swatch" style="background:transparent;border:1.5px solid #fbbf24;"></span>flagship sprint (S+3 / S+4 / S+5)</span>
     </div>
   </figure>
 
   <figcaption class="caption">
     <span class="figno">Fig. 1</span>
-    Twelve calendar days separate <em>protocol surface defined</em> from <em>two murmurations
-    completing a signed dialogue</em>. The two thicker nodes (S+3, S+4) are the flagship
-    sprints — first sender and first round-trip.
+    One month separates <em>protocol surface defined</em> from <em>two murmurations co-signing
+    an engagement agreement</em>. The thicker nodes (S+3, S+4, S+5) are the flagship sprints —
+    first sender, first round-trip, and the consent cycle that ends in a byte-identical
+    agreement file.
   </figcaption>
 </section>
 
 <!-- ─── WALKTHROUGHS ──────────────────────────────────────────── -->
 <section aria-labelledby="walks-h">
   <div class="eyebrow">D · Executable walkthroughs</div>
-  <h2 id="walks-h" class="display">Three artifacts. <em>Each one proves a layer.</em></h2>
+  <h2 id="walks-h" class="display">Four artifacts. <em>Each one proves a layer.</em></h2>
   <div class="prose">
     <p>
       A walkthrough is an end-to-end script run against the real CLI and MCP server, not a
@@ -1100,6 +1120,18 @@
         that reconcile without shared state.
       </p>
       <div class="proves"><span class="lbl">Proves</span>full round-trip</div>
+    </article>
+
+    <article class="walk" role="listitem">
+      <div class="tier"><span><a href="./walkthroughs/2026-06-12-tier4-cosigned-agreement.md">Tier 4</a></span><span class="sha">10d7045 · 06-12</span></div>
+      <h3><a href="./walkthroughs/2026-06-12-tier4-cosigned-agreement.md">Co-signed agreement</a></h3>
+      <p>
+        A proposes a final-stage agreement; B co-signs by accepting. Each side independently
+        materializes a byte-identical
+        <code style="font-family:var(--mono);font-size:0.88em;background:var(--paper-warm);padding:0 .25em;">agreements/&lt;id&gt;.yaml</code>
+        from records it already holds — matching SHA-256, no authoritative copy.
+      </p>
+      <div class="proves"><span class="lbl">Proves</span>co-signing · byte-identity</div>
     </article>
   </div>
 </section>
@@ -1161,34 +1193,33 @@
 <!-- ─── PENDING ───────────────────────────────────────────────── -->
 <section aria-labelledby="pending-h">
   <div class="eyebrow">F · What's pending</div>
-  <h2 id="pending-h" class="display">Four milestones close the cycle.</h2>
+  <h2 id="pending-h" class="display">Two tools left to close the cycle.</h2>
+
+  <p class="prose" style="margin-bottom:1.25rem;">
+    <code>flyway_propose</code>, proposal responses, and agreement co-signing all landed
+    (S+5a / S+5b). What remains:
+  </p>
 
   <ol class="nextlist" aria-label="next milestones">
     <li>
-      <span class="ms">S+5</span>
-      <span>
-        <strong>flyway_propose</strong> — flagship sender; proposal staging
-        (driver → requirements → draft → refinement → final); unlocks consent.
-      </span>
-    </li>
-    <li>
       <span class="ms">S+6</span>
       <span>
-        <strong>proposal responses</strong> — extend flyway_respond with
-        <em>accept / object / exit</em>; first-class <code>concernsToRecord</code>.
+        <strong>flyway_exit</strong> — clean unilateral exit; signed exit record; closes the
+        protocol cycle.
       </span>
     </li>
     <li>
       <span class="ms">S+7</span>
       <span>
-        <strong>flyway_exit</strong> — clean unilateral exit; closes the protocol cycle.
+        <strong>flyway_discover</strong> — URL fetch + DID resolution + flyway directory
+        lookup; paves for non-local-fs transport.
       </span>
     </li>
     <li>
       <span class="ms">S+8</span>
       <span>
-        <strong>flyway_discover</strong> — URL fetch + DID resolution + flyway directory
-        lookup; paves for non-local-fs transport.
+        <strong>staging-chain walkthrough</strong> — verbatim transcript of the full
+        driver → requirements → draft → refinement → final cycle with integrated objections.
       </span>
     </li>
   </ol>
@@ -1197,15 +1228,13 @@
     Open issues by theme
   </h3>
   <p style="font-family:var(--sans); font-size:0.88rem; color:var(--ink-mute); margin-top:0.4rem;">
-    Nineteen open issues across four themes. Numbers link to GitHub.
+    Twelve open issues (8 closed by S+5a and the pre-S+5 cleanup). Numbers link to GitHub.
   </p>
 
   <div class="issue-grid" role="list">
     <div class="theme">Protocol gaps</div>
     <div class="chips" role="listitem">
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/2">#2 tension→proposal linkage</a>
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/3">#3 concernsToRecord first-class</a>
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/14">#14 refs.tensionId resolution</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/16">#16 response sentAt vs subject</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/19">#19 proposedOwner recognition</a>
     </div>
@@ -1219,17 +1248,12 @@
 
     <div class="theme">Schema / validation</div>
     <div class="chips" role="listitem">
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/6">#6</a>
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/7">#7</a>
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/8">#8</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/11">#11</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/12">#12</a>
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/15">#15</a>
     </div>
 
     <div class="theme">Quality of life</div>
     <div class="chips" role="listitem">
-      <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/9">#9</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/10">#10</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/13">#13</a>
       <a class="chip" href="https://github.com/murmurations-ai/flyway/issues/17">#17</a>
@@ -1336,8 +1360,8 @@
     </li>
     <li class="item">
       <span class="n">03 · 10 min</span>
-      <h3><a href="./walkthroughs/2026-05-25-tier3-signal-dialogue.md">Tier 3 walkthrough</a></h3>
-      <p>The single most informative artifact in the repo.</p>
+      <h3><a href="./walkthroughs/2026-06-12-tier4-cosigned-agreement.md">Tier 4 walkthrough</a></h3>
+      <p>The single most informative artifact in the repo — consent through to a co-signed agreement.</p>
     </li>
     <li class="item">
       <span class="n">04 · 5 min</span>
@@ -1356,9 +1380,9 @@
       <div class="frontmatter">
         protocol v0.1.0
         <span class="sep">·</span>
-        code SHA <a href="https://github.com/murmurations-ai/flyway/commit/d5ad56f">d5ad56f</a>
+        code SHA <a href="https://github.com/murmurations-ai/flyway/commit/10d7045">10d7045</a>
         <span class="sep">·</span>
-        generated 2026-05-25
+        generated 2026-06-12
       </div>
     </div>
     <div style="text-align:right;">
