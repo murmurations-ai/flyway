@@ -76,7 +76,7 @@ flowchart TB
     INBOX["flyway/inbox/&lt;sender-segments&gt;/&lt;id&gt;.yaml<br/>(received signals)"]
     OUTBOX["flyway/outbox/&lt;recipient-segments&gt;/&lt;id&gt;.yaml<br/>(sent signals)"]
     UNREC["flyway/unrecognized/&lt;safe-did&gt;.yaml<br/>(signed unrecognition records)"]
-    AGREE["flyway/agreements/&lt;id&gt;.yaml<br/>(signed agreements — pending)"]
+    AGREE["flyway/agreements/&lt;id&gt;.yaml<br/>(co-signed agreements)"]
     SKILL[".claude/skills/flyway/SKILL.md<br/>(installed skill)"]
   end
 
@@ -384,17 +384,25 @@ even if its signature itself is fine.
 
 ## 4. What's pending
 
-Three tools remain stubbed; one wired tool has a remaining branch:
+The full tension → proposal → consent → co-signed-agreement flow is now
+wired end-to-end. Two tools remain stubbed:
 
 | Tool / branch | What it will do | Status |
 | ------------- | --------------- | ------ |
-| `flyway_propose` | Send a directive / project / engagement agreement; supports the S3 staging chain (driver → requirements → draft → refinement → final); enforces `FLYWAY_AGREEMENT_SCHEMA` for agreement bodies | Schema defined; tool returns "not yet implemented" |
-| `flyway_respond` (proposal branch) | `accept` / `object` / `exit` decisions on proposals; first-class `concernsToRecord` field per Issue #3 | Tension branch wired; proposal branch returns "not yet implemented" |
 | `flyway_exit` | Cleanly leave a peer relationship, project, or syndicate; produces a signed exit record | Schema defined; tool returns "not yet implemented" |
 | `flyway_discover` | Look up murmurations in a flyway directory; first non-local-fs operation | Schema defined; tool returns "not yet implemented" |
 
-Sequence diagram for the full cross-murmuration consent flow (conceptual
-until `flyway_propose` lands):
+`flyway_propose` (all three types, full S3 staging chain) and the
+`flyway_respond` proposal branch (`accept` / `object` / `exit` with
+`concernsToRecord`) landed in S+5a. Agreement **materialization** — turning
+an accepted final-stage agreement proposal into the co-signed
+`flyway/agreements/<id>.yaml` — landed in S+5b. Materialization is a *local
+act*, not a protocol signal: it is a CLI/core operation (`flyway
+materialize`) over records both sides already hold, so it is not one of the
+nine wire tools.
+
+Sequence diagram for the full cross-murmuration consent flow (all phases
+now implemented; see the Tier 4 walkthrough for a verbatim transcript):
 
 ```mermaid
 sequenceDiagram
@@ -410,33 +418,33 @@ sequenceDiagram
   B->>BRepo: flyway_respond {subjectId, decision: acknowledge}
   B->>ARepo: deliver
 
-  Note over A,B: Phase 2 — Proposal forming (PENDING, S3 §IV.1.9-1.10)
+  Note over A,B: Phase 2 — Proposal forming (✓ implemented, S3 §IV.1.9-1.10)
   A->>ARepo: flyway_propose stage: driver, refs.tensionId: T-001
   B->>ARepo: flyway_respond decision: accept (no objections to advancing)
   A->>ARepo: flyway_propose stage: requirements
   B->>ARepo: flyway_respond decision: object {reason}
-  Note over A,B: Phase 3 — Resolve Objections (PENDING, S3 §IV.1.7)
+  Note over A,B: Phase 3 — Resolve Objections (✓ implemented, S3 §IV.1.7)
   A->>ARepo: flyway_propose stage: refinement (integrates B's objection)
   B->>ARepo: flyway_respond decision: accept
-  A->>ARepo: flyway_propose stage: final
+  A->>ARepo: flyway_propose stage: final (carries A's agreementSignature)
 
-  Note over A,B: Phase 4 — Sign (PENDING — co-signed agreement)
-  B->>ARepo: flyway_respond decision: accept
-  A->>ARepo: write flyway/agreements/01HZ.yaml (signed by A)
-  B->>BRepo: write flyway/agreements/01HZ.yaml (signed by B, byte-identical)
+  Note over A,B: Phase 4 — Sign (✓ implemented — co-signed agreement)
+  B->>ARepo: flyway_respond decision: accept (carries B's agreementSignature)
+  A->>ARepo: flyway materialize → write flyway/agreements/01HZ.yaml
+  B->>BRepo: flyway materialize → write flyway/agreements/01HZ.yaml (byte-identical)
   Note over A,B: state: agreed
 ```
 
 The byte-identity of `flyway/agreements/<id>.yaml` across both repos is
-what "co-signed" will mean. There is no authoritative copy; each repo
-is.
+what "co-signed" means. There is no authoritative copy; each repo is.
 
 The Tier 3 walkthrough
 ([2026-05-25-tier3-signal-dialogue.md](../walkthroughs/2026-05-25-tier3-signal-dialogue.md))
-exercises Phase 1 end-to-end with real signatures. Phases 2–4 stay
-narrative in the
-[2026-05-13 walkthrough](../walkthroughs/2026-05-13-3party-retrospective-cadence.md)
-until `flyway_propose` lands.
+exercises Phase 1 end-to-end with real signatures; the Tier 4 walkthrough
+([2026-06-12-tier4-cosigned-agreement.md](../walkthroughs/2026-06-12-tier4-cosigned-agreement.md))
+exercises the Phase 4 close — proposal → accept → two independent
+materializations to a byte-identical agreement — with real signatures and a
+matching SHA-256.
 
 ---
 
@@ -483,10 +491,10 @@ cannot be replayed as another:
 | `flyway-v1:recognition` | `recognizePeer` |
 | `flyway-v1:unrecognition` | `unrecognizePeer` |
 | `flyway-v1:tension` | `createTension` |
-| `flyway-v1:proposal` | `createProposal` *(pending)* |
-| `flyway-v1:respond` | `createTensionResponse` |
+| `flyway-v1:proposal` | `createProposal` |
+| `flyway-v1:respond` | `createTensionResponse` / `createProposalResponse` |
 | `flyway-v1:exit` | `createExit` *(pending)* |
-| `flyway-v1:agreement` | future co-signed agreements |
+| `flyway-v1:agreement` | `signAgreement` (detached; co-signed agreements) |
 
 The signed payload always includes the discriminating field (e.g.
 `kind` for signals). The verifier reads that field, derives the
@@ -573,7 +581,7 @@ stateDiagram-v2
   raised --> disputed: flyway_respond decision: dispute (+ reason)
   raised --> dissolved: flyway_respond decision: dissolve (+ reason)
   raised --> transferred: flyway_respond decision: transfer (+ transferTo)
-  acknowledged --> promoted: (pending) flyway_propose with refs.tensionId
+  acknowledged --> promoted: flyway_propose with refs.tensionId
   promoted --> [*]
   disputed --> [*]
   dissolved --> [*]
@@ -592,7 +600,7 @@ stateDiagram-v2
   unrecognized --> recognized: re-recognize after gap
 ```
 
-### 6.4 Proposal (within an agreement — pending)
+### 6.4 Proposal (within an agreement)
 
 ```mermaid
 stateDiagram-v2
@@ -610,7 +618,12 @@ stateDiagram-v2
   signed --> [*]
 ```
 
-### 6.5 Agreement (`FLYWAY_AGREEMENT_STATES` — pending wire-up)
+### 6.5 Agreement (`FLYWAY_AGREEMENT_STATES`)
+
+The `proposed → agreed` transition is wired: `flyway materialize` writes
+the co-signed file at `state: agreed` once both participants have signed.
+Transitions past `agreed` (`in_flight` / `suspended` / `closed`) and
+`flyway_exit` are pending.
 
 ```mermaid
 stateDiagram-v2

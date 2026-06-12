@@ -19,6 +19,7 @@ as GitHub issues.
 | 2026-05-21 | [Tier 1 — mutual recognition](./2026-05-21-tier1-mutual-recognition.md)         | executable   | 0.1.0    | `1712232` | Two murmurations mutually recognize each other with verified signatures. 3 new gaps.   |
 | 2026-05-25 | [Tier 2 — first signal exchange](./2026-05-25-tier2-signal-exchange.md)         | executable   | 0.1.0    | `bfaf1db` | A signed tension envelope crosses A → B; B's flyway_check verifies it. 3 new gaps.     |
 | 2026-05-25 | [Tier 3 — first signal dialogue](./2026-05-25-tier3-signal-dialogue.md)         | executable   | 0.1.0    | `64b112a` | Full A↔B round-trip — tension + acknowledge, both sides hold signed records. 3 new gaps. |
+| 2026-06-12 | [Tier 4 — co-signed agreement](./2026-06-12-tier4-cosigned-agreement.md)         | executable   | 0.1.0    | `10d7045` | A proposes a final agreement, B co-signs by accepting; both materialize a byte-identical agreement file. 2 new gaps. |
 
 ## Two kinds of walkthrough
 
