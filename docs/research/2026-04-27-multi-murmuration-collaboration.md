@@ -155,15 +155,15 @@ This is novel territory. flyway will invent some patterns. The frameworks below 
 
 Compared across traditions:
 
-| Tradition | When peers disagree |
-|---|---|
-| **S3** | Drive structuring + delegate circle + consent. Bottoms out at the parent circle if irreducible. |
-| **Holacracy** | Escalate up the lead-link chain to the anchor circle. Constitution is the final arbiter. |
-| **Ostrom (commons)** | Negotiate rules; resort to graduated sanctions; ultimately accept that some commons fail. |
-| **Mondragon** | Congress votes weighted but bounded; member coops can leave the federation. |
-| **Apache** | Lazy consensus; if blocked, proposal fails; project may fork. |
-| **Linux kernel** | Linus or his lieutenant decides; alternative: fork. |
-| **DAO (Moloch)** | Any member can rage-quit at any time, withdrawing pro-rata. |
+| Tradition            | When peers disagree                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| **S3**               | Drive structuring + delegate circle + consent. Bottoms out at the parent circle if irreducible. |
+| **Holacracy**        | Escalate up the lead-link chain to the anchor circle. Constitution is the final arbiter.        |
+| **Ostrom (commons)** | Negotiate rules; resort to graduated sanctions; ultimately accept that some commons fail.       |
+| **Mondragon**        | Congress votes weighted but bounded; member coops can leave the federation.                     |
+| **Apache**           | Lazy consensus; if blocked, proposal fails; project may fork.                                   |
+| **Linux kernel**     | Linus or his lieutenant decides; alternative: fork.                                             |
+| **DAO (Moloch)**     | Any member can rage-quit at any time, withdrawing pro-rata.                                     |
 
 The pattern across all of them: **disagreement that cannot be resolved through dialogue ends in either fork or exit.** None of these traditions invents a mechanism that forces sovereign peers into agreement.
 
