@@ -15,11 +15,6 @@
     "format": "prettier --write packages/*/src",
     "format:check": "prettier --check packages/*/src"
   },
-  "pnpm": {
-    "peerDependencyRules": {
-      "ignoreMissing": ["@murmurations-ai/murmurations-harness"]
-    }
-  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@eslint/js": "^9.26.0",

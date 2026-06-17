@@ -1,2 +1,22 @@
 packages:
   - 'packages/*'
+
+# Settings moved here from the package.json "pnpm" field, which pnpm 10+ no
+# longer reads (see https://pnpm.io/settings).
+#
+# The harness package declares an OPTIONAL peerDependency on the private
+# @murmurations-ai/murmurations-harness package, which is not published to
+# any registry the build has access to. ignoreMissing keeps `pnpm install`
+# from trying to resolve it (and 404-ing). The harness is excluded from
+# builds/tests anyway (pnpm -r --filter '!@murmurations-ai/flyway-harness').
+peerDependencyRules:
+  ignoreMissing:
+    - '@murmurations-ai/murmurations-harness'
+
+# Keep peers explicit rather than auto-installed — match the lockfile.
+autoInstallPeers: false
+
+# Allow esbuild (pulled in by vitest) to run its install script. Without
+# this, pnpm 10+ blocks the build script and prints ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  esbuild: true
