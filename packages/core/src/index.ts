@@ -116,6 +116,8 @@ export type {
 export { flywayStatus } from './status.js'
 export type { CreateTensionInput, TensionBody } from './tension.js'
 export { createTension } from './tension.js'
+export type { CreateExitInput, ExitBody, ExitTargetType } from './exit.js'
+export { EXIT_TARGET_TYPES, createExit } from './exit.js'
 export type {
   CreateProposalInput,
   ProposalAgreementBody,

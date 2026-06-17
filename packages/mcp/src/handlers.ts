@@ -1,5 +1,6 @@
 import {
   type DidDocument,
+  type ExitTargetType,
   FLYWAY_TOOLS,
   type FlywayMode,
   PROPOSAL_DECISIONS,
@@ -19,6 +20,7 @@ import {
   type TensionDecision,
   type TensionResponseBody,
   type TensionResponseRefs,
+  createExit,
   createProposal,
   createProposalResponse,
   createTension,
@@ -67,8 +69,81 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleRespond(args)
     case 'flyway_propose':
       return handleProposal(args)
+    case 'flyway_exit':
+      return handleExit(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleExit(
+  args: Record<string, unknown> | undefined,
+): Promise<CallToolResult> {
+  // Stateless: caller supplies its own identity and the peer DID; the
+  // handler signs an exit envelope and returns it. The caller writes it to
+  // its own outbox and delivers to the peer's inbox (the flyway CLI's
+  // `exit` subcommand does both).
+  if (!args || typeof args !== 'object') {
+    return errorResult(
+      'flyway_exit requires arguments: ownDidDocument, ownPrivateKeyPem, peerDid, target, targetType',
+    )
+  }
+  const a = args as Record<string, unknown>
+  if (
+    typeof a.ownPrivateKeyPem !== 'string' ||
+    typeof a.ownDidDocument !== 'object' ||
+    a.ownDidDocument === null ||
+    typeof a.peerDid !== 'string' ||
+    typeof a.target !== 'string' ||
+    typeof a.targetType !== 'string'
+  ) {
+    return errorResult(
+      'flyway_exit requires: ownDidDocument (object), ownPrivateKeyPem (string), peerDid (string), target (string), targetType (string)',
+    )
+  }
+  const ownDidDocument = a.ownDidDocument as DidDocument
+  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  if (!ownVerificationMethod) {
+    return errorResult('flyway_exit: ownDidDocument has no verificationMethod')
+  }
+  try {
+    const signer = localEd25519Signer({
+      privateKeyPem: a.ownPrivateKeyPem,
+      publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+      verificationKeyId: ownVerificationMethod.id,
+    })
+    const envelope = await createExit({
+      from: ownDidDocument.id,
+      to: a.peerDid,
+      body: {
+        target: a.target,
+        targetType: a.targetType as ExitTargetType,
+        ...(typeof a.reason === 'string' ? { reason: a.reason } : {}),
+      },
+      signer,
+    })
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              envelope,
+              note:
+                'Write this exit record to flyway/outbox/<peer-segments>/<id>.yaml ' +
+                'in your repo and deliver to ' +
+                'flyway/inbox/<your-segments>/<id>.yaml in the peer’s repo. The ' +
+                'flyway CLI `exit` subcommand does both. Exit does not retract ' +
+                'recognition or edit signed agreement files.',
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+    }
+  } catch (e) {
+    return errorResult(`flyway_exit failed: ${(e as Error).message}`)
   }
 }
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import {
+  EXIT_TARGET_TYPES,
+  type ExitTargetType,
   FLYWAY_PROTOCOL_VERSION,
   type FlywayMode,
   PROPOSAL_DECISIONS,
@@ -14,6 +16,7 @@ import {
   flywayCheck,
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
+import { runExit } from '../exit.js'
 import { runInit } from '../init.js'
 import { runMaterialize } from '../materialize.js'
 import { runPropose } from '../propose.js'
@@ -96,6 +99,18 @@ Commands:
                                       --requirements-file points at a
                                       YAML/JSON list of
                                       {id,description,mustOrShould?,rationale?}.
+
+  exit <peer-repo-path> --target-type <peer|project|syndicate>
+       [--target <id>] [--reason "..."]
+                                      Leave a peer relationship, project, or
+                                      syndicate cleanly. Exit is always valid;
+                                      no peer can prevent it. Signs an exit
+                                      record, writes it to your outbox, and
+                                      delivers it to the peer's inbox. For
+                                      --target-type peer, --target defaults to
+                                      the resolved peer DID. Exit does not
+                                      retract recognition or edit signed
+                                      agreement files.
 
   materialize <peer-repo-path> --response-id <id> [--proposal-id <id>]
                                       Write the co-signed agreement file
@@ -631,6 +646,54 @@ async function handleProposeCommand(args: string[]): Promise<number> {
   }
 }
 
+function isExitTargetType(value: string): value is ExitTargetType {
+  return (EXIT_TARGET_TYPES as readonly string[]).includes(value)
+}
+
+async function handleExitCommand(args: string[]): Promise<number> {
+  const { value: targetTypeRaw, rest: r1 } = parseFlag(args, '--target-type')
+  const { value: target, rest: r2 } = parseFlag(r1, '--target')
+  const { value: reason, rest: positional } = parseFlag(r2, '--reason')
+  const [peerRepoPath] = positional
+  if (!peerRepoPath) {
+    process.stderr.write('error: flyway exit requires a peer repo path\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!targetTypeRaw) {
+    process.stderr.write('error: flyway exit requires --target-type\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  if (!isExitTargetType(targetTypeRaw)) {
+    process.stderr.write(
+      `error: --target-type must be one of ${EXIT_TARGET_TYPES.join(', ')} (got: ${targetTypeRaw})\n`,
+    )
+    return 2
+  }
+  try {
+    const result = await runExit({
+      cwd: process.cwd(),
+      peerRepoPath,
+      targetType: targetTypeRaw,
+      ...(target !== undefined ? { target } : {}),
+      ...(reason !== undefined ? { reason } : {}),
+    })
+    const body = result.signal.body as { target: string; targetType: string }
+    process.stdout.write(
+      `Exited ${body.targetType} ${body.target} (notified ${result.peerDid})\n` +
+        `  id:       ${result.signal.id}\n` +
+        `  sentAt:   ${result.signal.sentAt}\n` +
+        `  wrote ${result.outboxPath}\n` +
+        `  delivered ${result.inboxPath}\n`,
+    )
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function handleMaterializeCommand(args: string[]): Promise<number> {
   const { value: responseId, rest: r1 } = parseFlag(args, '--response-id')
   const { value: proposalId, rest: positional } = parseFlag(r1, '--proposal-id')
@@ -729,6 +792,8 @@ async function main(argv: string[]): Promise<number> {
       return handleProposeCommand(rest)
     case 'materialize':
       return handleMaterializeCommand(rest)
+    case 'exit':
+      return handleExitCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':
