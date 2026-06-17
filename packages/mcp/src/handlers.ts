@@ -26,8 +26,10 @@ import {
   createTension,
   createTensionResponse,
   flywayCheck,
+  flywayDiscover,
   flywayInit,
   flywayStatus,
+  parseFlywayDirectory,
   localEd25519Signer,
   recognizePeer,
 } from '@murmurations-ai/flyway-core'
@@ -71,8 +73,37 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
       return handleProposal(args)
     case 'flyway_exit':
       return handleExit(args)
+    case 'flyway_discover':
+      return handleDiscover(args)
     default:
       return notImplemented(name)
+  }
+}
+
+async function handleDiscover(
+  args: Record<string, unknown> | undefined,
+): Promise<CallToolResult> {
+  // Read-only, pre-trust, stateless. The caller supplies the directory
+  // document (already loaded/fetched on its side — the MCP server does no
+  // filesystem or network I/O for discovery in v0.1); the handler parses,
+  // validates, and filters it.
+  if (!args || typeof args !== 'object' || (args as Record<string, unknown>).directory == null) {
+    return errorResult(
+      'flyway_discover requires arguments: directory (a flyway directory document), query? (string)',
+    )
+  }
+  const a = args as Record<string, unknown>
+  try {
+    const directory = parseFlywayDirectory(a.directory)
+    const result = flywayDiscover({
+      directory,
+      ...(typeof a.query === 'string' ? { query: a.query } : {}),
+    })
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+    }
+  } catch (e) {
+    return errorResult(`flyway_discover failed: ${(e as Error).message}`)
   }
 }
 

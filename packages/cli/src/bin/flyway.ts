@@ -16,6 +16,7 @@ import {
   flywayCheck,
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
+import { runDiscover } from '../discover.js'
 import { runExit } from '../exit.js'
 import { runInit } from '../init.js'
 import { runMaterialize } from '../materialize.js'
@@ -99,6 +100,16 @@ Commands:
                                       --requirements-file points at a
                                       YAML/JSON list of
                                       {id,description,mustOrShould?,rationale?}.
+
+  discover --directory <path> [query] [--json]
+                                      Search a flyway directory for potential
+                                      peers. query may be free text (matches
+                                      name / capabilities / description) or a
+                                      full did:… for an exact lookup; omit it
+                                      to list every entry. Discovery is
+                                      read-only and pre-trust — verify at
+                                      recognition. v0.1 reads a local directory
+                                      file (YAML/JSON); http(s) is reserved.
 
   exit <peer-repo-path> --target-type <peer|project|syndicate>
        [--target <id>] [--reason "..."]
@@ -733,6 +744,50 @@ async function handleMaterializeCommand(args: string[]): Promise<number> {
   }
 }
 
+async function handleDiscoverCommand(args: string[]): Promise<number> {
+  const { present: asJson, rest: r1 } = parseBoolFlag(args, '--json')
+  const { value: directory, rest: positional } = parseFlag(r1, '--directory')
+  const [query] = positional
+  if (!directory) {
+    process.stderr.write('error: flyway discover requires --directory <path>\n\n')
+    process.stderr.write(HELP)
+    return 2
+  }
+  try {
+    const result = await runDiscover({
+      directory,
+      ...(query !== undefined ? { query } : {}),
+    })
+    if (asJson) {
+      process.stdout.write(
+        JSON.stringify(
+          { query: result.query, byDid: result.byDid, total: result.total, matches: result.matches },
+          null,
+          2,
+        ) + '\n',
+      )
+      return 0
+    }
+    const scope = result.query
+      ? `${result.matches.length} of ${result.total} match${result.matches.length === 1 ? '' : 'es'} for "${result.query}"`
+      : `${result.total} murmuration${result.total === 1 ? '' : 's'}`
+    process.stdout.write(`Directory: ${scope}\n`)
+    for (const e of result.matches) {
+      const tags = e.capabilities && e.capabilities.length > 0 ? `  [${e.capabilities.join(', ')}]` : ''
+      const mode = e.mode ? ` (${e.mode})` : ''
+      process.stdout.write(`  - ${e.sourceName}${mode}  ${e.did}${tags}\n`)
+      if (e.repoUrl) process.stdout.write(`      ${e.repoUrl}\n`)
+    }
+    if (result.matches.length === 0) {
+      process.stdout.write('  (no matches — try a broader term, or omit the query to list all)\n')
+    }
+    return 0
+  } catch (e) {
+    process.stderr.write(`error: ${(e as Error).message}\n`)
+    return 1
+  }
+}
+
 async function handleCheckCommand(args: string[]): Promise<number> {
   const { present: asJson } = parseBoolFlag(args, '--json')
   try {
@@ -794,6 +849,8 @@ async function main(argv: string[]): Promise<number> {
       return handleMaterializeCommand(rest)
     case 'exit':
       return handleExitCommand(rest)
+    case 'discover':
+      return handleDiscoverCommand(rest)
     case 'skill':
       return handleSkillCommand(rest)
     case '--version':

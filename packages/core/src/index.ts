@@ -119,6 +119,18 @@ export { createTension } from './tension.js'
 export type { CreateExitInput, ExitBody, ExitTargetType } from './exit.js'
 export { EXIT_TARGET_TYPES, createExit } from './exit.js'
 export type {
+  DiscoverInput,
+  DiscoverResult,
+  FlywayDirectory,
+  FlywayDirectoryEntry,
+} from './discover.js'
+export {
+  FLYWAY_DIRECTORY_SCHEMA,
+  FLYWAY_DIRECTORY_SCHEMA_VERSION,
+  flywayDiscover,
+  parseFlywayDirectory,
+} from './discover.js'
+export type {
   CreateProposalInput,
   ProposalAgreementBody,
   ProposalAntecedent,

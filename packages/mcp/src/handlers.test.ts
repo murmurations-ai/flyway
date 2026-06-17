@@ -476,16 +476,55 @@ describe('callFlywayTool — flyway_respond proposal branch', () => {
   })
 })
 
-describe('callFlywayTool — other tools (not yet implemented)', () => {
-  it('returns isError for unimplemented tools', async () => {
+describe('callFlywayTool — flyway_discover (implemented)', () => {
+  const directory = {
+    schemaVersion: '0.1.0',
+    entries: [
+      { did: 'did:web:x:a', sourceName: 'Alpha', capabilities: ['governance'] },
+      { did: 'did:web:x:b', sourceName: 'Beta', capabilities: ['research'] },
+    ],
+  }
+
+  it('returns filtered matches (no isError) for a valid directory + query', async () => {
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: { name: 'flyway_discover', arguments: { directory, query: 'governance' } },
+    })
+    expect(result.isError).toBeUndefined()
+    const text = result.content[0]
+    if (text?.type === 'text') {
+      const payload = JSON.parse(text.text)
+      expect(payload.matches).toHaveLength(1)
+      expect(payload.matches[0].sourceName).toBe('Alpha')
+    }
+  })
+
+  it('returns isError when the directory argument is missing', async () => {
     const result = await callFlywayTool({
       method: 'tools/call',
       params: { name: 'flyway_discover', arguments: {} },
     })
     expect(result.isError).toBe(true)
+  })
+
+  it('returns isError (not a crash) for a malformed directory', async () => {
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: { name: 'flyway_discover', arguments: { directory: { schemaVersion: '0.1.0', entries: [{ sourceName: 'no-did' }] } } },
+    })
+    expect(result.isError).toBe(true)
+  })
+})
+
+describe('callFlywayTool — unknown tool', () => {
+  it('returns the not-implemented notice for an unknown tool name', async () => {
+    const result = await callFlywayTool({
+      method: 'tools/call',
+      params: { name: 'flyway_nonexistent', arguments: {} },
+    })
+    expect(result.isError).toBe(true)
     const text = result.content[0]
     if (text?.type === 'text') {
-      expect(text.text).toContain('flyway_discover')
       expect(text.text).toContain('not yet implemented')
     }
   })
