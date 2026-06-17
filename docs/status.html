@@ -755,7 +755,7 @@
   </div>
   <div class="meta" aria-label="document metadata">
     <div><span class="label">PROTOCOL</span>&nbsp;&nbsp;v0.1.0</div>
-    <div><span class="label">SHA</span>&nbsp;&nbsp;<a href="https://github.com/murmurations-ai/flyway/commit/11c6b0d">11c6b0d</a></div>
+    <div><span class="label">SHA</span>&nbsp;&nbsp;<a href="https://github.com/murmurations-ai/flyway/commit/17f9bc1">17f9bc1</a></div>
     <div><span class="label">UPDATED</span>&nbsp;&nbsp;2026-06-17</div>
   </div>
 </header>
@@ -765,12 +765,13 @@
 <!-- ─── INTRO ──────────────────────────────────────────────────── -->
 <section class="intro" aria-labelledby="intro-h">
   <div class="eyebrow">A · Where we are</div>
-  <h1 id="intro-h" class="display">Eight of nine tools wired. <em>Co-sign, then exit clean.</em></h1>
+  <h1 id="intro-h" class="display">Nine of nine tools wired. <em>The surface is complete.</em></h1>
   <p class="lede">
-    Two independent murmurations can now establish <strong>mutual recognition</strong>,
-    run a full S3 proposal-forming cycle, and <strong>co-sign an engagement agreement</strong> —
-    each side independently materializing a <em>byte-identical</em> agreement file, with
-    cryptographic verification on both sides and no shared state.
+    Two independent murmurations can <strong>discover</strong> each other, establish
+    <strong>mutual recognition</strong>, run a full S3 proposal-forming cycle,
+    <strong>co-sign an engagement agreement</strong> — each side independently materializing a
+    <em>byte-identical</em> agreement file — and <strong>exit cleanly</strong>. All nine tools,
+    cryptographic verification on both sides, no shared state.
   </p>
 
   <div class="stats" role="list" aria-label="at-a-glance statistics">
@@ -780,11 +781,11 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Code SHA</span>
-      <span class="v" style="font-family: var(--mono); font-size: 1.1rem;">11c6b0d</span>
+      <span class="v" style="font-family: var(--mono); font-size: 1.1rem;">17f9bc1</span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Tools wired</span>
-      <span class="v">8 <span class="of">of 9</span></span>
+      <span class="v">9 <span class="of">of 9</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Walkthroughs</span>
@@ -796,7 +797,7 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Tests passing</span>
-      <span class="v">329 <span class="of">/ 24 files</span></span>
+      <span class="v">355 <span class="of">/ 26 files</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Open issues</span>
@@ -812,13 +813,13 @@
 <!-- ─── TOOL MATURITY ─────────────────────────────────────────── -->
 <section aria-labelledby="tools-h">
   <div class="eyebrow">B · Tool maturity</div>
-  <h2 id="tools-h" class="display">Nine tools. Eight speaking, one pending.</h2>
+  <h2 id="tools-h" class="display">Nine tools. All nine speaking.</h2>
   <div class="prose">
     <p>
-      The nine tools form the canonical surface of the protocol. The eight wired tools cover
-      the <strong>identity</strong>, <strong>recognition</strong>, <strong>send</strong>, <strong>read</strong>,
-      <strong>respond</strong>, <strong>propose</strong>, and <strong>exit</strong> primitives. Only
-      <code>discover</code> remains pending. Beyond the nine wire tools,
+      The nine tools form the canonical surface of the protocol, and all nine are now wired —
+      <strong>discover</strong>, <strong>identity</strong>, <strong>recognition</strong>,
+      <strong>send</strong>, <strong>read</strong>, <strong>respond</strong>, <strong>propose</strong>,
+      and <strong>exit</strong>. Beyond the nine wire tools,
       <code>flyway materialize</code> turns an accepted final-stage agreement proposal into the
       co-signed <code>agreements/&lt;id&gt;.yaml</code> — a local act over records both sides already
       hold, not a protocol signal.
@@ -826,7 +827,7 @@
   </div>
 
   <table class="ctable" aria-describedby="tools-h">
-    <caption>Tool surface (S+0 baseline → S+5b)</caption>
+    <caption>Tool surface (S+0 baseline → S+7 · complete)</caption>
     <thead>
       <tr>
         <th scope="col" style="width:2.5rem;">#</th>
@@ -854,9 +855,9 @@
       <tr>
         <td class="idx">03</td>
         <td class="tool">flyway_discover</td>
-        <td class="purpose">Look up murmurations in a flyway directory.</td>
-        <td><span class="badge pending">pending</span></td>
-        <td class="demo none">—</td>
+        <td class="purpose">Search a flyway directory for potential peers — pre-trust; you verify at recognition.</td>
+        <td><span class="badge wired">wired</span></td>
+        <td class="demo none">smoke</td>
       </tr>
       <tr>
         <td class="idx">04</td>
@@ -1193,26 +1194,27 @@
 <!-- ─── PENDING ───────────────────────────────────────────────── -->
 <section aria-labelledby="pending-h">
   <div class="eyebrow">F · What's pending</div>
-  <h2 id="pending-h" class="display">One tool left to close the cycle.</h2>
+  <h2 id="pending-h" class="display">The surface is complete. What's left is depth.</h2>
 
   <p class="prose" style="margin-bottom:1.25rem;">
-    <code>flyway_propose</code>, proposal responses, agreement co-signing (S+5a / S+5b), and
-    <code>flyway_exit</code> (S+6) all landed. What remains:
+    All nine tools have landed (through <code>flyway_discover</code>, S+7). What remains is
+    reach and evidence — not new tools:
   </p>
 
   <ol class="nextlist" aria-label="next milestones">
-    <li>
-      <span class="ms">S+7</span>
-      <span>
-        <strong>flyway_discover</strong> — URL fetch + DID resolution + flyway directory
-        lookup; the last stubbed tool (9 of 9); paves for non-local-fs transport.
-      </span>
-    </li>
     <li>
       <span class="ms">S+8</span>
       <span>
         <strong>staging-chain walkthrough</strong> — verbatim transcript of the full
         driver → requirements → draft → refinement → final cycle with integrated objections.
+      </span>
+    </li>
+    <li>
+      <span class="ms">v0.2</span>
+      <span>
+        <strong>remote transports</strong> — http(s) directory fetch for
+        <code>flyway_discover</code>; GitHub-PR / URL signal transport (ADR-0008). The first
+        genuinely non-local-fs operations.
       </span>
     </li>
     <li>
@@ -1380,7 +1382,7 @@
       <div class="frontmatter">
         protocol v0.1.0
         <span class="sep">·</span>
-        code SHA <a href="https://github.com/murmurations-ai/flyway/commit/11c6b0d">11c6b0d</a>
+        code SHA <a href="https://github.com/murmurations-ai/flyway/commit/17f9bc1">17f9bc1</a>
         <span class="sep">·</span>
         generated 2026-06-17
       </div>

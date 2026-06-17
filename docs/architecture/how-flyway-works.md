@@ -12,11 +12,12 @@ state machines, data flow, and contracts. Versioned against the code SHA
 above; future revisions update this document and bump the SHA.
 
 > **Reading order.** §1 gives the mental model in one page. §2 shows the
-> packages and where artifacts live. §3 walks through every tool wired
-> today (eight of nine), with sequence diagrams. §4 covers what the
-> remaining tool (`flyway_discover`) will do when it lands. §5 documents
-> the cryptographic spine (signing, domain separation, antecedent
-> verification). §6 covers state machines. §7 lists the contracts.
+> packages and where artifacts live. §3 walks through the tools, with
+> sequence diagrams — all nine are now wired. §4 covers what remains
+> (reserved remote transports and lifecycle depth, not new tools). §5
+> documents the cryptographic spine (signing, domain separation,
+> antecedent verification). §6 covers state machines. §7 lists the
+> contracts.
 
 ---
 
@@ -384,28 +385,33 @@ even if its signature itself is fine.
 
 ## 4. What's pending
 
-The full tension → proposal → consent → co-signed-agreement flow is wired
-end-to-end, and `flyway_exit` (S+6) makes clean exit a first-class move.
-One tool remains stubbed:
+**All nine tools are wired.** The protocol surface is complete: discovery,
+identity, recognition, the tension dialogue, the full proposal-forming
+consent cycle, co-signed-agreement materialization, and clean exit all run
+end-to-end. What remains is depth and reach, not new tools:
 
-| Tool / branch | What it will do | Status |
-| ------------- | --------------- | ------ |
-| `flyway_discover` | Look up murmurations in a flyway directory; first non-local-fs operation | Schema defined; tool returns "not yet implemented" |
+| Area | What it adds | Status |
+| ---- | ------------ | ------ |
+| Remote transports (v0.2) | http(s) directory fetch for `flyway_discover`; GitHub-PR / URL signal transport (ADR-0008) | Reserved seam — the shapes are defined; local-fs ships today |
+| Exit-aware reads | `flyway_status` / `flyway_check` interpret exit records and surface a relationship or agreement as closed | Not yet modelled |
+| Agreement lifecycle | `in_flight` / `suspended` transitions past `agreed` | Not yet modelled |
 
-`flyway_exit` is a *unilateral* signed notice — always valid, no peer can
-prevent it — delivered like any signal under `DOMAIN_EXIT`. It is distinct
-from `flyway_unrecognize` (exit ends joint commitments; it does not retract
-the recognition attestation) and it never mutates a co-signed agreement
-file (the agreement is immutable; exit is a superseding record).
+A few tools are subtler than "wired" conveys:
 
-`flyway_propose` (all three types, full S3 staging chain) and the
-`flyway_respond` proposal branch (`accept` / `object` / `exit` with
-`concernsToRecord`) landed in S+5a. Agreement **materialization** — turning
-an accepted final-stage agreement proposal into the co-signed
-`flyway/agreements/<id>.yaml` — landed in S+5b. Materialization is a *local
-act*, not a protocol signal: it is a CLI/core operation (`flyway
-materialize`) over records both sides already hold, so it is not one of the
-nine wire tools.
+- `flyway_discover` is the one *pre-trust* tool — directory entries are
+  informational pointers, not attestations, so it signs and verifies
+  nothing. The trust step is `flyway_recognize`, which fetches the
+  candidate's own signed artifacts and verifies them. v0.1 reads a local
+  directory file; remote fetch is the reserved seam above.
+- `flyway_exit` is a *unilateral* signed notice — always valid, no peer can
+  prevent it — delivered like any signal under `DOMAIN_EXIT`. It is distinct
+  from `flyway_unrecognize` (exit ends joint commitments; it does not
+  retract the recognition attestation) and it never mutates a co-signed
+  agreement file (the agreement is immutable; exit is a superseding record).
+- Agreement **materialization** (`flyway materialize`) — turning an accepted
+  final-stage agreement proposal into the co-signed
+  `flyway/agreements/<id>.yaml` — is a *local act*, not a protocol signal, so
+  it is not counted among the nine wire tools even though it is wired.
 
 Sequence diagram for the full cross-murmuration consent flow (all phases
 now implemented; see the Tier 4 walkthrough for a verbatim transcript):
@@ -659,7 +665,7 @@ stateDiagram-v2
 | ---- | --------------------- | ------ | ------ |
 | `flyway_init` | repoUrl, sourceName, mode | Generates signed DID document + entity statement + Ed25519 keypair | ✅ |
 | `flyway_status` | (none) | Reports identity, peers, agreements, signature validity, inbox issues | ✅ |
-| `flyway_discover` | query, directoryUrl? | Looks up peers in a flyway directory | ⏳ |
+| `flyway_discover` | query?, directory | Pre-trust search of a flyway directory (free-text or exact-DID); v0.1 reads a local directory file | ✅ |
 | `flyway_recognize` | peerDid, note? | Produces a signed recognition entry binding peer's key fingerprint | ✅ |
 | `flyway_tension` | peerDid, conditions, effect, relevance?, proposedOwner? | Signs an S3 §IV.1.2 tension envelope; delivers to peer inbox | ✅ |
 | `flyway_propose` | peerDid, type, title, body, deadline?, stage?, previousStageId? | Sends a directive / project / agreement at an S3 stage | ✅ |
