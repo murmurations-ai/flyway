@@ -13,9 +13,9 @@ above; future revisions update this document and bump the SHA.
 
 > **Reading order.** §1 gives the mental model in one page. §2 shows the
 > packages and where artifacts live. §3 walks through every tool wired
-> today (six of nine), with sequence diagrams. §4 covers what the
-> remaining three tools will do when they land. §5 documents the
-> cryptographic spine (signing, domain separation, antecedent
+> today (eight of nine), with sequence diagrams. §4 covers what the
+> remaining tool (`flyway_discover`) will do when it lands. §5 documents
+> the cryptographic spine (signing, domain separation, antecedent
 > verification). §6 covers state machines. §7 lists the contracts.
 
 ---
@@ -384,13 +384,19 @@ even if its signature itself is fine.
 
 ## 4. What's pending
 
-The full tension → proposal → consent → co-signed-agreement flow is now
-wired end-to-end. Two tools remain stubbed:
+The full tension → proposal → consent → co-signed-agreement flow is wired
+end-to-end, and `flyway_exit` (S+6) makes clean exit a first-class move.
+One tool remains stubbed:
 
 | Tool / branch | What it will do | Status |
 | ------------- | --------------- | ------ |
-| `flyway_exit` | Cleanly leave a peer relationship, project, or syndicate; produces a signed exit record | Schema defined; tool returns "not yet implemented" |
 | `flyway_discover` | Look up murmurations in a flyway directory; first non-local-fs operation | Schema defined; tool returns "not yet implemented" |
+
+`flyway_exit` is a *unilateral* signed notice — always valid, no peer can
+prevent it — delivered like any signal under `DOMAIN_EXIT`. It is distinct
+from `flyway_unrecognize` (exit ends joint commitments; it does not retract
+the recognition attestation) and it never mutates a co-signed agreement
+file (the agreement is immutable; exit is a superseding record).
 
 `flyway_propose` (all three types, full S3 staging chain) and the
 `flyway_respond` proposal branch (`accept` / `object` / `exit` with
@@ -493,7 +499,7 @@ cannot be replayed as another:
 | `flyway-v1:tension` | `createTension` |
 | `flyway-v1:proposal` | `createProposal` |
 | `flyway-v1:respond` | `createTensionResponse` / `createProposalResponse` |
-| `flyway-v1:exit` | `createExit` *(pending)* |
+| `flyway-v1:exit` | `createExit` |
 | `flyway-v1:agreement` | `signAgreement` (detached; co-signed agreements) |
 
 The signed payload always includes the discriminating field (e.g.
@@ -529,8 +535,11 @@ adapters can't skip it:
   the peer entity statement before signing the recognition entry.
 - `createTensionResponse(subjectEnvelope, subjectSenderDidDocument, …)`
   verifies the subject tension before signing the response.
-- Future `createProposal` (when promoting a tension), `createProposalResponse`,
-  and `createExit` will all carry the same structural requirement.
+- `createProposal` (when promoting a tension or continuing a stage chain),
+  `createProposalResponse`, and `materializeAgreement` all carry the same
+  structural requirement.
+- `createExit` is the deliberate exception: exit is unilateral and signs
+  over no prior artifact, so there is no antecedent to verify.
 
 **The verifying key is the recognition-time cached copy** — loaded from
 `flyway/peers/<segments>/did.json`, the artifact we attested to when we
@@ -622,8 +631,10 @@ stateDiagram-v2
 
 The `proposed → agreed` transition is wired: `flyway materialize` writes
 the co-signed file at `state: agreed` once both participants have signed.
-Transitions past `agreed` (`in_flight` / `suspended` / `closed`) and
-`flyway_exit` are pending.
+`flyway_exit` delivers the signed notice that closes a relationship,
+project, or agreement (as a superseding record — the agreed file itself is
+immutable). The intermediate lifecycle transitions (`in_flight` /
+`suspended`) are not yet modelled.
 
 ```mermaid
 stateDiagram-v2
@@ -651,10 +662,10 @@ stateDiagram-v2
 | `flyway_discover` | query, directoryUrl? | Looks up peers in a flyway directory | ⏳ |
 | `flyway_recognize` | peerDid, note? | Produces a signed recognition entry binding peer's key fingerprint | ✅ |
 | `flyway_tension` | peerDid, conditions, effect, relevance?, proposedOwner? | Signs an S3 §IV.1.2 tension envelope; delivers to peer inbox | ✅ |
-| `flyway_propose` | peerDid, type, title, body, deadline?, stage?, previousStageId? | Sends a directive / project / agreement at an S3 stage | ⏳ |
-| `flyway_respond` | subjectId, decision, reason?, transferTo? | Signs a response binding `refs.tensionId` (or proposalId) | ✅ (tensions only) |
+| `flyway_propose` | peerDid, type, title, body, deadline?, stage?, previousStageId? | Sends a directive / project / agreement at an S3 stage | ✅ |
+| `flyway_respond` | subjectId, decision, reason?, transferTo?, concern? | Signs a response binding `refs.tensionId` (or proposalId) | ✅ |
 | `flyway_check` | since?, peerDid? | Reads inbox; per-signal signature + sentAt/recognizedAt ordering | ✅ |
-| `flyway_exit` | target, targetType, reason? | Cleanly leaves a peer / project / syndicate | ⏳ |
+| `flyway_exit` | target, targetType, reason? | Cleanly leaves a peer / project / syndicate; signed, unilateral | ✅ |
 
 Schemas are exported as JSON Schema from `@murmurations-ai/flyway-core`
 (`FLYWAY_TOOLS`) and as a `SKILL.md` document from

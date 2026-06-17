@@ -604,7 +604,7 @@
   </div>
   <div class="meta">
     <div><span class="label">VERSION</span> &nbsp; protocol 0.1.0</div>
-    <div><span class="label">SHA</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway/tree/10d7045">10d7045</a></div>
+    <div><span class="label">SHA</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway/tree/11c6b0d">11c6b0d</a></div>
     <div><span class="label">REPO</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway">murmurations-ai/flyway</a></div>
   </div>
 </header>
@@ -622,7 +622,7 @@
   </p>
   <div class="prose">
     <p>This document is a concrete walk-through of how the system actually works at the code level. It is tied to a specific git SHA; future revisions update the figures and bump the version. Read sequentially, or jump to whichever section you need.</p>
-    <p><strong>Status snapshot:</strong> at SHA <code>10d7045</code>, seven of nine tools are wired end-to-end (<code>flyway_init</code>, <code>flyway_status</code>, <code>flyway_recognize</code>, <code>flyway_check</code>, <code>flyway_tension</code>, <code>flyway_propose</code>, and <code>flyway_respond</code> for both tensions and proposals). Four executable walkthroughs prove the protocol carries a full S3 cycle — from a navigate-via-tension dialogue through proposal-forming consent to a <strong>co-signed engagement agreement</strong>, materialized byte-identically on both repos. The Markdown source of this document — <a href="./how-flyway-works.md">how-flyway-works.md</a> — has the up-to-date sequence diagrams; some figures in this HTML companion still mark the consent flow as "execution pending" and lag the wired implementation. See <a href="../status.html">docs/status.html</a> for the current dashboard.</p>
+    <p><strong>Status snapshot:</strong> at SHA <code>11c6b0d</code>, eight of nine tools are wired end-to-end (<code>flyway_init</code>, <code>flyway_status</code>, <code>flyway_recognize</code>, <code>flyway_check</code>, <code>flyway_tension</code>, <code>flyway_propose</code>, <code>flyway_respond</code> for both tensions and proposals, and <code>flyway_exit</code>). Four executable walkthroughs prove the protocol carries a full S3 cycle — from a navigate-via-tension dialogue through proposal-forming consent to a <strong>co-signed engagement agreement</strong>, materialized byte-identically on both repos — and <code>flyway_exit</code> adds a signed, unilateral clean exit. Only <code>flyway_discover</code> remains stubbed. The Markdown source of this document — <a href="./how-flyway-works.md">how-flyway-works.md</a> — has the up-to-date sequence diagrams; some figures in this HTML companion still mark the consent flow as "execution pending" and lag the wired implementation. See <a href="../status.html">docs/status.html</a> for the current dashboard.</p>
   </div>
 
   <nav class="reading-guide" aria-label="Document sections">
@@ -1655,7 +1655,7 @@
       <tr>
         <td class="tool">flyway_exit</td>
         <td class="inputs">target · targetType · <span class="opt">reason?</span></td>
-        <td><span class="badge deferred">surface defined</span></td>
+        <td><span class="badge implemented">implemented</span></td>
       </tr>
     </tbody>
   </table>
@@ -1751,7 +1751,7 @@
     <div>
       <div class="label">flyway</div>
       <div>runtime-agnostic protocol for cross-murmuration collaboration</div>
-      <div>protocol v0.1.0 · code SHA <a href="https://github.com/murmurations-ai/flyway/tree/10d7045">10d7045</a></div>
+      <div>protocol v0.1.0 · code SHA <a href="https://github.com/murmurations-ai/flyway/tree/11c6b0d">11c6b0d</a></div>
     </div>
     <div>
       <div class="label">read further</div>

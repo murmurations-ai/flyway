@@ -1,19 +1,20 @@
 ---
 date: 2026-06-12
 protocol-version: 0.1.0
-code-sha: 10d7045
+code-sha: 11c6b0d
 purpose: project status snapshot for reviewers
 audience: external reviewers, peer Sources, and anyone evaluating flyway for adoption
 ---
 
 # flyway — Status snapshot
 
-> **One-line headline.** Seven of nine protocol tools wired and exercised end-to-end. Two
+> **One-line headline.** Eight of nine protocol tools wired and exercised end-to-end. Two
 > independent murmurations can now establish mutual recognition, exchange a tension, run a
-> full S3 proposal-forming cycle (driver → requirements → draft → refinement → final), and
+> full S3 proposal-forming cycle (driver → requirements → draft → refinement → final),
 > **co-sign an engagement agreement** — each side independently materializing a
-> byte-identical `flyway/agreements/<id>.yaml` with cryptographic verification on both
-> sides. Proven by an executable walkthrough at SHA [`10d7045`](../).
+> byte-identical `flyway/agreements/<id>.yaml` — and **exit cleanly**, with a signed,
+> unilateral exit notice that no peer can prevent. Cryptographic verification on both sides
+> throughout; the agreement cycle is proven by an executable walkthrough at SHA [`10d7045`](../).
 
 A visual companion lives at [`docs/status.html`](./status.html) — same content, browser-rendered.
 
@@ -24,11 +25,11 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | | |
 | --- | --- |
 | **Protocol version** | 0.1.0 |
-| **Code SHA** | `10d7045` |
-| **Tools wired (end-to-end)** | 7 of 9 |
+| **Code SHA** | `11c6b0d` |
+| **Tools wired (end-to-end)** | 8 of 9 |
 | **Executable walkthroughs** | 4 (Tier 1–4) |
 | **ADRs accepted** | 9 |
-| **Tests passing** | 315 across 22 test files |
+| **Tests passing** | 329 across 24 test files |
 | **Open issues** | 12 (8 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
@@ -49,9 +50,9 @@ through every adapter (agent skill, MCP server, CLI) without rewriting. Status o
 | 6 | `flyway_propose` | Send a directive, project, or engagement agreement; full S3 staging chain | ✅ **Wired** | [Tier 4](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) |
 | 7 | `flyway_respond` | Respond to a tension (`acknowledge` / `dispute` / `dissolve` / `transfer`) or a proposal (`accept` / `object` / `exit`) | ✅ **Wired** | [Tier 3](./walkthroughs/2026-05-25-tier3-signal-dialogue.md) · [Tier 4](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) |
 | 8 | `flyway_check` | Read incoming flyway signals from peers; verify signatures and flag issues | ✅ **Wired** | [Tier 2](./walkthroughs/2026-05-25-tier2-signal-exchange.md) |
-| 9 | `flyway_exit` | Cleanly leave a peer relationship, project, or syndicate | ⏳ Not yet wired | — |
+| 9 | `flyway_exit` | Cleanly leave a peer relationship, project, or syndicate — signed, unilateral, always valid | ✅ **Wired** | smoke + tests |
 
-**Status legend:** ✅ wired = runs end-to-end with tests and at least one executable walkthrough. ⏳ not yet wired = JSON schema defined; tool returns "not yet implemented."
+**Status legend:** ✅ wired = runs end-to-end with tests (and, where applicable, an executable walkthrough). ⏳ not yet wired = JSON schema defined; tool returns "not yet implemented." Only `flyway_discover` remains.
 
 Beyond the nine wire tools, agreement **materialization** (`flyway materialize`) turns an
 accepted final-stage agreement proposal into the co-signed
@@ -74,6 +75,7 @@ Each milestone produces *behaviour*, not just code — the cadence is implement 
 | **Review hardening** | `2a2ac16` → `d5ad56f` | 2026-05-25 | Three review agents (architecture, TypeScript quality, security) acted on the S+3/S+4 work; ADR-0009 documents the invariant the review surfaced; 12 deferred findings filed as issues | — |
 | **S+5a** — flagship sender | `682f5c2` → `080aaff` | 2026-05-26 | `flyway_propose` (directive / project / agreement) with the full S3 staging chain and stage-transition validation; `flyway_respond` proposal branch (`accept` / `object` / `exit`) with first-class `concernsToRecord`; ADR-0009 antecedent verification on both senders. Closes #3, #6, #7, #8, #15 | — |
 | **S+5b** — co-signed agreements | `10d7045` | 2026-06-12 | Agreement materialization: detached `DOMAIN_AGREEMENT` signatures ride inside the final proposal and the accept, so both sides produce a byte-identical `flyway/agreements/<id>.yaml` from records they already hold. `flyway materialize` CLI verb | Tier 4 — co-signed agreement |
+| **S+6** — clean exit | `11c6b0d` | 2026-06-17 | `flyway_exit` — a signed, unilateral exit notice (peer / project / syndicate) that no peer can prevent. Distinct from unrecognition; never mutates a co-signed agreement file. Wired through core, CLI, and MCP | — |
 
 ---
 
@@ -154,14 +156,14 @@ Where each property is enforced and verified:
 
 ### Next milestones (planned cadence)
 
-`flyway_propose`, proposal responses, and agreement co-signing all landed (S+5a / S+5b).
-Remaining:
+`flyway_propose`, proposal responses, agreement co-signing (S+5a / S+5b), and `flyway_exit`
+(S+6) all landed. Remaining:
 
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
-| **S+6 — flyway_exit** | Clean unilateral exit from a peer relationship or syndicate; signed exit record | Closes the protocol cycle; exit is a first-class outcome, not a fallback |
-| **S+7 — flyway_discover** | URL fetch + DID resolution + flyway directory lookup | First non-local-fs interaction — paves the way for GitHub-PR transport |
+| **S+7 — flyway_discover** | URL fetch + DID resolution + flyway directory lookup | The last stubbed tool (9 of 9); first non-local-fs interaction — paves the way for GitHub-PR transport |
 | **S+8 — staging-chain walkthrough** | Verbatim transcript of the full driver → requirements → draft → refinement → final cycle with integrated objections | Evidence for the proposal-forming phases the Tier 4 walkthrough starts past |
+| **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
 
 ### Open issues by theme
 
@@ -222,4 +224,4 @@ pnpm install && pnpm -r build
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-06-12 at SHA `10d7045`.*
+*This snapshot is regenerated as milestones land. Last update: 2026-06-17 at SHA `11c6b0d`.*

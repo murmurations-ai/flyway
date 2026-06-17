@@ -755,8 +755,8 @@
   </div>
   <div class="meta" aria-label="document metadata">
     <div><span class="label">PROTOCOL</span>&nbsp;&nbsp;v0.1.0</div>
-    <div><span class="label">SHA</span>&nbsp;&nbsp;<a href="https://github.com/murmurations-ai/flyway/commit/10d7045">10d7045</a></div>
-    <div><span class="label">UPDATED</span>&nbsp;&nbsp;2026-06-12</div>
+    <div><span class="label">SHA</span>&nbsp;&nbsp;<a href="https://github.com/murmurations-ai/flyway/commit/11c6b0d">11c6b0d</a></div>
+    <div><span class="label">UPDATED</span>&nbsp;&nbsp;2026-06-17</div>
   </div>
 </header>
 
@@ -765,7 +765,7 @@
 <!-- ─── INTRO ──────────────────────────────────────────────────── -->
 <section class="intro" aria-labelledby="intro-h">
   <div class="eyebrow">A · Where we are</div>
-  <h1 id="intro-h" class="display">Seven of nine tools wired. <em>Two murmurations co-signing.</em></h1>
+  <h1 id="intro-h" class="display">Eight of nine tools wired. <em>Co-sign, then exit clean.</em></h1>
   <p class="lede">
     Two independent murmurations can now establish <strong>mutual recognition</strong>,
     run a full S3 proposal-forming cycle, and <strong>co-sign an engagement agreement</strong> —
@@ -780,11 +780,11 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Code SHA</span>
-      <span class="v" style="font-family: var(--mono); font-size: 1.1rem;">10d7045</span>
+      <span class="v" style="font-family: var(--mono); font-size: 1.1rem;">11c6b0d</span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Tools wired</span>
-      <span class="v">7 <span class="of">of 9</span></span>
+      <span class="v">8 <span class="of">of 9</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Walkthroughs</span>
@@ -796,7 +796,7 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Tests passing</span>
-      <span class="v">315 <span class="of">/ 22 files</span></span>
+      <span class="v">329 <span class="of">/ 24 files</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">Open issues</span>
@@ -812,13 +812,13 @@
 <!-- ─── TOOL MATURITY ─────────────────────────────────────────── -->
 <section aria-labelledby="tools-h">
   <div class="eyebrow">B · Tool maturity</div>
-  <h2 id="tools-h" class="display">Nine tools. Seven speaking, two pending.</h2>
+  <h2 id="tools-h" class="display">Nine tools. Eight speaking, one pending.</h2>
   <div class="prose">
     <p>
-      The nine tools form the canonical surface of the protocol. The seven wired tools cover
+      The nine tools form the canonical surface of the protocol. The eight wired tools cover
       the <strong>identity</strong>, <strong>recognition</strong>, <strong>send</strong>, <strong>read</strong>,
-      <strong>respond</strong>, and <strong>propose</strong> primitives. The two pending tools —
-      <code>discover</code> and <code>exit</code> — close the cycle. Beyond the nine wire tools,
+      <strong>respond</strong>, <strong>propose</strong>, and <strong>exit</strong> primitives. Only
+      <code>discover</code> remains pending. Beyond the nine wire tools,
       <code>flyway materialize</code> turns an accepted final-stage agreement proposal into the
       co-signed <code>agreements/&lt;id&gt;.yaml</code> — a local act over records both sides already
       hold, not a protocol signal.
@@ -896,9 +896,9 @@
       <tr>
         <td class="idx">09</td>
         <td class="tool">flyway_exit</td>
-        <td class="purpose">Cleanly leave a peer relationship, project, or syndicate.</td>
-        <td><span class="badge pending">pending</span></td>
-        <td class="demo none">—</td>
+        <td class="purpose">Cleanly leave a peer relationship, project, or syndicate — signed, unilateral, always valid.</td>
+        <td><span class="badge wired">wired</span></td>
+        <td class="demo none">smoke</td>
       </tr>
     </tbody>
   </table>
@@ -1193,26 +1193,19 @@
 <!-- ─── PENDING ───────────────────────────────────────────────── -->
 <section aria-labelledby="pending-h">
   <div class="eyebrow">F · What's pending</div>
-  <h2 id="pending-h" class="display">Two tools left to close the cycle.</h2>
+  <h2 id="pending-h" class="display">One tool left to close the cycle.</h2>
 
   <p class="prose" style="margin-bottom:1.25rem;">
-    <code>flyway_propose</code>, proposal responses, and agreement co-signing all landed
-    (S+5a / S+5b). What remains:
+    <code>flyway_propose</code>, proposal responses, agreement co-signing (S+5a / S+5b), and
+    <code>flyway_exit</code> (S+6) all landed. What remains:
   </p>
 
   <ol class="nextlist" aria-label="next milestones">
     <li>
-      <span class="ms">S+6</span>
-      <span>
-        <strong>flyway_exit</strong> — clean unilateral exit; signed exit record; closes the
-        protocol cycle.
-      </span>
-    </li>
-    <li>
       <span class="ms">S+7</span>
       <span>
         <strong>flyway_discover</strong> — URL fetch + DID resolution + flyway directory
-        lookup; paves for non-local-fs transport.
+        lookup; the last stubbed tool (9 of 9); paves for non-local-fs transport.
       </span>
     </li>
     <li>
@@ -1220,6 +1213,13 @@
       <span>
         <strong>staging-chain walkthrough</strong> — verbatim transcript of the full
         driver → requirements → draft → refinement → final cycle with integrated objections.
+      </span>
+    </li>
+    <li>
+      <span class="ms">+</span>
+      <span>
+        <strong>exit-aware status</strong> — <code>flyway_status</code> / <code>flyway_check</code>
+        interpret exit records and surface a relationship or agreement as closed.
       </span>
     </li>
   </ol>
@@ -1380,9 +1380,9 @@
       <div class="frontmatter">
         protocol v0.1.0
         <span class="sep">·</span>
-        code SHA <a href="https://github.com/murmurations-ai/flyway/commit/10d7045">10d7045</a>
+        code SHA <a href="https://github.com/murmurations-ai/flyway/commit/11c6b0d">11c6b0d</a>
         <span class="sep">·</span>
-        generated 2026-06-12
+        generated 2026-06-17
       </div>
     </div>
     <div style="text-align:right;">
