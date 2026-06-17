@@ -28,7 +28,7 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | **Protocol version** | 0.1.0 |
 | **Code SHA** | `17f9bc1` |
 | **Tools wired (end-to-end)** | 9 of 9 |
-| **Executable walkthroughs** | 4 (Tier 1–4) |
+| **Executable walkthroughs** | 5 (Tier 1–5) |
 | **ADRs accepted** | 9 |
 | **Tests passing** | 355 across 26 test files |
 | **Open issues** | 12 (8 closed since the 3-agent review) |
@@ -113,6 +113,7 @@ Proves: identity.      Proves: send+verify.  Proves: round-trip.   Proves: co-si
 | [2026-05-25 — Tier 2 first signal exchange](./walkthroughs/2026-05-25-tier2-signal-exchange.md) | Executable | `bfaf1db` | A signed tension envelope crosses A → B; B's `flyway_check` verifies it. 3 gaps filed. |
 | [2026-05-25 — Tier 3 first signal dialogue](./walkthroughs/2026-05-25-tier3-signal-dialogue.md) | Executable | `64b112a` | Full A↔B round-trip — tension + acknowledge, both sides hold signed records. 3 gaps filed. |
 | [2026-06-12 — Tier 4 co-signed agreement](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) | Executable | `10d7045` | A proposes a final agreement, B co-signs by accepting; both materialize a byte-identical agreement file. 2 gaps surfaced. |
+| [2026-06-17 — Tier 5 staging chain](./walkthroughs/2026-06-17-tier5-staging-chain.md) | Executable | `4c894b6` | The full driver→final chain; B's objection at draft is integrated in a refinement and lands in the co-signed agreement. 2 gaps (G8/#2, G10). |
 
 ---
 
@@ -158,14 +159,15 @@ Where each property is enforced and verified:
 
 ### Next milestones (planned cadence)
 
-All nine tools have landed (the surface is complete through S+7 / `flyway_discover`). What's
-left is depth, transports, and evidence — not new tools:
+All nine tools have landed (the surface is complete through S+7 / `flyway_discover`), and the
+full proposal-forming chain is now proven end-to-end by the [Tier 5 walkthrough](./walkthroughs/2026-06-17-tier5-staging-chain.md).
+What's left is reach and depth — not new tools:
 
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
-| **S+8 — staging-chain walkthrough** | Verbatim transcript of the full driver → requirements → draft → refinement → final cycle with integrated objections | Evidence for the proposal-forming phases the Tier 4 walkthrough starts past |
 | **Remote transports (v0.2)** | http(s) directory fetch for `flyway_discover`; GitHub-PR / URL signal transport (ADR-0008) | The first genuinely non-local-fs operations — peers at a distance |
 | **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
+| **Agreement provenance (Issue #2 / G8)** | An `originTensionId` linking a co-signed agreement back to the tension that started it | Machine-followable audit trail — the Tier 5 chain is five human hops today |
 
 ### Open issues by theme
 

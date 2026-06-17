@@ -789,7 +789,7 @@
     </div>
     <div class="stat" role="listitem">
       <span class="k">Walkthroughs</span>
-      <span class="v">4 <span class="of">executable</span></span>
+      <span class="v">5 <span class="of">executable</span></span>
     </div>
     <div class="stat" role="listitem">
       <span class="k">ADRs accepted</span>
@@ -1081,7 +1081,7 @@
 <!-- ─── WALKTHROUGHS ──────────────────────────────────────────── -->
 <section aria-labelledby="walks-h">
   <div class="eyebrow">D · Executable walkthroughs</div>
-  <h2 id="walks-h" class="display">Four artifacts. <em>Each one proves a layer.</em></h2>
+  <h2 id="walks-h" class="display">Five artifacts. <em>Each one proves a layer.</em></h2>
   <div class="prose">
     <p>
       A walkthrough is an end-to-end script run against the real CLI and MCP server, not a
@@ -1133,6 +1133,18 @@
         from records it already holds — matching SHA-256, no authoritative copy.
       </p>
       <div class="proves"><span class="lbl">Proves</span>co-signing · byte-identity</div>
+    </article>
+
+    <article class="walk" role="listitem">
+      <div class="tier"><span><a href="./walkthroughs/2026-06-17-tier5-staging-chain.md">Tier 5</a></span><span class="sha">4c894b6 · 06-17</span></div>
+      <h3><a href="./walkthroughs/2026-06-17-tier5-staging-chain.md">Staging chain, objection integrated</a></h3>
+      <p>
+        A tension runs the full <em>driver → requirements → draft → refinement → final</em>
+        chain. B objects at the draft — the work is one-sided — and A's refinement integrates it:
+        an expectation moves from one Source to the other, and that split lands in the co-signed
+        agreement.
+      </p>
+      <div class="proves"><span class="lbl">Proves</span>governance · objection → integration</div>
     </article>
   </div>
 </section>
@@ -1203,13 +1215,6 @@
 
   <ol class="nextlist" aria-label="next milestones">
     <li>
-      <span class="ms">S+8</span>
-      <span>
-        <strong>staging-chain walkthrough</strong> — verbatim transcript of the full
-        driver → requirements → draft → refinement → final cycle with integrated objections.
-      </span>
-    </li>
-    <li>
       <span class="ms">v0.2</span>
       <span>
         <strong>remote transports</strong> — http(s) directory fetch for
@@ -1222,6 +1227,14 @@
       <span>
         <strong>exit-aware status</strong> — <code>flyway_status</code> / <code>flyway_check</code>
         interpret exit records and surface a relationship or agreement as closed.
+      </span>
+    </li>
+    <li>
+      <span class="ms">+</span>
+      <span>
+        <strong>agreement provenance</strong> (Issue #2 / G8) — an <code>originTensionId</code>
+        linking a co-signed agreement back to the tension that started it. The Tier 5 chain is
+        five human hops today.
       </span>
     </li>
   </ol>
