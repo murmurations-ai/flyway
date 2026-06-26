@@ -121,13 +121,18 @@ export { EXIT_TARGET_TYPES, createExit } from './exit.js'
 export type {
   DiscoverInput,
   DiscoverResult,
+  DirectoryLocation,
   FlywayDirectory,
   FlywayDirectoryEntry,
+  LoadDirectoryDeps,
 } from './discover.js'
 export {
   FLYWAY_DIRECTORY_SCHEMA,
   FLYWAY_DIRECTORY_SCHEMA_VERSION,
+  assertPublicHttpsUrl,
   flywayDiscover,
+  loadDirectory,
+  parseDirectoryLocation,
   parseFlywayDirectory,
 } from './discover.js'
 export type {
