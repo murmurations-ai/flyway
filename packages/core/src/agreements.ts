@@ -114,6 +114,16 @@ export interface FlywayAgreement {
   readonly trigger?: string
   /** Optional acceptance criteria — what counts as "this agreement is being honored." (Issue #7) */
   readonly acceptanceCriteria?: readonly FlywayAgreementAcceptanceCriterion[]
+  /**
+   * Optional provenance link — the id of the tension this agreement was
+   * promoted from (Issue #2). When set, it must match the verified
+   * `refs.tensionId` carried through the proposal-forming chain (enforced
+   * by createProposal), so it is not a free-text claim: it points at a
+   * tension whose signature was checked under ADR-0009 at promotion time.
+   * Lets a reader of flyway/agreements/<id>.yaml trace the agreement back
+   * to the originating tension's own response chain.
+   */
+  readonly originTensionId?: string
 }
 
 export const FLYWAY_DECISION_RULES: readonly FlywayDecisionRule[] = [
@@ -396,6 +406,14 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
         },
         required: ['id', 'description'],
       },
+    },
+    originTensionId: {
+      type: 'string',
+      description:
+        'Optional provenance link (Issue #2) — the id of the tension this ' +
+        'agreement was promoted from. When present, it must equal the ' +
+        'verified tensionId carried through the proposal-forming chain, so ' +
+        'a reader can trace the agreement back to its originating tension.',
     },
   },
   required: [

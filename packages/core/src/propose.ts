@@ -194,6 +194,7 @@ export async function createProposal(
   const stage = body.stage ?? 'final'
   validateStageRequirements(body, stage)
   validateStageTransition(body, input, stage)
+  validateAgreementProvenance(body, input)
 
   let normalizedBody = normalizeBody(body)
 
@@ -202,8 +203,18 @@ export async function createProposal(
   // can materialize the co-signed flyway/agreements/<id>.yaml without an
   // extra signature-exchange round trip.
   if (normalizedBody.type === 'agreement' && stage === 'final') {
-    const agreementSignature = await signAgreement(normalizedBody.agreement, input.signer)
-    normalizedBody = { ...normalizedBody, agreementSignature }
+    // Issue #2: stamp the verified origin tension onto the agreement so the
+    // co-signed file remembers where it came from. validateAgreementProvenance
+    // has already rejected any explicit value that disagrees with the chain,
+    // so auto-filling here only ever supplies the same id the proposer would
+    // have to type — and the detached signature below covers it on both sides.
+    let agreement = normalizedBody.agreement
+    const originTensionId = effectiveTensionId(input)
+    if (originTensionId !== undefined && agreement.originTensionId === undefined) {
+      agreement = { ...agreement, originTensionId }
+    }
+    const agreementSignature = await signAgreement(agreement, input.signer)
+    normalizedBody = { ...normalizedBody, agreement, agreementSignature }
   }
 
   const refs = computeRefs(input)
@@ -459,8 +470,59 @@ function normalizeBody(body: ProposalBody): ProposalBody {
   return base as ProposalDirectiveBody | ProposalProjectBody
 }
 
+/**
+ * The tension this proposal descends from, if any. A tension is promoted
+ * into a chain at one stage by supplying it as `tensionAntecedent`; from
+ * then on the link must survive forward, so a later stage inherits it from
+ * its `proposalAntecedent`'s refs (Issue #2). Both sources are
+ * ADR-0009-verified — the tension when first promoted, each prior proposal
+ * at every subsequent stage — so the id this returns is backed by checked
+ * signatures, not asserted.
+ */
+function effectiveTensionId(input: CreateProposalInput): string | undefined {
+  if (input.tensionAntecedent) return input.tensionAntecedent.envelope.id
+  return input.proposalAntecedent?.envelope.refs?.tensionId
+}
+
+/**
+ * Issue #2 — an agreement may declare `originTensionId` to record the
+ * tension it was promoted from. Guard against a forged provenance claim:
+ * if set, it must equal the tension carried (and verified) through the
+ * chain. A claim with no verified tension behind it is refused outright.
+ */
+function validateAgreementProvenance(
+  body: ProposalBody,
+  input: CreateProposalInput,
+): void {
+  if (body.type !== 'agreement') return
+  const claimed = body.agreement.originTensionId
+  if (claimed === undefined) return
+  if (typeof claimed !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(claimed)) {
+    throw new Error(
+      'createProposal: body.agreement.originTensionId must match [A-Za-z0-9_-]{1,128} ' +
+        `(got: ${String(claimed)})`,
+    )
+  }
+  const verified = effectiveTensionId(input)
+  if (verified === undefined) {
+    throw new Error(
+      'createProposal: body.agreement.originTensionId claims a tension origin, but no verified ' +
+        'tension is in the proposal chain. Promote the tension by supplying tensionAntecedent ' +
+        '(or chain from a proposal that did) so the linkage is backed by a checked signature.',
+    )
+  }
+  if (claimed !== verified) {
+    throw new Error(
+      `createProposal: body.agreement.originTensionId (${claimed}) does not match the verified ` +
+        `tension carried through the chain (${verified}). Refusing to record a mismatched provenance link.`,
+    )
+  }
+}
+
 function computeRefs(input: CreateProposalInput): SignalRefs | undefined {
-  const tensionId = input.tensionAntecedent?.envelope.id
+  // Carry the tension forward through the chain, not just at the stage it
+  // was promoted (Issue #2) — so the final proposal still names its origin.
+  const tensionId = effectiveTensionId(input)
   const proposalId = input.proposalAntecedent?.envelope.id
   // inReplyTo defaults to the most-specific reference: proposal chain
   // continuation, then tension promotion, then none.

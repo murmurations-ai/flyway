@@ -645,3 +645,187 @@ describe('createProposal — cross-kind replay protection', () => {
     expect(ok).toBe(false)
   })
 })
+
+// ────────────────────────────────────────────────────────────────────────
+// Agreement provenance — originTensionId (Issue #2)
+// ────────────────────────────────────────────────────────────────────────
+
+describe('createProposal — agreement provenance (Issue #2)', () => {
+  it('propagates refs.tensionId forward through the staging chain', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    // B raises a tension; A promotes it at the driver stage.
+    const tension = await createTension({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' },
+      signer: B.signer,
+      id: 'tension-001',
+    })
+    const driver = await createProposal({
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      body: { ...directive(), stage: 'driver' },
+      signer: A.signer,
+      id: 'driver-001',
+      tensionAntecedent: {
+        envelope: tension,
+        senderDidDocument: B.artifacts.didDocument,
+      },
+    })
+    expect(driver.refs?.tensionId).toBe('tension-001')
+    // A later stage built only from the driver still names the tension —
+    // the link survives without re-supplying the tension antecedent.
+    const draft = await createProposal({
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      body: { ...directive(), stage: 'draft', previousStageId: 'driver-001' },
+      signer: A.signer,
+      proposalAntecedent: {
+        envelope: driver,
+        senderDidDocument: A.artifacts.didDocument,
+      },
+    })
+    expect(draft.refs?.tensionId).toBe('tension-001')
+    expect(draft.refs?.proposalId).toBe('driver-001')
+  })
+
+  it('accepts a final agreement whose originTensionId matches the chain tension', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    const tension = await createTension({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' },
+      signer: B.signer,
+      id: 'tension-001',
+    })
+    const env = await createProposal({
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      body: {
+        type: 'agreement',
+        title: 'Weekly retro agreement',
+        body: 'See structured agreement body.',
+        agreement: {
+          ...exampleAgreement([A.artifacts.did, B.artifacts.did]),
+          originTensionId: 'tension-001',
+        },
+      },
+      signer: A.signer,
+      tensionAntecedent: {
+        envelope: tension,
+        senderDidDocument: B.artifacts.didDocument,
+      },
+    })
+    const body = env.body as ProposalAgreementBody
+    expect(body.agreement.originTensionId).toBe('tension-001')
+    expect(env.refs?.tensionId).toBe('tension-001')
+  })
+
+  it('auto-stamps originTensionId on a final agreement from the chain tension', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    const tension = await createTension({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' },
+      signer: B.signer,
+      id: 'tension-001',
+    })
+    // Proposer does NOT restate originTensionId — it is derived from the
+    // verified tension carried through the chain.
+    const env = await createProposal({
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      body: {
+        type: 'agreement',
+        title: 'Weekly retro agreement',
+        body: 'See structured agreement body.',
+        stage: 'final',
+        agreement: exampleAgreement([A.artifacts.did, B.artifacts.did]),
+      },
+      signer: A.signer,
+      tensionAntecedent: {
+        envelope: tension,
+        senderDidDocument: B.artifacts.didDocument,
+      },
+    })
+    const body = env.body as ProposalAgreementBody
+    expect(body.agreement.originTensionId).toBe('tension-001')
+  })
+
+  it('rejects originTensionId with no verified tension in the chain', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    await expect(
+      createProposal({
+        from: A.artifacts.did,
+        to: B.artifacts.did,
+        body: {
+          type: 'agreement',
+          title: 'Weekly retro agreement',
+          body: 'See structured agreement body.',
+          agreement: {
+            ...exampleAgreement([A.artifacts.did, B.artifacts.did]),
+            originTensionId: 'tension-001',
+          },
+        },
+        signer: A.signer,
+      }),
+    ).rejects.toThrow(/no verified.*tension|claims a tension origin/)
+  })
+
+  it('rejects originTensionId that mismatches the chain tension', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    const tension = await createTension({
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' },
+      signer: B.signer,
+      id: 'tension-001',
+    })
+    await expect(
+      createProposal({
+        from: A.artifacts.did,
+        to: B.artifacts.did,
+        body: {
+          type: 'agreement',
+          title: 'Weekly retro agreement',
+          body: 'See structured agreement body.',
+          agreement: {
+            ...exampleAgreement([A.artifacts.did, B.artifacts.did]),
+            originTensionId: 'tension-999',
+          },
+        },
+        signer: A.signer,
+        tensionAntecedent: {
+          envelope: tension,
+          senderDidDocument: B.artifacts.didDocument,
+        },
+      }),
+    ).rejects.toThrow(/does not match the verified/)
+  })
+
+  it('rejects a malformed originTensionId', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    await expect(
+      createProposal({
+        from: A.artifacts.did,
+        to: B.artifacts.did,
+        body: {
+          type: 'agreement',
+          title: 'Weekly retro agreement',
+          body: 'See structured agreement body.',
+          agreement: {
+            ...exampleAgreement([A.artifacts.did, B.artifacts.did]),
+            originTensionId: 'not a valid id!',
+          },
+        },
+        signer: A.signer,
+      }),
+    ).rejects.toThrow(/originTensionId must match/)
+  })
+})
