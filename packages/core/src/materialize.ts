@@ -144,6 +144,7 @@ const AGREEMENT_FIELD_ORDER: readonly string[] = [
   'concerns',
   'trigger',
   'acceptanceCriteria',
+  'originTensionId',
 ]
 
 const AGREEMENT_FILE_HEADER =

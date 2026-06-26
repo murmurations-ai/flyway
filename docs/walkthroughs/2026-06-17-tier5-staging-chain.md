@@ -38,11 +38,15 @@ outcome, exactly as S3 §IV.1.6 (Consent Decision Making) and §IV.1.7
 
 ## What this does NOT prove
 
-- **A schema-level back-link from agreement to tension.** The agreement
-  *restates* the driver, but there is no `originTensionId` field tying the
-  file to the specific `flyway_tension` envelope that started it (Issue #2 /
-  G8). The trail is reconstructable by a human reading both, not by a
-  machine following a reference.
+- ~~**A schema-level back-link from agreement to tension.**~~ **Resolved
+  after this capture (Issue #2 / G8).** At the time of this walkthrough the
+  agreement only *restated* the driver. Since then, `flyway_propose`
+  propagates the verified `refs.tensionId` forward through every stage and
+  auto-stamps it onto the final agreement as `originTensionId` — a field
+  covered by both co-signatures and refused if it disagrees with the chain.
+  A machine can now follow agreement → tension by reference, not just a
+  human reading both. (Re-running the script below at the current SHA emits
+  `originTensionId: <tension id>` in `agreements/<id>.yaml`.)
 - **Bidirectional authorship.** The chain is authored by A; B consents or
   objects. A genuinely co-authored chain (both Sources editing stages) is
   not modelled — `previousStageId` resolves only from the author's own

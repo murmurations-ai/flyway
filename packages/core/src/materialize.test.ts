@@ -27,6 +27,7 @@ import {
 } from './respond.js'
 import type { SignedSignalEnvelope } from './signal.js'
 import { localEd25519Signer } from './signing.js'
+import { createTension } from './tension.js'
 
 async function makeMurmuration(owner: string, name: string) {
   const artifacts = await flywayInit({
@@ -411,6 +412,64 @@ describe('materializeAgreement', () => {
         responderDidDocument: a.artifacts.didDocument,
       }),
     ).rejects.toThrow(/does not\s+match|does not match/)
+  })
+
+  // Issue #2 — agreement provenance survives into the co-signed file and is
+  // covered by both signatures.
+  it('carries originTensionId into the materialized file under both signatures', async () => {
+    const tension = await createTension({
+      from: b.artifacts.did,
+      to: a.artifacts.did,
+      body: { conditions: 'Retros run over.', effect: 'Tensions leak into governance.' },
+      signer: b.signer,
+      id: 'tension-origin-1',
+    })
+    const agreement = {
+      ...exampleAgreement([a.artifacts.did, b.artifacts.did]),
+      originTensionId: 'tension-origin-1',
+    }
+    const proposal = await createProposal({
+      from: a.artifacts.did,
+      to: b.artifacts.did,
+      body: { type: 'agreement', title: 'Retro cadence', body: 'Final.', stage: 'final', agreement },
+      signer: a.signer,
+      tensionAntecedent: { envelope: tension, senderDidDocument: b.artifacts.didDocument },
+      now: new Date('2026-06-09T12:00:00.000Z'),
+    })
+    const response = await createProposalResponse({
+      from: b.artifacts.did,
+      to: a.artifacts.did,
+      body: { decision: 'accept' },
+      refs: { proposalId: proposal.id },
+      subjectEnvelope: proposal,
+      subjectSenderDidDocument: a.artifacts.didDocument,
+      signer: b.signer,
+      now: new Date('2026-06-09T12:05:00.000Z'),
+    })
+    const materialized = await materializeAgreement({
+      proposalEnvelope: proposal,
+      responseEnvelope: response,
+      proposerDidDocument: a.artifacts.didDocument,
+      responderDidDocument: b.artifacts.didDocument,
+    })
+    expect(materialized.agreement.originTensionId).toBe('tension-origin-1')
+    expect(materialized.yamlText).toContain('originTensionId: tension-origin-1')
+    // The link is under signature: mutating it in the file breaks standalone verify.
+    const parsed = parseDocument(materialized.yamlText).toJS() as FlywayAgreement
+    const mutated = { ...parsed, originTensionId: 'tension-forged-9' }
+    const sig = parsed.signatures![0]!
+    const ok = await verifyAgreementSignature(
+      mutated,
+      {
+        verificationKeyId: sig.verificationKeyId!,
+        algorithm: 'EdDSA',
+        canonicalization: 'flyway-jcs-v1',
+        domain: 'flyway-v1:agreement',
+        signature: sig.signature,
+      },
+      sig.participant === a.artifacts.did ? a.artifacts.didDocument : b.artifacts.didDocument,
+    )
+    expect(ok).toBe(false)
   })
 })
 

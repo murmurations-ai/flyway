@@ -30,8 +30,8 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | **Tools wired (end-to-end)** | 9 of 9 |
 | **Executable walkthroughs** | 5 (Tier 1–5) |
 | **ADRs accepted** | 9 |
-| **Tests passing** | 355 across 26 test files |
-| **Open issues** | 12 (8 closed since the 3-agent review) |
+| **Tests passing** | 362 across 26 test files |
+| **Open issues** | 11 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
 ---
@@ -149,6 +149,7 @@ Where each property is enforced and verified:
 | **Cross-kind replay protection** — kind-specific signal domains (`tension`, `respond`, etc.) | `buildSignedSignal` | `verifySignedSignal` | `signal.test.ts`, `tension.test.ts`, `respond.test.ts` |
 | **Antecedent verification** (ADR-0009) — never sign over unverified prior artifact | `createTensionResponse` / `createProposalResponse` / `createProposal` / `materializeAgreement` | n/a — enforced at sign / materialize time | `respond.test.ts`, `propose.test.ts`, `materialize.test.ts` ADR-0009 suites |
 | **Co-signature byte-identity** — both parties sign the same target; both materialize identical bytes | `signAgreement` (detached `DOMAIN_AGREEMENT`) | `materializeAgreement` (SHA-256 match) | `materialize.test.ts` byte-identity + standalone-verify suites |
+| **Agreement provenance** (Issue #2) — `originTensionId` propagated through the chain and stamped under both co-signatures; a forged or mismatched link is refused | `createProposal` (`validateAgreementProvenance` + auto-stamp at `final`) | n/a — enforced at sign time; carried byte-identically into the file | `propose.test.ts` provenance suite, `materialize.test.ts` originTensionId-under-signature test |
 | **Path-traversal safety** — peer DIDs can't escape the cache subtree | `peerCachePathSegments` | n/a — enforced at parse time | `recognize.test.ts` traversal suite |
 | **Recognition-window ordering** — signals must be sent after the peer was recognized | `flywayCheck` | `flywayCheck` | `check.test.ts` |
 | **Atomic write** — concurrent signal writers can't race past the differently-signed-envelope guard | `writeSignalFile` (`flag: 'wx'`) | n/a — enforced at write time | — |
@@ -165,17 +166,16 @@ What's left is reach and depth — not new tools:
 
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
-| **Remote transports (v0.2)** | http(s) directory fetch for `flyway_discover`; GitHub-PR / URL signal transport (ADR-0008) | The first genuinely non-local-fs operations — peers at a distance |
+| **Remote transports (v0.2)** | http(s) directory fetch for `flyway_discover`; GitHub-PR / URL signal transport (ADR-0008). **Specified** in [`docs/architecture/remote-transports-v0.2.md`](./architecture/remote-transports-v0.2.md) — phased v0.2a/b/c, pending ADR-0010/0011 | The first genuinely non-local-fs operations — peers at a distance |
 | **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
-| **Agreement provenance (Issue #2 / G8)** | An `originTensionId` linking a co-signed agreement back to the tension that started it | Machine-followable audit trail — the Tier 5 chain is five human hops today |
+| ~~Agreement provenance (Issue #2 / G8)~~ ✅ **done** | `originTensionId` propagated through the staging chain and auto-stamped onto the co-signed agreement; refused if it disagrees with the verified chain tension | Machine-followable audit trail — agreement → tension by reference, not five human hops |
 
 ### Open issues by theme
 
-12 open issues (8 closed by S+5a and the pre-S+5 cleanup: #3, #6, #7, #8, #9, #14, #15, and one historical). Grouped:
+11 open issues (9 closed: #3, #6, #7, #8, #9, #14, #15, **#2**, and one historical). Grouped:
 
 **Protocol gaps (`protocol-gap`)** — soundness or correctness holes that don't block current functionality but accumulate risk:
 
-- [#2](https://github.com/murmurations-ai/flyway/issues/2) Tension → proposal "promotion" has no first-class linkage (the agreement-side face surfaced as G8 in Tier 4)
 - [#16](https://github.com/murmurations-ai/flyway/issues/16) `flyway_check` should flag responses whose `sentAt` precedes the subject's
 - [#19](https://github.com/murmurations-ai/flyway/issues/19) Constrain tension `proposedOwner` to a recognized peer
 
@@ -228,4 +228,4 @@ pnpm install && pnpm -r build
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-06-17 at SHA `17f9bc1` — the protocol surface is complete (9 of 9).*
+*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — protocol surface complete (9 of 9); Issue #2 (agreement provenance) closed: `originTensionId` now travels the staging chain into the co-signed agreement.*
