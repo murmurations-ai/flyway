@@ -65,3 +65,4 @@ authored 13 colliding ADRs at numbers already in use).
 | [ADR-0007](./0007-pluggable-signers-and-anchors.md)                            | Pluggable signers and on-chain anchoring                           | Accepted |
 | [ADR-0008](./0008-signal-transport-convention.md)                              | Signal transport convention                                        | Accepted |
 | [ADR-0009](./0009-antecedent-verification-before-signing.md)                   | Antecedent verification before signing                             | Accepted |
+| [ADR-0010](./0010-remote-directory-fetch.md)                                   | Remote directory fetch (HTTPS)                                     | Accepted |
