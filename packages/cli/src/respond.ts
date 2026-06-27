@@ -30,14 +30,15 @@ import {
   type SignedSignalEnvelope,
   TENSION_DECISIONS,
   type TensionDecision,
+  type DeliveryReceipt,
+  type SignalTransport,
   createProposalResponse,
   createTensionResponse,
   findInboxSignalById,
   getPrimaryVerificationKey,
   localEd25519Signer,
   peerCachePathSegments,
-  writeSignalToInbox,
-  writeSignalToOutbox,
+  sendSignal,
 } from '@murmurations-ai/flyway-core'
 import { readPeersFile } from './recognize.js'
 
@@ -61,6 +62,8 @@ export interface RunRespondOptions {
   readonly transferTo?: string
   /** Concerns to record (Issues #3, #15). Only valid when responding to a proposal. */
   readonly concernsToRecord?: readonly string[]
+  /** Delivery transport; defaults to local-fs. */
+  readonly transport?: SignalTransport
 }
 
 export interface RunRespondResult {
@@ -70,6 +73,7 @@ export interface RunRespondResult {
   readonly subject: SignedSignalEnvelope
   readonly outboxPath: string
   readonly inboxPath: string
+  readonly receipt: DeliveryReceipt
 }
 
 export async function runRespond(options: RunRespondOptions): Promise<RunRespondResult> {
@@ -230,16 +234,21 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     )
   }
 
-  // 9. Write outbox first, then deliver to inbox.
-  const outbox = writeSignalToOutbox(cwd, response)
-  const inbox = writeSignalToInbox(peerRepoPath, response)
+  // 9. Outbox-first delivery via the transport (local-fs by default).
+  const { outboxPath, receipt } = await sendSignal({
+    cwd,
+    signal: response,
+    target: { toDid: peerDid, localRepoPath: peerRepoPath },
+    ...(options.transport !== undefined ? { transport: options.transport } : {}),
+  })
 
   return {
     response,
     peerDid,
     subject,
-    outboxPath: outbox.path,
-    inboxPath: inbox.path,
+    outboxPath,
+    inboxPath: receipt.ref ?? '',
+    receipt,
   }
 }
 

@@ -17,15 +17,16 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type DidDocument,
+  type DeliveryReceipt,
   type SignalRefs,
+  type SignalTransport,
   type SignedEntityStatement,
   type SignedSignalEnvelope,
   type TensionBody,
   createTension,
   getPrimaryVerificationKey,
   localEd25519Signer,
-  writeSignalToInbox,
-  writeSignalToOutbox,
+  sendSignal,
 } from '@murmurations-ai/flyway-core'
 import { readPeersFile } from './recognize.js'
 
@@ -42,6 +43,8 @@ export interface RunTensionOptions {
   readonly body: TensionBody
   /** Optional cross-signal references (e.g. inReplyTo). */
   readonly refs?: SignalRefs
+  /** Delivery transport; defaults to local-fs. */
+  readonly transport?: SignalTransport
 }
 
 export interface RunTensionResult {
@@ -49,6 +52,7 @@ export interface RunTensionResult {
   readonly peerDid: string
   readonly outboxPath: string
   readonly inboxPath: string
+  readonly receipt: DeliveryReceipt
 }
 
 export async function runTension(options: RunTensionOptions): Promise<RunTensionResult> {
@@ -115,15 +119,20 @@ export async function runTension(options: RunTensionOptions): Promise<RunTension
     ...(options.refs !== undefined ? { refs: options.refs } : {}),
   })
 
-  // 5. Write outbox first (sender's record), then deliver to inbox.
-  //    Outbox must be durable even if the delivery step fails.
-  const outbox = writeSignalToOutbox(cwd, signal)
-  const inbox = writeSignalToInbox(peerRepoPath, signal)
+  // 5. Outbox-first delivery via the transport (local-fs by default).
+  //    The outbox record is durable even if delivery fails.
+  const { outboxPath, receipt } = await sendSignal({
+    cwd,
+    signal,
+    target: { toDid: peerDid, localRepoPath: peerRepoPath },
+    ...(options.transport !== undefined ? { transport: options.transport } : {}),
+  })
 
   return {
     signal,
     peerDid,
-    outboxPath: outbox.path,
-    inboxPath: inbox.path,
+    outboxPath,
+    inboxPath: receipt.ref ?? '',
+    receipt,
   }
 }
