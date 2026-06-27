@@ -90,6 +90,14 @@ export {
   writeSignalToOutbox,
 } from './signal.js'
 export type {
+  DeliveryReceipt,
+  DeliveryTarget,
+  SendSignalInput,
+  SendSignalResult,
+  SignalTransport,
+} from './transport.js'
+export { localFsTransport, sendSignal } from './transport.js'
+export type {
   MaterializeAgreementInput,
   MaterializedAgreement,
 } from './materialize.js'

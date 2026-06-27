@@ -19,7 +19,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   type DidDocument,
+  type DeliveryReceipt,
   type ProposalBody,
+  type SignalTransport,
   type SignedEntityStatement,
   type SignedSignalEnvelope,
   createProposal,
@@ -28,9 +30,8 @@ import {
   localEd25519Signer,
   peerCachePathSegments,
   readSignalFile,
+  sendSignal,
   signalOutboxPath,
-  writeSignalToInbox,
-  writeSignalToOutbox,
 } from '@murmurations-ai/flyway-core'
 import { readPeersFile } from './recognize.js'
 
@@ -45,6 +46,8 @@ export interface RunProposeOptions {
   readonly promoteTensionId?: string
   /** Optional: id of the prior proposal in a staging chain. Required if body.previousStageId is set, or if body.stage === 'refinement'. */
   readonly previousStageId?: string
+  /** Delivery transport; defaults to local-fs. */
+  readonly transport?: SignalTransport
 }
 
 export interface RunProposeResult {
@@ -52,6 +55,7 @@ export interface RunProposeResult {
   readonly peerDid: string
   readonly outboxPath: string
   readonly inboxPath: string
+  readonly receipt: DeliveryReceipt
 }
 
 export async function runPropose(options: RunProposeOptions): Promise<RunProposeResult> {
@@ -203,14 +207,19 @@ export async function runPropose(options: RunProposeOptions): Promise<RunPropose
     ...(proposalAntecedent ? { proposalAntecedent } : {}),
   })
 
-  // 8. Write outbox first, then deliver to inbox.
-  const outbox = writeSignalToOutbox(cwd, proposal)
-  const inbox = writeSignalToInbox(peerRepoPath, proposal)
+  // 8. Outbox-first delivery via the transport (local-fs by default).
+  const { outboxPath, receipt } = await sendSignal({
+    cwd,
+    signal: proposal,
+    target: { toDid: peerDid, localRepoPath: peerRepoPath },
+    ...(options.transport !== undefined ? { transport: options.transport } : {}),
+  })
 
   return {
     proposal,
     peerDid,
-    outboxPath: outbox.path,
-    inboxPath: inbox.path,
+    outboxPath,
+    inboxPath: receipt.ref ?? '',
+    receipt,
   }
 }

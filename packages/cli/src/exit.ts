@@ -25,15 +25,16 @@ import { join } from 'node:path'
 import {
   type DidDocument,
   type ExitBody,
+  type DeliveryReceipt,
   type ExitTargetType,
   type SignalRefs,
+  type SignalTransport,
   type SignedEntityStatement,
   type SignedSignalEnvelope,
   createExit,
   getPrimaryVerificationKey,
   localEd25519Signer,
-  writeSignalToInbox,
-  writeSignalToOutbox,
+  sendSignal,
 } from '@murmurations-ai/flyway-core'
 import { readPeersFile } from './recognize.js'
 
@@ -53,6 +54,8 @@ export interface RunExitOptions {
   readonly reason?: string
   /** Optional cross-signal references. */
   readonly refs?: SignalRefs
+  /** Delivery transport; defaults to local-fs. */
+  readonly transport?: SignalTransport
 }
 
 export interface RunExitResult {
@@ -60,6 +63,7 @@ export interface RunExitResult {
   readonly peerDid: string
   readonly outboxPath: string
   readonly inboxPath: string
+  readonly receipt: DeliveryReceipt
 }
 
 export async function runExit(options: RunExitOptions): Promise<RunExitResult> {
@@ -144,14 +148,19 @@ export async function runExit(options: RunExitOptions): Promise<RunExitResult> {
     ...(options.refs !== undefined ? { refs: options.refs } : {}),
   })
 
-  // 6. Write outbox first (our record), then deliver to the peer's inbox.
-  const outbox = writeSignalToOutbox(cwd, signal)
-  const inbox = writeSignalToInbox(peerRepoPath, signal)
+  // 6. Outbox-first delivery via the transport (local-fs by default).
+  const { outboxPath, receipt } = await sendSignal({
+    cwd,
+    signal,
+    target: { toDid: peerDid, localRepoPath: peerRepoPath },
+    ...(options.transport !== undefined ? { transport: options.transport } : {}),
+  })
 
   return {
     signal,
     peerDid,
-    outboxPath: outbox.path,
-    inboxPath: inbox.path,
+    outboxPath,
+    inboxPath: receipt.ref ?? '',
+    receipt,
   }
 }
