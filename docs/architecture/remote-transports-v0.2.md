@@ -279,7 +279,7 @@ implement → walkthrough → review → harden cadence.
 
 | Phase | Scope | Walkthrough it unlocks |
 | --- | --- | --- |
-| **v0.2a** | Transport A (HTTPS directory fetch) + the `SignalTransport` interface refactor (senders call through a transport, local-fs becomes the default impl) | Tier 6 — discover a peer from a *remote* directory, then recognize it from its `did:web` URL |
+| **v0.2a** | Transport A (HTTPS directory fetch) — **shipped** (ADR-0010: `loadDirectory` / `assertPublicHttpsUrl` / `parseDirectoryLocation`) — plus the still-pending `SignalTransport` interface refactor (senders call through a transport, local-fs becomes the default impl) | Tier 6 — discover a peer from a *remote* directory, then recognize it from its `did:web` URL |
 | **v0.2b** | Transport B (github-pr) + `verify-signal` Action | Tier 7 — a tension delivered by PR across two real GitHub repos; recipient's CI verifies; merge lands it in the inbox |
 | **v0.2c** | Transport C (url-webhook) — only if a consumer needs it | — |
 
@@ -307,9 +307,11 @@ without touching the senders, exactly as ADR-0008 intended.
 
 ## 10. Open decisions for the ADRs
 
-1. **ADR-0010 (HTTPS fetch + github-pr):** the SSRF/size/timeout policy of
-   §3; fork-vs-branch default of §4; "PR-open = delivered" semantics of §4;
-   whether `verify-signal` ships in this repo or a companion action repo.
+1. **ADR-0010 (HTTPS directory fetch):** ✅ **accepted** — the SSRF/size/
+   timeout policy of §3 is settled and shipped. The `github-pr` decisions
+   (fork-vs-branch default of §4; "PR-open = delivered" semantics; whether
+   `verify-signal` ships here or in a companion action repo) move to a
+   future ADR when Transport B is built.
 2. **DID resolution for recognize-at-a-distance:** v0.2a needs
    `flyway_recognize` to read `.well-known/did.json` over HTTPS from the
    `did:web` URL instead of a local `peerRepoPath`. This is a small, bounded

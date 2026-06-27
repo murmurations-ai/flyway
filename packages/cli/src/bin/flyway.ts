@@ -101,15 +101,19 @@ Commands:
                                       YAML/JSON list of
                                       {id,description,mustOrShould?,rationale?}.
 
-  discover --directory <path> [query] [--json]
+  discover --directory <path-or-url> [query] [--json]
+           [--allow-private-directory]
                                       Search a flyway directory for potential
                                       peers. query may be free text (matches
                                       name / capabilities / description) or a
                                       full did:… for an exact lookup; omit it
                                       to list every entry. Discovery is
                                       read-only and pre-trust — verify at
-                                      recognition. v0.1 reads a local directory
-                                      file (YAML/JSON); http(s) is reserved.
+                                      recognition. --directory takes a local
+                                      file (YAML/JSON) or an https:// URL;
+                                      remote fetch is HTTPS-only and refuses
+                                      private/loopback hosts unless
+                                      --allow-private-directory is set.
 
   exit <peer-repo-path> --target-type <peer|project|syndicate>
        [--target <id>] [--reason "..."]
@@ -746,10 +750,11 @@ async function handleMaterializeCommand(args: string[]): Promise<number> {
 
 async function handleDiscoverCommand(args: string[]): Promise<number> {
   const { present: asJson, rest: r1 } = parseBoolFlag(args, '--json')
-  const { value: directory, rest: positional } = parseFlag(r1, '--directory')
+  const { present: allowPrivate, rest: r2 } = parseBoolFlag(r1, '--allow-private-directory')
+  const { value: directory, rest: positional } = parseFlag(r2, '--directory')
   const [query] = positional
   if (!directory) {
-    process.stderr.write('error: flyway discover requires --directory <path>\n\n')
+    process.stderr.write('error: flyway discover requires --directory <path-or-url>\n\n')
     process.stderr.write(HELP)
     return 2
   }
@@ -757,6 +762,7 @@ async function handleDiscoverCommand(args: string[]): Promise<number> {
     const result = await runDiscover({
       directory,
       ...(query !== undefined ? { query } : {}),
+      ...(allowPrivate ? { allowPrivateDirectory: true } : {}),
     })
     if (asJson) {
       process.stdout.write(

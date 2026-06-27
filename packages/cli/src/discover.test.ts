@@ -67,10 +67,27 @@ describe('runDiscover', () => {
     expect(r.matches[0]?.sourceName).toBe('Alpha')
   })
 
-  it('refuses an http(s) directory URL (reserved for v0.2)', async () => {
+  it('fetches an https directory via an injected fetch (v0.2a)', async () => {
+    const fetchImpl = (async () => new Response(DIRECTORY_YAML)) as unknown as typeof fetch
+    const r = await runDiscover({
+      directory: 'https://directory.flyway.dev/list.yaml',
+      query: 'governance',
+      fetchImpl,
+    })
+    expect(r.matches.map((e) => e.sourceName)).toEqual(['Nori', 'Praxis'])
+  })
+
+  it('refuses an http:// directory URL (HTTPS only)', async () => {
     await expect(
-      runDiscover({ directory: 'https://example.com/flyway-directory.yaml' }),
-    ).rejects.toThrow(/reserved for v0\.2/)
+      runDiscover({ directory: 'http://example.com/flyway-directory.yaml' }),
+    ).rejects.toThrow(/HTTPS-only/)
+  })
+
+  it('refuses a private-host https directory unless explicitly allowed', async () => {
+    const fetchImpl = (async () => new Response(DIRECTORY_YAML)) as unknown as typeof fetch
+    await expect(
+      runDiscover({ directory: 'https://127.0.0.1/dir.yaml', fetchImpl }),
+    ).rejects.toThrow(/private\/loopback/)
   })
 
   it('errors clearly when the directory file is missing', async () => {

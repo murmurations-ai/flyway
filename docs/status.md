@@ -29,8 +29,8 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | **Code SHA** | `17f9bc1` |
 | **Tools wired (end-to-end)** | 9 of 9 |
 | **Executable walkthroughs** | 5 (Tier 1–5) |
-| **ADRs accepted** | 9 |
-| **Tests passing** | 362 across 26 test files |
+| **ADRs accepted** | 10 |
+| **Tests passing** | 379 across 26 test files |
 | **Open issues** | 11 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
@@ -45,7 +45,7 @@ through every adapter (agent skill, MCP server, CLI) without rewriting. Status o
 | - | ---- | ------- | ------ | ---- |
 | 1 | `flyway_init` | Initialize the murmuration's identity — DID document + signed entity statement + Ed25519 keypair | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
 | 2 | `flyway_status` | Report identity + peers + agreements + signature validity | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
-| 3 | `flyway_discover` | Search a flyway directory for potential peers (pre-trust; verify at recognition) | ✅ **Wired** | smoke + tests |
+| 3 | `flyway_discover` | Search a flyway directory for potential peers (pre-trust; verify at recognition). Loads from a local file **or an `https://` URL** (ADR-0010) | ✅ **Wired** | smoke + tests |
 | 4 | `flyway_recognize` (+ `unrecognize`) | Verify a peer's identity and produce a signed recognition entry | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
 | 5 | `flyway_tension` | Flag a tension to a recognized peer (S3 *Navigate via Tension*) | ✅ **Wired** | [Tier 2](./walkthroughs/2026-05-25-tier2-signal-exchange.md) |
 | 6 | `flyway_propose` | Send a directive, project, or engagement agreement; full S3 staging chain | ✅ **Wired** | [Tier 4](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) |
@@ -78,6 +78,8 @@ Each milestone produces *behaviour*, not just code — the cadence is implement 
 | **S+5b** — co-signed agreements | `10d7045` | 2026-06-12 | Agreement materialization: detached `DOMAIN_AGREEMENT` signatures ride inside the final proposal and the accept, so both sides produce a byte-identical `flyway/agreements/<id>.yaml` from records they already hold. `flyway materialize` CLI verb | Tier 4 — co-signed agreement |
 | **S+6** — clean exit | `11c6b0d` | 2026-06-17 | `flyway_exit` — a signed, unilateral exit notice (peer / project / syndicate) that no peer can prevent. Distinct from unrecognition; never mutates a co-signed agreement file. Wired through core, CLI, and MCP | — |
 | **S+7** — discovery | `17f9bc1` | 2026-06-17 | `flyway_discover` — the last tool, completing the 9-tool surface. Pre-trust directory search (free-text or exact-DID) over a published `FlywayDirectory`; v0.1 reads a local directory file, remote fetch reserved | — |
+| **S+8** — agreement provenance | `896b965` | 2026-06-26 | `originTensionId` (Issue #2): the verified tension id propagates through the staging chain and is auto-stamped onto the co-signed agreement, under both signatures; a forged/mismatched link is refused. Closes #2 | [Tier 5](./walkthroughs/2026-06-17-tier5-staging-chain.md) (gap note flipped to resolved) |
+| **S+9** — remote directory fetch | `db90614`+ | 2026-06-26 | v0.2a, part 1: `flyway_discover` loads a directory over `https://` (ADR-0010) — flyway's first non-local-fs operation. HTTPS-only, SSRF-guarded, size/timeout-bounded, fully injectable for tests | — |
 
 ---
 
@@ -119,7 +121,7 @@ Proves: identity.      Proves: send+verify.  Proves: round-trip.   Proves: co-si
 
 ## Architecture invariants — ADR digest
 
-Nine ADRs are accepted; each pins one load-bearing decision.
+Ten ADRs are accepted; each pins one load-bearing decision.
 
 | # | Title | What it locks in |
 | - | ----- | ---------------- |
@@ -132,6 +134,7 @@ Nine ADRs are accepted; each pins one load-bearing decision.
 | [ADR-0007](./adr/0007-pluggable-signers-and-anchors.md) | Pluggable signers and on-chain anchoring | `Signer` interface lets a future Cardano-resident signer drop in without touching core |
 | [ADR-0008](./adr/0008-signal-transport-convention.md) | Signal transport convention | Signed envelope + inbox/outbox + pluggable transport; local-fs ships, GitHub-PR / URL reserved |
 | [ADR-0009](./adr/0009-antecedent-verification-before-signing.md) | **Antecedent verification before signing** | A signer never signs over an unverified antecedent artifact; the verifying key is the recognition-time cached copy |
+| [ADR-0010](./adr/0010-remote-directory-fetch.md) | **Remote directory fetch (HTTPS)** | `flyway_discover` may fetch a directory over `https://`; HTTPS-only, SSRF-guarded, size/timeout-bounded — flyway's first non-local-fs operation |
 
 ---
 
@@ -166,7 +169,7 @@ What's left is reach and depth — not new tools:
 
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
-| **Remote transports (v0.2)** | http(s) directory fetch for `flyway_discover`; GitHub-PR / URL signal transport (ADR-0008). **Specified** in [`docs/architecture/remote-transports-v0.2.md`](./architecture/remote-transports-v0.2.md) — phased v0.2a/b/c, pending ADR-0010/0011 | The first genuinely non-local-fs operations — peers at a distance |
+| **Remote transports (v0.2)** | [Specified](./architecture/remote-transports-v0.2.md), phased v0.2a/b/c. **v0.2a HTTPS directory fetch shipped** (ADR-0010). Remaining: the `SignalTransport` interface refactor + GitHub-PR / URL signal transport | The first genuinely non-local-fs operations — peers at a distance |
 | **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
 | ~~Agreement provenance (Issue #2 / G8)~~ ✅ **done** | `originTensionId` propagated through the staging chain and auto-stamped onto the co-signed agreement; refused if it disagrees with the verified chain tension | Machine-followable audit trail — agreement → tension by reference, not five human hops |
 
@@ -228,4 +231,4 @@ pnpm install && pnpm -r build
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — protocol surface complete (9 of 9); Issue #2 (agreement provenance) closed: `originTensionId` now travels the staging chain into the co-signed agreement.*
+*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed (agreement provenance); v0.2a part 1 shipped — `flyway_discover` fetches directories over HTTPS (ADR-0010), flyway's first non-local-fs operation.*

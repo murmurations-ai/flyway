@@ -1,34 +1,35 @@
 /**
- * CLI wrapper for flyway_discover. The pure query lives in flyway-core
- * (flywayDiscover); this file owns loading and parsing the directory
- * document from disk.
+ * CLI wrapper for flyway_discover. The pure query and the directory loader
+ * both live in flyway-core (flywayDiscover / loadDirectory); this file just
+ * classifies the directory argument and renders.
  *
  * Discovery is read-only and pre-trust — it needs no identity and signs
- * nothing. It just reads a published directory and filters it.
+ * nothing. It reads a published directory and filters it.
  *
- * v0.1 reads a LOCAL directory file (YAML or JSON). Fetching a directory
- * over http(s) — the first genuinely non-local-fs operation — is reserved
- * for v0.2; a URL source is refused with a clear message rather than
- * silently treated as a path.
+ * v0.2a: the directory may be a LOCAL path (YAML or JSON) or an `https://`
+ * URL — the first genuinely non-local-fs operation. Remote fetch is
+ * HTTPS-only and refuses private/loopback hosts (override with
+ * allowPrivateDirectory for local testing). See
+ * docs/architecture/remote-transports-v0.2.md.
  */
 
-import { existsSync, readFileSync } from 'node:fs'
 import {
   type DiscoverResult,
   type FlywayDirectory,
   flywayDiscover,
-  parseFlywayDirectory,
+  loadDirectory,
+  parseDirectoryLocation,
 } from '@murmurations-ai/flyway-core'
-import { parseDocument } from 'yaml'
 
 export interface RunDiscoverOptions {
-  /**
-   * Where the directory document lives. v0.1: a local filesystem path to a
-   * YAML or JSON directory file. An http(s) URL is reserved for v0.2.
-   */
+  /** A local filesystem path or an `https://` URL to a flyway directory. */
   readonly directory: string
   /** Free-text term or a full DID. Omitted lists every entry. */
   readonly query?: string
+  /** Allow fetching from a loopback/private host (local testing only). */
+  readonly allowPrivateDirectory?: boolean
+  /** Test seam — injected fetch for remote-directory tests. */
+  readonly fetchImpl?: typeof fetch
 }
 
 export interface RunDiscoverResult extends DiscoverResult {
@@ -37,29 +38,11 @@ export interface RunDiscoverResult extends DiscoverResult {
 }
 
 export async function runDiscover(options: RunDiscoverOptions): Promise<RunDiscoverResult> {
-  const { directory } = options
-
-  if (/^https?:\/\//i.test(directory)) {
-    throw new Error(
-      'flyway discover: remote directory fetch (http/https) is reserved for v0.2. ' +
-        'Pass a local path to a flyway directory file for now.',
-    )
-  }
-  if (!existsSync(directory)) {
-    throw new Error(`flyway discover: directory file not found at ${directory}`)
-  }
-
-  const raw = readFileSync(directory, 'utf-8')
-  let parsedDoc: unknown
-  try {
-    parsedDoc = parseDocument(raw).toJS()
-  } catch (e) {
-    throw new Error(
-      `flyway discover: could not parse ${directory} as YAML/JSON: ${(e as Error).message}`,
-    )
-  }
-
-  const source = parseFlywayDirectory(parsedDoc)
+  const loc = parseDirectoryLocation(options.directory)
+  const source = await loadDirectory(loc, {
+    ...(options.allowPrivateDirectory ? { allowPrivate: true } : {}),
+    ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+  })
   const result = flywayDiscover({
     directory: source,
     ...(options.query !== undefined ? { query: options.query } : {}),

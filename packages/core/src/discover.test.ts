@@ -2,9 +2,24 @@ import { describe, expect, it } from 'vitest'
 import {
   type FlywayDirectory,
   FLYWAY_DIRECTORY_SCHEMA_VERSION,
+  assertPublicHttpsUrl,
   flywayDiscover,
+  loadDirectory,
+  parseDirectoryLocation,
   parseFlywayDirectory,
 } from './discover.js'
+
+const DIRECTORY_YAML = `schemaVersion: "${FLYWAY_DIRECTORY_SCHEMA_VERSION}"
+entries:
+  - did: did:web:github.com:xeeban:a
+    sourceName: Nori
+    capabilities: [governance]
+`
+
+/** Build a fetch stub returning a Response with the given body/status. */
+function stubFetch(body: string, init: ResponseInit = { status: 200 }): typeof fetch {
+  return (async () => new Response(body, init)) as unknown as typeof fetch
+}
 
 function directory(): FlywayDirectory {
   return {
@@ -163,5 +178,133 @@ describe('parseFlywayDirectory', () => {
       ],
     })
     expect(flywayDiscover({ directory: parsed, query: 'search' }).matches).toHaveLength(1)
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────
+// parseDirectoryLocation (v0.2a)
+// ────────────────────────────────────────────────────────────────────────
+
+describe('parseDirectoryLocation', () => {
+  it('classifies https URLs as a remote fetch', () => {
+    expect(parseDirectoryLocation('https://example.com/dir.yaml')).toEqual({
+      kind: 'https',
+      url: 'https://example.com/dir.yaml',
+    })
+  })
+
+  it('refuses http:// (HTTPS only)', () => {
+    expect(() => parseDirectoryLocation('http://example.com/dir.yaml')).toThrow(/HTTPS-only/)
+  })
+
+  it('treats everything else as a local file path', () => {
+    expect(parseDirectoryLocation('/tmp/dir.yaml')).toEqual({ kind: 'file', path: '/tmp/dir.yaml' })
+    expect(parseDirectoryLocation('./dir.json')).toEqual({ kind: 'file', path: './dir.json' })
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────
+// assertPublicHttpsUrl (SSRF guard)
+// ────────────────────────────────────────────────────────────────────────
+
+describe('assertPublicHttpsUrl', () => {
+  it('accepts a public https URL', () => {
+    expect(() => assertPublicHttpsUrl('https://directory.flyway.dev/list.yaml')).not.toThrow()
+  })
+
+  it('refuses non-https', () => {
+    expect(() => assertPublicHttpsUrl('http://example.com')).toThrow(/HTTPS-only/)
+  })
+
+  it('refuses loopback and private hosts', () => {
+    expect(() => assertPublicHttpsUrl('https://localhost/d')).toThrow(/private\/loopback/)
+    expect(() => assertPublicHttpsUrl('https://127.0.0.1/d')).toThrow(/private\/loopback/)
+    expect(() => assertPublicHttpsUrl('https://10.0.0.5/d')).toThrow(/private\/loopback/)
+    expect(() => assertPublicHttpsUrl('https://192.168.1.1/d')).toThrow(/private\/loopback/)
+    expect(() => assertPublicHttpsUrl('https://172.16.0.1/d')).toThrow(/private\/loopback/)
+    expect(() => assertPublicHttpsUrl('https://169.254.0.1/d')).toThrow(/private\/loopback/)
+    expect(() => assertPublicHttpsUrl('https://[::1]/d')).toThrow(/private\/loopback/)
+  })
+
+  it('allows a private host when allowPrivate is set', () => {
+    expect(() => assertPublicHttpsUrl('https://127.0.0.1/d', true)).not.toThrow()
+  })
+
+  it('rejects a malformed URL', () => {
+    expect(() => assertPublicHttpsUrl('not a url')).toThrow(/not a valid URL/)
+  })
+})
+
+// ────────────────────────────────────────────────────────────────────────
+// loadDirectory (v0.2a)
+// ────────────────────────────────────────────────────────────────────────
+
+describe('loadDirectory', () => {
+  it('loads a local file via injected reader', async () => {
+    const d = await loadDirectory(
+      { kind: 'file', path: '/dir.yaml' },
+      { readFileImpl: () => DIRECTORY_YAML },
+    )
+    expect(d.entries).toHaveLength(1)
+    expect(d.entries[0]?.sourceName).toBe('Nori')
+  })
+
+  it('reports a missing local file clearly', async () => {
+    const enoent = () => {
+      const e = new Error('no such file') as NodeJS.ErrnoException
+      e.code = 'ENOENT'
+      throw e
+    }
+    await expect(
+      loadDirectory({ kind: 'file', path: '/nope.yaml' }, { readFileImpl: enoent }),
+    ).rejects.toThrow(/file not found/)
+  })
+
+  it('fetches an https directory via injected fetch', async () => {
+    const d = await loadDirectory(
+      { kind: 'https', url: 'https://directory.flyway.dev/list.yaml' },
+      { fetchImpl: stubFetch(DIRECTORY_YAML) },
+    )
+    expect(d.entries[0]?.did).toBe('did:web:github.com:xeeban:a')
+  })
+
+  it('refuses a private https host before fetching', async () => {
+    let called = false
+    const spy = (async () => {
+      called = true
+      return new Response(DIRECTORY_YAML)
+    }) as unknown as typeof fetch
+    await expect(
+      loadDirectory({ kind: 'https', url: 'https://127.0.0.1/list.yaml' }, { fetchImpl: spy }),
+    ).rejects.toThrow(/private\/loopback/)
+    expect(called).toBe(false)
+  })
+
+  it('surfaces a non-2xx fetch as an error', async () => {
+    await expect(
+      loadDirectory(
+        { kind: 'https', url: 'https://directory.flyway.dev/missing.yaml' },
+        { fetchImpl: stubFetch('not found', { status: 404 }) },
+      ),
+    ).rejects.toThrow(/HTTP 404/)
+  })
+
+  it('enforces the byte cap on the response body', async () => {
+    const big = `schemaVersion: "${FLYWAY_DIRECTORY_SCHEMA_VERSION}"\nentries: []\n# ${'x'.repeat(2000)}`
+    await expect(
+      loadDirectory(
+        { kind: 'https', url: 'https://directory.flyway.dev/big.yaml' },
+        { fetchImpl: stubFetch(big), maxBytes: 100 },
+      ),
+    ).rejects.toThrow(/exceeds 100-byte cap/)
+  })
+
+  it('validates the fetched document through parseFlywayDirectory', async () => {
+    await expect(
+      loadDirectory(
+        { kind: 'https', url: 'https://directory.flyway.dev/bad.yaml' },
+        { fetchImpl: stubFetch('entries: []\n') }, // missing schemaVersion
+      ),
+    ).rejects.toThrow(/schemaVersion/)
   })
 })
