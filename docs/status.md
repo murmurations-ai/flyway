@@ -28,9 +28,9 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | **Protocol version** | 0.1.0 |
 | **Code SHA** | `17f9bc1` |
 | **Tools wired (end-to-end)** | 9 of 9 |
-| **Executable walkthroughs** | 5 (Tier 1–5) |
-| **ADRs accepted** | 10 |
-| **Tests passing** | 386 across 27 test files |
+| **Executable walkthroughs** | 6 (Tier 1–6) |
+| **ADRs accepted** | 11 |
+| **Tests passing** | 398 across 28 test files |
 | **Open issues** | 11 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
@@ -46,7 +46,7 @@ through every adapter (agent skill, MCP server, CLI) without rewriting. Status o
 | 1 | `flyway_init` | Initialize the murmuration's identity — DID document + signed entity statement + Ed25519 keypair | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
 | 2 | `flyway_status` | Report identity + peers + agreements + signature validity | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
 | 3 | `flyway_discover` | Search a flyway directory for potential peers (pre-trust; verify at recognition). Loads from a local file **or an `https://` URL** (ADR-0010) | ✅ **Wired** | smoke + tests |
-| 4 | `flyway_recognize` (+ `unrecognize`) | Verify a peer's identity and produce a signed recognition entry | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
+| 4 | `flyway_recognize` (+ `unrecognize`) | Verify a peer's identity and produce a signed recognition entry. Resolves the peer locally **or from its `did:web` URL over HTTPS** (ADR-0011) | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) · [Tier 6](./walkthroughs/2026-06-26-tier6-remote-recognition.md) |
 | 5 | `flyway_tension` | Flag a tension to a recognized peer (S3 *Navigate via Tension*) | ✅ **Wired** | [Tier 2](./walkthroughs/2026-05-25-tier2-signal-exchange.md) |
 | 6 | `flyway_propose` | Send a directive, project, or engagement agreement; full S3 staging chain | ✅ **Wired** | [Tier 4](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) |
 | 7 | `flyway_respond` | Respond to a tension (`acknowledge` / `dispute` / `dissolve` / `transfer`) or a proposal (`accept` / `object` / `exit`) | ✅ **Wired** | [Tier 3](./walkthroughs/2026-05-25-tier3-signal-dialogue.md) · [Tier 4](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) |
@@ -80,7 +80,8 @@ Each milestone produces *behaviour*, not just code — the cadence is implement 
 | **S+7** — discovery | `17f9bc1` | 2026-06-17 | `flyway_discover` — the last tool, completing the 9-tool surface. Pre-trust directory search (free-text or exact-DID) over a published `FlywayDirectory`; v0.1 reads a local directory file, remote fetch reserved | — |
 | **S+8** — agreement provenance | `896b965` | 2026-06-26 | `originTensionId` (Issue #2): the verified tension id propagates through the staging chain and is auto-stamped onto the co-signed agreement, under both signatures; a forged/mismatched link is refused. Closes #2 | [Tier 5](./walkthroughs/2026-06-17-tier5-staging-chain.md) (gap note flipped to resolved) |
 | **S+9** — remote directory fetch | `db90614`+ | 2026-06-26 | v0.2a, part 1: `flyway_discover` loads a directory over `https://` (ADR-0010) — flyway's first non-local-fs operation. HTTPS-only, SSRF-guarded, size/timeout-bounded, fully injectable for tests | — |
-| **S+10** — transport seam | _this branch_ | 2026-06-26 | v0.2a, part 2: the `SignalTransport` interface + `sendSignal` (outbox-first) + `localFsTransport` default. All four senders deliver *through* a transport, so github-pr / url-webhook drop in without touching them. Behavior-preserving | — |
+| **S+10** — transport seam | `58ddf69` | 2026-06-26 | v0.2a, part 2: the `SignalTransport` interface + `sendSignal` (outbox-first) + `localFsTransport` default. All four senders deliver *through* a transport, so github-pr / url-webhook drop in without touching them. Behavior-preserving | — |
+| **S+11** — recognize at a distance | _this branch_ | 2026-06-26 | A peer is resolved from its `did:web` URL over HTTPS and recognized with no shared filesystem (ADR-0011). Shared `http.ts` fetch helper; `resolvePeerIdentity` is pre-trust, `recognizePeer` still verifies. Completes the discover→recognize remote flow | [Tier 6](./walkthroughs/2026-06-26-tier6-remote-recognition.md) |
 
 ---
 
@@ -117,12 +118,13 @@ Proves: identity.      Proves: send+verify.  Proves: round-trip.   Proves: co-si
 | [2026-05-25 — Tier 3 first signal dialogue](./walkthroughs/2026-05-25-tier3-signal-dialogue.md) | Executable | `64b112a` | Full A↔B round-trip — tension + acknowledge, both sides hold signed records. 3 gaps filed. |
 | [2026-06-12 — Tier 4 co-signed agreement](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) | Executable | `10d7045` | A proposes a final agreement, B co-signs by accepting; both materialize a byte-identical agreement file. 2 gaps surfaced. |
 | [2026-06-17 — Tier 5 staging chain](./walkthroughs/2026-06-17-tier5-staging-chain.md) | Executable | `4c894b6` | The full driver→final chain; B's objection at draft is integrated in a refinement and lands in the co-signed agreement. 2 gaps (G8/#2, G10). |
+| [2026-06-26 — Tier 6 remote recognition](./walkthroughs/2026-06-26-tier6-remote-recognition.md) | Executable (test-backed) | _this branch_ | A peer is discovered from a remote HTTPS directory and recognized from its `did:web` URL — no shared filesystem. Closes the "recognition at a distance" gap Tier 1 left open. |
 
 ---
 
 ## Architecture invariants — ADR digest
 
-Ten ADRs are accepted; each pins one load-bearing decision.
+Eleven ADRs are accepted; each pins one load-bearing decision.
 
 | # | Title | What it locks in |
 | - | ----- | ---------------- |
@@ -136,6 +138,7 @@ Ten ADRs are accepted; each pins one load-bearing decision.
 | [ADR-0008](./adr/0008-signal-transport-convention.md) | Signal transport convention | Signed envelope + inbox/outbox + pluggable transport; local-fs ships, GitHub-PR / URL reserved |
 | [ADR-0009](./adr/0009-antecedent-verification-before-signing.md) | **Antecedent verification before signing** | A signer never signs over an unverified antecedent artifact; the verifying key is the recognition-time cached copy |
 | [ADR-0010](./adr/0010-remote-directory-fetch.md) | **Remote directory fetch (HTTPS)** | `flyway_discover` may fetch a directory over `https://`; HTTPS-only, SSRF-guarded, size/timeout-bounded — flyway's first non-local-fs operation |
+| [ADR-0011](./adr/0011-did-web-resolution-convention.md) | **did:web resolution convention** | `did:web:github.com:owner:repo` resolves to raw.githubusercontent identity artifacts; reuses the ADR-0010 fetch hardening; verified at recognition |
 
 ---
 
@@ -170,7 +173,7 @@ What's left is reach and depth — not new tools:
 
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
-| **Remote transports (v0.2)** | [Specified](./architecture/remote-transports-v0.2.md), phased v0.2a/b/c. **v0.2a complete**: HTTPS directory fetch (ADR-0010) + the `SignalTransport` seam. Remaining: **v0.2b** GitHub-PR signal transport, **v0.2c** URL-webhook | Peers at a distance — the first non-local-fs operations |
+| **Remote transports (v0.2)** | [Specified](./architecture/remote-transports-v0.2.md), phased v0.2a/b/c. **v0.2a complete** (HTTPS directory fetch + `SignalTransport` seam) and **recognize-at-a-distance** shipped (ADR-0011, Tier 6). Remaining: **v0.2b** GitHub-PR signal transport, **v0.2c** URL-webhook | Peers at a distance — the first non-local-fs operations |
 | **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
 | ~~Agreement provenance (Issue #2 / G8)~~ ✅ **done** | `originTensionId` propagated through the staging chain and auto-stamped onto the co-signed agreement; refused if it disagrees with the verified chain tension | Machine-followable audit trail — agreement → tension by reference, not five human hops |
 
@@ -232,4 +235,4 @@ pnpm install && pnpm -r build
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed; **v0.2a complete** — HTTPS directory fetch (ADR-0010) and the `SignalTransport` seam, flyway's first non-local-fs operations. Next: v0.2b github-pr transport.*
+*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed; **v0.2a complete** plus **recognize-at-a-distance** (ADR-0010/0011): a peer can be discovered and recognized over HTTPS with no shared filesystem (Tier 6). Next: v0.2b github-pr transport.*

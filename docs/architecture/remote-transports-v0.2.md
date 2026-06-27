@@ -312,12 +312,11 @@ without touching the senders, exactly as ADR-0008 intended.
    (fork-vs-branch default of §4; "PR-open = delivered" semantics; whether
    `verify-signal` ships here or in a companion action repo) move to a
    future ADR when Transport B is built.
-2. **DID resolution for recognize-at-a-distance:** v0.2a needs
-   `flyway_recognize` to read `.well-known/did.json` over HTTPS from the
-   `did:web` URL instead of a local `peerRepoPath`. This is a small, bounded
-   change to recognize's loader and should be specified alongside Transport
-   A (same hardening as §3). Decision: fold into ADR-0010 or split — likely
-   fold, since it shares the fetch hardening.
+2. **DID resolution for recognize-at-a-distance:** ✅ **accepted (ADR-0011).**
+   `flyway_recognize` now resolves a `did:web:github.com:owner:repo` peer to
+   its raw.githubusercontent identity artifacts and recognizes it with no
+   shared filesystem (Tier 6). Reuses the §3 fetch hardening; verification
+   still happens at recognition. Non-github hosts remain unsupported.
 3. **ADR-0011 (url-webhook):** only if §5's demand bar is met. Where the
    endpoint is advertised (`serviceEndpoint` vs. directory field) is the
    first decision.
