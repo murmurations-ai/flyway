@@ -10,10 +10,15 @@
  * and a timeout (DoS), and redirect re-validation.
  *
  * Residual risk (documented, not yet closed): a public hostname that DNS-
- * resolves to a private address (rebinding). v0.2 accepts this; pinning /
- * resolve-then-connect is reserved for a later hardening pass. The blast
- * radius is bounded by these fetches being pre-trust.
+ * resolves to a private address (rebinding). The guard is lexical — it
+ * blocks private/loopback IP *literals* (IPv4 and IPv6, including IPv4-
+ * mapped / NAT64 / 6to4 embeddings) and `localhost`, but does not re-check
+ * the address a public hostname actually resolves to. v0.2 accepts this;
+ * resolve-then-connect / pinning is reserved for a later hardening pass.
+ * The blast radius is bounded by these fetches being pre-trust.
  */
+
+import { isIP } from 'node:net'
 
 export interface HttpsFetchDeps {
   /** Injected for tests; defaults to the global fetch. */
@@ -29,22 +34,91 @@ export interface HttpsFetchDeps {
 export const DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 export const DEFAULT_TIMEOUT_MS = 10_000
 
+/** Is an IPv4 (a.b.c.d) in a loopback / private / link-local / unspecified range? */
+function isBlockedIpv4(a: number, b: number): boolean {
+  if (a === 127 || a === 10 || a === 0) return true // loopback, private, unspecified
+  if (a === 169 && b === 254) return true // link-local (incl. cloud metadata 169.254.169.254)
+  if (a === 172 && b >= 16 && b <= 31) return true // private
+  if (a === 192 && b === 168) return true // private
+  return false
+}
+
+/**
+ * Parse a validated IPv6 literal into 16 bytes, resolving `::` compression
+ * and any trailing embedded IPv4 (e.g. `::ffff:127.0.0.1`). Returns null if
+ * the input is not a well-formed IPv6 address.
+ */
+function ipv6ToBytes(input: string): number[] | null {
+  if (isIP(input) !== 6) return null
+  let s = input
+  let v4: [number, number, number, number] | null = null
+  const m = s.match(/^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (m) {
+    v4 = [Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5])]
+    s = `${String(m[1])}0:0` // placeholder two hextets; overwritten with v4 below
+  }
+  const halves = s.split('::')
+  if (halves.length > 2) return null
+  const left = halves[0] ? halves[0].split(':') : []
+  const right = halves.length === 2 ? (halves[1] ? halves[1].split(':') : []) : []
+  const groups =
+    halves.length === 2
+      ? [...left, ...Array<string>(8 - left.length - right.length).fill('0'), ...right]
+      : left
+  if (groups.length !== 8) return null
+  const bytes: number[] = []
+  for (const g of groups) {
+    const v = parseInt(g || '0', 16)
+    if (Number.isNaN(v) || v < 0 || v > 0xffff) return null
+    bytes.push((v >> 8) & 0xff, v & 0xff)
+  }
+  if (v4) {
+    bytes[12] = v4[0]
+    bytes[13] = v4[1]
+    bytes[14] = v4[2]
+    bytes[15] = v4[3]
+  }
+  return bytes
+}
+
+/** Is an IPv6 (16 bytes) in a blocked range, including embedded-IPv4 forms? */
+function isBlockedIpv6(bytes: number[]): boolean {
+  const at = (i: number): number => bytes[i] ?? 0
+  const allZeroUpTo = (n: number) => bytes.slice(0, n).every((x) => x === 0)
+  if (allZeroUpTo(15) && at(15) === 1) return true // ::1 loopback
+  if (bytes.every((x) => x === 0)) return true // :: unspecified
+  if (at(0) === 0xff) return true // ff00::/8 multicast
+  if (at(0) === 0xfe && (at(1) & 0xc0) === 0x80) return true // fe80::/10 link-local
+  if (at(0) === 0xfe && (at(1) & 0xc0) === 0xc0) return true // fec0::/10 site-local (deprecated)
+  if ((at(0) & 0xfe) === 0xfc) return true // fc00::/7 unique-local
+  // IPv4-mapped ::ffff:a.b.c.d
+  if (allZeroUpTo(10) && at(10) === 0xff && at(11) === 0xff) return isBlockedIpv4(at(12), at(13))
+  // NAT64 64:ff9b::/96
+  if (at(0) === 0x00 && at(1) === 0x64 && at(2) === 0xff && at(3) === 0x9b && bytes.slice(4, 12).every((x) => x === 0)) {
+    return isBlockedIpv4(at(12), at(13))
+  }
+  // 6to4 2002:V4ADDR::/16 — embedded IPv4 in bytes 2..5
+  if (at(0) === 0x20 && at(1) === 0x02) return isBlockedIpv4(at(2), at(3))
+  // IPv4-compatible ::a.b.c.d (deprecated); :: and ::1 handled above
+  if (allZeroUpTo(12)) return isBlockedIpv4(at(12), at(13))
+  return false
+}
+
 /** Hostnames / IP literals we refuse to fetch from (SSRF guard). */
 function isBlockedHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, '') // strip IPv6 brackets
   if (h === 'localhost' || h.endsWith('.localhost')) return true
-  if (h === '::1' || h === '0.0.0.0' || h === '::') return true
-  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10).
-  if (/^f[cd][0-9a-f]{2}:/.test(h) || /^fe[89ab][0-9a-f]:/.test(h)) return true
-  // IPv4 literals in loopback / private / link-local ranges.
-  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (m) {
-    const [a, b] = [Number(m[1]), Number(m[2])]
-    if (a === 127 || a === 10 || a === 0) return true
-    if (a === 169 && b === 254) return true // link-local
-    if (a === 172 && b >= 16 && b <= 31) return true
-    if (a === 192 && b === 168) return true
+  const kind = isIP(h)
+  if (kind === 4) {
+    const [a, b] = h.split('.').map(Number) as [number, number, number, number]
+    return isBlockedIpv4(a, b)
   }
+  if (kind === 6) {
+    const bytes = ipv6ToBytes(h)
+    if (bytes) return isBlockedIpv6(bytes)
+  }
+  // A non-literal hostname is allowed; its resolved address is not re-checked
+  // (DNS-rebinding residual risk, documented in the module header).
   return false
 }
 
@@ -95,17 +169,21 @@ async function readCapped(res: Response, maxBytes: number): Promise<string> {
   return Buffer.concat(chunks).toString('utf-8')
 }
 
+const MAX_REDIRECTS = 5
+
 /**
- * Fetch text over HTTPS with the full guard: URL safety (pre-fetch),
- * size cap, timeout, and post-redirect re-validation. Asserts the URL is
- * safe BEFORE any network call, so a blocked host never reaches `fetch`.
+ * Fetch text over HTTPS with the full guard: every hop's URL is asserted
+ * safe BEFORE the request is issued (redirects are followed manually with
+ * `redirect: 'manual'`), so a blocked host is never *contacted* — not merely
+ * never returned. Also enforces a size cap, a single total timeout shared
+ * across hops, and a redirect ceiling.
  */
 export async function fetchTextOverHttps(
   url: string,
   deps: HttpsFetchDeps = {},
   accept = 'application/json',
 ): Promise<string> {
-  assertPublicHttpsUrl(url, deps.allowPrivate ?? false)
+  const allowPrivate = deps.allowPrivate ?? false
   const fetchImpl = deps.fetchImpl ?? fetch
   const maxBytes = deps.maxBytes ?? DEFAULT_MAX_BYTES
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS
@@ -114,17 +192,32 @@ export async function fetchTextOverHttps(
     ctrl.abort()
   }, timeoutMs)
   try {
-    const res = await fetchImpl(url, {
-      signal: ctrl.signal,
-      redirect: 'follow',
-      headers: { Accept: accept },
-    })
-    if (!res.ok) {
-      throw new Error(`flyway: fetch failed (HTTP ${String(res.status)}) for ${url}`)
+    let currentUrl = url
+    for (let hop = 0; ; hop++) {
+      // Validate BEFORE connecting — closes pre-connection SSRF and any
+      // redirect downgrade to a private/non-HTTPS host.
+      assertPublicHttpsUrl(currentUrl, allowPrivate)
+      const res = await fetchImpl(currentUrl, {
+        signal: ctrl.signal,
+        redirect: 'manual',
+        headers: { Accept: accept },
+      })
+      if (res.status >= 300 && res.status < 400) {
+        if (hop >= MAX_REDIRECTS) {
+          throw new Error(`flyway: too many redirects (>${String(MAX_REDIRECTS)}) for ${url}`)
+        }
+        const location = res.headers.get('location')
+        if (!location) {
+          throw new Error(`flyway: redirect (HTTP ${String(res.status)}) with no Location from ${currentUrl}`)
+        }
+        currentUrl = new URL(location, currentUrl).toString()
+        continue
+      }
+      if (!res.ok) {
+        throw new Error(`flyway: fetch failed (HTTP ${String(res.status)}) for ${currentUrl}`)
+      }
+      return await readCapped(res, maxBytes)
     }
-    // A redirect must not have downgraded us off a public HTTPS host.
-    if (res.url && res.url !== url) assertPublicHttpsUrl(res.url, deps.allowPrivate ?? false)
-    return await readCapped(res, maxBytes)
   } catch (e) {
     if ((e as Error).name === 'AbortError') {
       throw new Error(`flyway: fetch timed out after ${String(timeoutMs)}ms for ${url}`)

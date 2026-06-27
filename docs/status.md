@@ -30,7 +30,7 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | **Tools wired (end-to-end)** | 9 of 9 |
 | **Executable walkthroughs** | 6 (Tier 1–6) |
 | **ADRs accepted** | 11 |
-| **Tests passing** | 398 across 28 test files |
+| **Tests passing** | 417 across 29 test files |
 | **Open issues** | 11 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
@@ -82,6 +82,7 @@ Each milestone produces *behaviour*, not just code — the cadence is implement 
 | **S+9** — remote directory fetch | `db90614`+ | 2026-06-26 | v0.2a, part 1: `flyway_discover` loads a directory over `https://` (ADR-0010) — flyway's first non-local-fs operation. HTTPS-only, SSRF-guarded, size/timeout-bounded, fully injectable for tests | — |
 | **S+10** — transport seam | `58ddf69` | 2026-06-26 | v0.2a, part 2: the `SignalTransport` interface + `sendSignal` (outbox-first) + `localFsTransport` default. All four senders deliver *through* a transport, so github-pr / url-webhook drop in without touching them. Behavior-preserving | — |
 | **S+11** — recognize at a distance | _this branch_ | 2026-06-26 | A peer is resolved from its `did:web` URL over HTTPS and recognized with no shared filesystem (ADR-0011). Shared `http.ts` fetch helper; `resolvePeerIdentity` is pre-trust, `recognizePeer` still verifies. Completes the discover→recognize remote flow | [Tier 6](./walkthroughs/2026-06-26-tier6-remote-recognition.md) |
+| **Review hardening** | _this branch_ | 2026-06-26 | Acted on a 3-agent (architecture / security / QA) review of the v0.2 work: strengthened the SSRF guard against IPv6-embedded private IPv4 (mapped/NAT64/6to4) and switched to per-hop redirect validation; closed a divergent-tension provenance gap; made `localFsTransport` reject (not throw) on write failure; guarded `did:web` percent-decoding; +19 tests incl. a new `http.test.ts` | — |
 
 ---
 
@@ -158,6 +159,8 @@ Where each property is enforced and verified:
 | **Co-signature byte-identity** — both parties sign the same target; both materialize identical bytes | `signAgreement` (detached `DOMAIN_AGREEMENT`) | `materializeAgreement` (SHA-256 match) | `materialize.test.ts` byte-identity + standalone-verify suites |
 | **Agreement provenance** (Issue #2) — `originTensionId` propagated through the chain and stamped under both co-signatures; a forged or mismatched link is refused | `createProposal` (`validateAgreementProvenance` + auto-stamp at `final`) | n/a — enforced at sign time; carried byte-identically into the file | `propose.test.ts` provenance suite, `materialize.test.ts` originTensionId-under-signature test |
 | **Path-traversal safety** — peer DIDs can't escape the cache subtree | `peerCachePathSegments` | n/a — enforced at parse time | `recognize.test.ts` traversal suite |
+| **SSRF guard** (v0.2) — remote fetches refuse loopback/private/link-local IPs incl. IPv6-embedded IPv4; redirects validated per-hop before connecting; HTTPS-only | `assertPublicHttpsUrl` / `fetchTextOverHttps` | n/a — enforced before each network call | `http.test.ts` (scheme, IPv4/IPv6 ranges, H-1 bypasses, redirect H-2) |
+| **Pre-trust remote resolution** — remotely-fetched identity is verified at recognition, never trusted by transport | `resolvePeerIdentity` (pre-trust) | `recognizePeer` (signature + key binding) | `resolve.test.ts`, `recognize.test.ts` remote tamper-rejected |
 | **Recognition-window ordering** — signals must be sent after the peer was recognized | `flywayCheck` | `flywayCheck` | `check.test.ts` |
 | **Atomic write** — concurrent signal writers can't race past the differently-signed-envelope guard | `writeSignalFile` (`flag: 'wx'`) | n/a — enforced at write time | — |
 
@@ -235,4 +238,4 @@ pnpm install && pnpm -r build
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed; **v0.2a complete** plus **recognize-at-a-distance** (ADR-0010/0011): a peer can be discovered and recognized over HTTPS with no shared filesystem (Tier 6). Next: v0.2b github-pr transport.*
+*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed; **v0.2a complete** plus **recognize-at-a-distance** (ADR-0010/0011): discover + recognize a peer over HTTPS with no shared filesystem (Tier 6), then hardened against a 3-agent architecture/security/QA review. Next: v0.2b github-pr transport.*

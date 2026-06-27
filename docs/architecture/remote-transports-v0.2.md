@@ -124,8 +124,14 @@ validates and defensively copies, the query runs as today.
 - **HTTPS only.** Refuse `http://`. No redirect to a non-HTTPS scheme.
 - **SSRF guard.** The URL is operator-supplied (a directory they chose to
   consult), but still: refuse loopback / link-local / RFC-1918 targets
-  unless an explicit `--allow-private-directory` opt-in is set. Resolve and
-  pin, or use an allowlist of directory hosts.
+  unless an explicit `--allow-private-directory` opt-in is set. The guard
+  parses IP literals (IPv4 and IPv6) and blocks IPv6 forms that *embed* a
+  private IPv4 — IPv4-mapped (`::ffff:…`), NAT64 (`64:ff9b::…`), 6to4
+  (`2002:…`) — not just textual prefixes. Redirects are followed manually
+  and **each hop is validated before it is contacted** (`redirect:'manual'`),
+  so a 30x to a private/`http` target is refused without connecting. DNS
+  rebinding (a public name resolving to a private address) remains the one
+  residual gap; resolve-then-pin is the later hardening pass.
 - **Bounded.** Hard cap on response size (e.g. 5 MiB) and a request timeout
   (e.g. 10 s). A directory is a small document; anything large is a fault.
 - **Content type.** Accept `application/json` / `application/yaml`; parse by

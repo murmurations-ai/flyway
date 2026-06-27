@@ -39,6 +39,12 @@ describe('didWebResolutionUrls', () => {
   it('refuses a non-did:web identifier', () => {
     expect(() => didWebResolutionUrls('did:key:zABC')).toThrow(/not a did:web/)
   })
+
+  it('rejects a malformed percent-encoded segment with a flyway error (not a raw URIError)', () => {
+    expect(() => didWebResolutionUrls('did:web:github.com:owner:%zz')).toThrow(
+      /flyway resolve:.*invalid percent-encoded/,
+    )
+  })
 })
 
 describe('resolvePeerIdentity', () => {
@@ -96,5 +102,19 @@ describe('resolvePeerIdentity', () => {
     await expect(
       resolvePeerIdentity('did:web:github.com:xeeban:a', { fetchImpl }),
     ).rejects.toThrow(/HTTP 404/)
+  })
+
+  it('fails if only the entity statement is missing (one-sided failure)', async () => {
+    const peer = await flywayInit({
+      repoUrl: 'https://github.com/xeeban/a',
+      sourceName: 'Nori',
+      mode: 'interactive',
+    })
+    const urls = didWebResolutionUrls(peer.did)
+    const fetchImpl = routedFetch({
+      [urls.didDocUrl]: JSON.stringify(peer.didDocument), // ok
+      // entityStatementUrl absent → 404
+    })
+    await expect(resolvePeerIdentity(peer.did, { fetchImpl })).rejects.toThrow(/HTTP 404/)
   })
 })

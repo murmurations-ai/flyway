@@ -447,6 +447,21 @@ async function validateAndVerifyAntecedents(input: CreateProposalInput): Promise
       )
     }
   }
+  // If the chain already carries a tension AND a (different) tension is also
+  // supplied as a fresh promotion, they must agree — otherwise effectiveTensionId
+  // would record a provenance link to a tension the chain did not descend from.
+  const carriedTensionId = input.proposalAntecedent?.envelope.refs?.tensionId
+  const promotedTensionId = input.tensionAntecedent?.envelope.id
+  if (
+    carriedTensionId !== undefined &&
+    promotedTensionId !== undefined &&
+    carriedTensionId !== promotedTensionId
+  ) {
+    throw new Error(
+      `createProposal: tensionAntecedent (${promotedTensionId}) does not match the tension already ` +
+        `carried by the proposal chain (${carriedTensionId}). A staging chain descends from one tension.`,
+    )
+  }
 }
 
 function normalizeBody(body: ProposalBody): ProposalBody {

@@ -39,6 +39,15 @@ export interface ResolvedPeerIdentity {
 const DID_WEB_PREFIX = 'did:web:'
 const DEFAULT_BRANCH = 'main'
 
+/** decodeURIComponent that rethrows malformed input as a diagnosable flyway error. */
+function safeDecode(segment: string, did: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    throw new Error(`flyway resolve: '${did}' contains an invalid percent-encoded segment`)
+  }
+}
+
 /** Parse a did:web into its host and path segments (colons → path, per did:web). */
 function parseDidWeb(did: string): { host: string; segments: string[] } {
   if (!did.startsWith(DID_WEB_PREFIX)) {
@@ -49,7 +58,10 @@ function parseDidWeb(did: string): { host: string; segments: string[] } {
   if (host === undefined) {
     throw new Error(`flyway resolve: '${did}' has no host segment`)
   }
-  return { host: decodeURIComponent(host), segments: parts.slice(1).map(decodeURIComponent) }
+  return {
+    host: safeDecode(host, did),
+    segments: parts.slice(1).map((s) => safeDecode(s, did)),
+  }
 }
 
 /**
@@ -75,6 +87,9 @@ export function didWebResolutionUrls(
     )
   }
   const [owner, repo] = segments as [string, string]
+  // encodeURIComponent is the injection guard: it percent-encodes '/', '@',
+  // ':' etc., so a crafted owner/repo/branch cannot change the host or escape
+  // the path. The host is a fixed literal; only the path is interpolated.
   const base = `https://raw.githubusercontent.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(branch)}`
   return {
     didDocUrl: `${base}/.well-known/did.json`,

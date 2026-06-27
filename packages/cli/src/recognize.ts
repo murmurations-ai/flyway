@@ -36,8 +36,7 @@ export interface RunRecognizeOptions {
   readonly peerRepoPath?: string
   /**
    * Remote recognition (v0.2a): the peer's did:web identifier, resolved
-   * over HTTPS (ADR-0010 / ADR-0011). Exactly one of peerRepoPath / peerDid
-   * must be set.
+   * over HTTPS (ADR-0011). Exactly one of peerRepoPath / peerDid must be set.
    */
   readonly peerDid?: string
   /** Branch to read raw GitHub content from when resolving peerDid. Default 'main'. */
@@ -60,7 +59,11 @@ export interface RunRecognizeResult {
 }
 
 export async function runRecognize(options: RunRecognizeOptions): Promise<RunRecognizeResult> {
-  const { cwd, peerRepoPath, peerDid, force = false } = options
+  const { cwd, force = false } = options
+  // Treat empty / whitespace-only locators as absent so they fail the XOR
+  // check with a clear message instead of resolving against an unintended base.
+  const peerRepoPath = options.peerRepoPath?.trim() ? options.peerRepoPath : undefined
+  const peerDid = options.peerDid?.trim() ? options.peerDid : undefined
   if ((peerRepoPath === undefined) === (peerDid === undefined)) {
     throw new Error(
       'flyway recognize: provide exactly one of a local peer repo path or a did:web identifier',

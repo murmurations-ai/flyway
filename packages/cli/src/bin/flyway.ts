@@ -49,14 +49,16 @@ Commands:
                                       signature validity, peers, agreements.
 
   recognize <peer-repo-path | did:web:...> [--note "..."]
-            [--branch main] [--allow-private-directory] [--force]
+            [--branch main] [--allow-private-host] [--force]
                                       Verify a peer's identity and add a
                                       signed recognition entry to
                                       flyway/peers.yaml. The argument is a
                                       local repo path, or a did:web:… that is
                                       resolved over HTTPS (github.com peers
                                       via raw.githubusercontent; --branch
-                                      selects the ref, default main).
+                                      selects the ref, default main;
+                                      --allow-private-host relaxes the SSRF
+                                      guard for local testing).
 
   unrecognize <peer-did> [--reason "..."]
                                       Withdraw recognition of a peer.
@@ -359,7 +361,7 @@ async function handleStatusCommand(args: string[]): Promise<number> {
 async function handleRecognizeCommand(args: string[]): Promise<number> {
   const { value: note, rest: r1 } = parseFlag(args, '--note')
   const { value: branch, rest: r2 } = parseFlag(r1, '--branch')
-  const { present: allowPrivate, rest: r3 } = parseBoolFlag(r2, '--allow-private-directory')
+  const { present: allowPrivate, rest: r3 } = parseBoolFlag(r2, '--allow-private-host')
   const { present: force, rest: positional } = parseBoolFlag(r3, '--force')
   const [locator] = positional
   if (!locator) {
