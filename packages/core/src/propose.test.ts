@@ -808,6 +808,40 @@ describe('createProposal — agreement provenance (Issue #2)', () => {
     ).rejects.toThrow(/does not match the verified/)
   })
 
+  it('rejects a tensionAntecedent that diverges from the tension the chain already carries', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    // B raises two tensions; A promotes T1 into a driver-stage chain.
+    const t1 = await createTension({
+      from: B.artifacts.did, to: A.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' }, signer: B.signer, id: 'tension-001',
+    })
+    const t2 = await createTension({
+      from: B.artifacts.did, to: A.artifacts.did,
+      body: { conditions: 'P', effect: 'Q' }, signer: B.signer, id: 'tension-002',
+    })
+    const driver = await createProposal({
+      from: A.artifacts.did, to: B.artifacts.did,
+      body: { ...directive(), stage: 'driver' }, signer: A.signer, id: 'driver-001',
+      tensionAntecedent: { envelope: t1, senderDidDocument: B.artifacts.didDocument },
+    })
+    // Now build a final agreement that chains from the driver (carries T1) but
+    // ALSO supplies a divergent fresh promotion of T2 — must be refused.
+    await expect(
+      createProposal({
+        from: A.artifacts.did, to: B.artifacts.did,
+        body: {
+          type: 'agreement', title: 'X', body: 'final', stage: 'final',
+          previousStageId: 'driver-001',
+          agreement: exampleAgreement([A.artifacts.did, B.artifacts.did]),
+        },
+        signer: A.signer,
+        proposalAntecedent: { envelope: driver, senderDidDocument: A.artifacts.didDocument },
+        tensionAntecedent: { envelope: t2, senderDidDocument: B.artifacts.didDocument },
+      }),
+    ).rejects.toThrow(/does not match the tension already carried/)
+  })
+
   it('rejects a malformed originTensionId', async () => {
     const A = await makeMurmuration('xeeban', 'a')
     const B = await makeMurmuration('emergent', 'praxis')

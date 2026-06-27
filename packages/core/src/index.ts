@@ -97,6 +97,14 @@ export type {
   SignalTransport,
 } from './transport.js'
 export { localFsTransport, sendSignal } from './transport.js'
+export type { HttpsFetchDeps } from './http.js'
+export { assertPublicHttpsUrl, fetchTextOverHttps } from './http.js'
+export type {
+  DidWebResolutionUrls,
+  ResolvePeerOptions,
+  ResolvedPeerIdentity,
+} from './resolve.js'
+export { didWebResolutionUrls, resolvePeerIdentity } from './resolve.js'
 export type {
   MaterializeAgreementInput,
   MaterializedAgreement,
@@ -137,7 +145,6 @@ export type {
 export {
   FLYWAY_DIRECTORY_SCHEMA,
   FLYWAY_DIRECTORY_SCHEMA_VERSION,
-  assertPublicHttpsUrl,
   flywayDiscover,
   loadDirectory,
   parseDirectoryLocation,

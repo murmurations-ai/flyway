@@ -95,6 +95,27 @@ describe('localFsTransport', () => {
     expect(first.detail).toMatch(/written/)
     expect(second.detail).toMatch(/idempotent/)
   })
+
+  it('REJECTS (does not throw sync) when the underlying write fails', async () => {
+    const A = await makeMurmuration('xeeban', 'a')
+    const B = await makeMurmuration('emergent', 'praxis')
+    const target = { toDid: B.artifacts.did, localRepoPath: peerRepo }
+    const original = await makeSignal(A.artifacts.did, B.artifacts.did, A.signer)
+    await localFsTransport(original, target)
+    // A different envelope at the same (from, id) — writeSignalToInbox throws.
+    const conflicting = await buildSignedSignal({
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'DIFFERENT', effect: 'DIFFERENT' },
+      signer: A.signer,
+      id: 'sig-001',
+      now: new Date('2026-06-26T13:00:00.000Z'),
+    })
+    // .rejects asserts a rejected promise was returned — if it threw synchronously
+    // this expression itself would throw before expect() saw a promise.
+    await expect(localFsTransport(conflicting, target)).rejects.toThrow(/refusing to overwrite/)
+  })
 })
 
 describe('sendSignal', () => {

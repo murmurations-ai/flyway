@@ -124,8 +124,14 @@ validates and defensively copies, the query runs as today.
 - **HTTPS only.** Refuse `http://`. No redirect to a non-HTTPS scheme.
 - **SSRF guard.** The URL is operator-supplied (a directory they chose to
   consult), but still: refuse loopback / link-local / RFC-1918 targets
-  unless an explicit `--allow-private-directory` opt-in is set. Resolve and
-  pin, or use an allowlist of directory hosts.
+  unless an explicit `--allow-private-directory` opt-in is set. The guard
+  parses IP literals (IPv4 and IPv6) and blocks IPv6 forms that *embed* a
+  private IPv4 — IPv4-mapped (`::ffff:…`), NAT64 (`64:ff9b::…`), 6to4
+  (`2002:…`) — not just textual prefixes. Redirects are followed manually
+  and **each hop is validated before it is contacted** (`redirect:'manual'`),
+  so a 30x to a private/`http` target is refused without connecting. DNS
+  rebinding (a public name resolving to a private address) remains the one
+  residual gap; resolve-then-pin is the later hardening pass.
 - **Bounded.** Hard cap on response size (e.g. 5 MiB) and a request timeout
   (e.g. 10 s). A directory is a small document; anything large is a fault.
 - **Content type.** Accept `application/json` / `application/yaml`; parse by
@@ -312,12 +318,11 @@ without touching the senders, exactly as ADR-0008 intended.
    (fork-vs-branch default of §4; "PR-open = delivered" semantics; whether
    `verify-signal` ships here or in a companion action repo) move to a
    future ADR when Transport B is built.
-2. **DID resolution for recognize-at-a-distance:** v0.2a needs
-   `flyway_recognize` to read `.well-known/did.json` over HTTPS from the
-   `did:web` URL instead of a local `peerRepoPath`. This is a small, bounded
-   change to recognize's loader and should be specified alongside Transport
-   A (same hardening as §3). Decision: fold into ADR-0010 or split — likely
-   fold, since it shares the fetch hardening.
+2. **DID resolution for recognize-at-a-distance:** ✅ **accepted (ADR-0011).**
+   `flyway_recognize` now resolves a `did:web:github.com:owner:repo` peer to
+   its raw.githubusercontent identity artifacts and recognizes it with no
+   shared filesystem (Tier 6). Reuses the §3 fetch hardening; verification
+   still happens at recognition. Non-github hosts remain unsupported.
 3. **ADR-0011 (url-webhook):** only if §5's demand bar is met. Where the
    endpoint is advertised (`serviceEndpoint` vs. directory field) is the
    first decision.

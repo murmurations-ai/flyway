@@ -61,23 +61,28 @@ export type SignalTransport = (
  * and the path computation live in `writeSignalToInbox`.
  */
 export const localFsTransport: SignalTransport = (envelope, target) => {
-  if (!target.localRepoPath) {
-    // Reject (not throw): a Promise-returning function must not throw sync.
-    return Promise.reject(
-      new Error(
-        'localFsTransport: target.localRepoPath is required (the recipient repo working tree)',
-      ),
-    )
+  // writeSignalToInbox is synchronous and can throw (EACCES/ENOSPC, or a
+  // differing-bytes collision). Wrap everything so the function honours its
+  // Promise contract — it rejects, never throws synchronously.
+  try {
+    if (!target.localRepoPath) {
+      return Promise.reject(
+        new Error(
+          'localFsTransport: target.localRepoPath is required (the recipient repo working tree)',
+        ),
+      )
+    }
+    const { path, created } = writeSignalToInbox(target.localRepoPath, envelope)
+    return Promise.resolve({
+      transport: 'local-fs',
+      delivered: true,
+      at: new Date().toISOString(), // delivery time is a transport fact, not the signed sentAt
+      ref: path,
+      detail: created ? 'written to inbox' : 'already present (idempotent no-op)',
+    })
+  } catch (e) {
+    return Promise.reject(e instanceof Error ? e : new Error(String(e)))
   }
-  // writeSignalToInbox is synchronous; wrap to satisfy the async contract.
-  const { path, created } = writeSignalToInbox(target.localRepoPath, envelope)
-  return Promise.resolve({
-    transport: 'local-fs',
-    delivered: true,
-    at: envelope.sentAt || new Date().toISOString(),
-    ref: path,
-    detail: created ? 'written to inbox' : 'already present (idempotent no-op)',
-  })
 }
 
 export interface SendSignalInput {

@@ -69,9 +69,13 @@ content type advisory (we YAML-parse, a JSON superset, regardless).
 **Negative / residual risk:**
 
 - **DNS rebinding** — a public hostname that resolves to a private address
-  is not blocked (we guard IP literals and `localhost`, not post-resolution
-  addresses). Documented and accepted for v0.2a; resolve-then-pin is a later
-  hardening pass. The blast radius is bounded by discovery being pre-trust.
+  is not blocked (we guard IP literals — IPv4, IPv6, and IPv6-embedded IPv4
+  such as IPv4-mapped/NAT64/6to4 — plus `localhost`, but not post-resolution
+  addresses). This is the *sole* residual SSRF gap after the post-review
+  hardening: redirects are now validated per-hop before connecting, so the
+  pre-connection and final-hop-only weaknesses are closed. Documented and
+  accepted for v0.2a; resolve-then-pin is a later pass. Blast radius is
+  bounded by discovery being pre-trust.
 - Adds a network dependency to a previously offline-only tool. Mitigated:
   the local-file path is unchanged and remains the default for tests/demos.
 

@@ -21,14 +21,30 @@ import {
   localEd25519Signer,
   peerCachePathSegments,
   recognizePeer,
+  resolvePeerIdentity,
 } from '@murmurations-ai/flyway-core'
 import { parseDocument, stringify as yamlStringify } from 'yaml'
 
 export interface RunRecognizeOptions {
   /** Where this Source's identity lives (our cwd). */
   readonly cwd: string
-  /** Absolute path to the peer's repo (must contain .well-known/did.json + flyway/entity-statement.json). */
-  readonly peerRepoPath: string
+  /**
+   * Local recognition: absolute path to the peer's repo (must contain
+   * .well-known/did.json + flyway/entity-statement.json). Exactly one of
+   * peerRepoPath / peerDid must be set.
+   */
+  readonly peerRepoPath?: string
+  /**
+   * Remote recognition (v0.2a): the peer's did:web identifier, resolved
+   * over HTTPS (ADR-0011). Exactly one of peerRepoPath / peerDid must be set.
+   */
+  readonly peerDid?: string
+  /** Branch to read raw GitHub content from when resolving peerDid. Default 'main'. */
+  readonly branch?: string
+  /** Allow resolving from a loopback/private host (local testing only). */
+  readonly allowPrivate?: boolean
+  /** Test seam — injected fetch for remote resolution. */
+  readonly fetchImpl?: typeof fetch
   /** Optional human note. */
   readonly note?: string
   /** Replace an existing entry for the same DID. Defaults to false (error if already recognized). */
@@ -43,7 +59,16 @@ export interface RunRecognizeResult {
 }
 
 export async function runRecognize(options: RunRecognizeOptions): Promise<RunRecognizeResult> {
-  const { cwd, peerRepoPath, force = false } = options
+  const { cwd, force = false } = options
+  // Treat empty / whitespace-only locators as absent so they fail the XOR
+  // check with a clear message instead of resolving against an unintended base.
+  const peerRepoPath = options.peerRepoPath?.trim() ? options.peerRepoPath : undefined
+  const peerDid = options.peerDid?.trim() ? options.peerDid : undefined
+  if ((peerRepoPath === undefined) === (peerDid === undefined)) {
+    throw new Error(
+      'flyway recognize: provide exactly one of a local peer repo path or a did:web identifier',
+    )
+  }
 
   // 1. Load OUR identity from cwd.
   const ourDidDocPath = join(cwd, '.well-known', 'did.json')
@@ -66,23 +91,38 @@ export async function runRecognize(options: RunRecognizeOptions): Promise<RunRec
   ) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
-  // 2. Load the peer's identity from peerRepoPath.
-  const peerDidDocPath = join(peerRepoPath, '.well-known', 'did.json')
-  const peerStmtPath = join(peerRepoPath, 'flyway', 'entity-statement.json')
-  for (const [label, p] of [
-    ['DID document', peerDidDocPath] as const,
-    ['entity statement', peerStmtPath] as const,
-  ]) {
-    if (!existsSync(p)) {
-      throw new Error(
-        `flyway recognize: peer ${label} missing at ${p}. Is ${peerRepoPath} a flyway-initialized repo?`,
-      )
+  // 2. Load the peer's identity — locally from peerRepoPath, or remotely by
+  //    resolving peerDid over HTTPS (v0.2a). Either way the documents are
+  //    pre-trust until recognizePeer (step 3) verifies them cryptographically.
+  let peerDidDocument: DidDocument
+  let peerEntityStatement: SignedEntityStatement
+  if (peerDid !== undefined) {
+    const resolved = await resolvePeerIdentity(peerDid, {
+      ...(options.branch !== undefined ? { branch: options.branch } : {}),
+      ...(options.allowPrivate ? { allowPrivate: true } : {}),
+      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    })
+    peerDidDocument = resolved.didDocument
+    peerEntityStatement = resolved.entityStatement
+  } else {
+    const repoPath = peerRepoPath as string
+    const peerDidDocPath = join(repoPath, '.well-known', 'did.json')
+    const peerStmtPath = join(repoPath, 'flyway', 'entity-statement.json')
+    for (const [label, p] of [
+      ['DID document', peerDidDocPath] as const,
+      ['entity statement', peerStmtPath] as const,
+    ]) {
+      if (!existsSync(p)) {
+        throw new Error(
+          `flyway recognize: peer ${label} missing at ${p}. Is ${repoPath} a flyway-initialized repo?`,
+        )
+      }
     }
+    peerDidDocument = JSON.parse(readFileSync(peerDidDocPath, 'utf-8')) as DidDocument
+    peerEntityStatement = JSON.parse(
+      readFileSync(peerStmtPath, 'utf-8'),
+    ) as SignedEntityStatement
   }
-  const peerDidDocument = JSON.parse(readFileSync(peerDidDocPath, 'utf-8')) as DidDocument
-  const peerEntityStatement = JSON.parse(
-    readFileSync(peerStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
 
   // 3. Build the signer and call core recognizePeer.
   const verificationKeyId =
