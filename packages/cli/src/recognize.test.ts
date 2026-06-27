@@ -151,3 +151,60 @@ describe('runRecognize — refuses unsafe operations', () => {
     ).rejects.toThrow(/does not verify/)
   })
 })
+
+describe('runRecognize — remote (did:web over HTTPS, v0.2a)', () => {
+  let pair: { a: string; b: string; aDid: string; bDid: string }
+  beforeEach(async () => {
+    pair = await bootstrapPair()
+  })
+  afterEach(() => {
+    rmSync(pair.a, { recursive: true, force: true })
+    rmSync(pair.b, { recursive: true, force: true })
+  })
+
+  /** Serve peer B's real on-disk identity files via the raw.githubusercontent URLs. */
+  function fetchFromPeerRepo(repo: string): typeof fetch {
+    return (async (input: string | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      let file: string | undefined
+      if (url.endsWith('/.well-known/did.json')) {
+        file = join(repo, '.well-known', 'did.json')
+      } else if (url.endsWith('/flyway/entity-statement.json')) {
+        file = join(repo, 'flyway', 'entity-statement.json')
+      }
+      if (!file || !existsSync(file)) return new Response('not found', { status: 404 })
+      return new Response(readFileSync(file, 'utf-8'), { status: 200 })
+    }) as unknown as typeof fetch
+  }
+
+  it('recognizes a peer resolved from its did:web identifier', async () => {
+    const result = await runRecognize({
+      cwd: pair.a,
+      peerDid: pair.bDid,
+      fetchImpl: fetchFromPeerRepo(pair.b),
+    })
+    expect(result.peerDid).toBe(pair.bDid)
+    expect(result.entry.recognizedBy).toBe(pair.aDid)
+    // Same on-disk cache as local recognition — source of bytes is invisible downstream.
+    expect(
+      existsSync(join(pair.a, 'flyway', 'peers', 'github.com', 'xeeban', 'b', 'did.json')),
+    ).toBe(true)
+  })
+
+  it('rejects supplying both a repo path and a did', async () => {
+    await expect(
+      runRecognize({ cwd: pair.a, peerRepoPath: pair.b, peerDid: pair.bDid }),
+    ).rejects.toThrow(/exactly one/)
+  })
+
+  it('still verifies the signature on remotely-fetched artifacts (tamper rejected)', async () => {
+    const { writeFileSync } = await import('node:fs')
+    const stmtPath = join(pair.b, 'flyway', 'entity-statement.json')
+    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8'))
+    stmt.sourceName = 'Imposter'
+    writeFileSync(stmtPath, JSON.stringify(stmt, null, 2))
+    await expect(
+      runRecognize({ cwd: pair.a, peerDid: pair.bDid, fetchImpl: fetchFromPeerRepo(pair.b) }),
+    ).rejects.toThrow(/does not verify/)
+  })
+})

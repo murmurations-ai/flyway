@@ -48,10 +48,15 @@ Commands:
   status [--json]                     Report local flyway state: identity,
                                       signature validity, peers, agreements.
 
-  recognize <peer-repo-path> [--note "..."] [--force]
+  recognize <peer-repo-path | did:web:...> [--note "..."]
+            [--branch main] [--allow-private-directory] [--force]
                                       Verify a peer's identity and add a
                                       signed recognition entry to
-                                      flyway/peers.yaml.
+                                      flyway/peers.yaml. The argument is a
+                                      local repo path, or a did:web:… that is
+                                      resolved over HTTPS (github.com peers
+                                      via raw.githubusercontent; --branch
+                                      selects the ref, default main).
 
   unrecognize <peer-did> [--reason "..."]
                                       Withdraw recognition of a peer.
@@ -353,20 +358,26 @@ async function handleStatusCommand(args: string[]): Promise<number> {
 
 async function handleRecognizeCommand(args: string[]): Promise<number> {
   const { value: note, rest: r1 } = parseFlag(args, '--note')
-  const { present: force, rest: positional } = parseBoolFlag(r1, '--force')
-  const [peerRepoPath] = positional
-  if (!peerRepoPath) {
+  const { value: branch, rest: r2 } = parseFlag(r1, '--branch')
+  const { present: allowPrivate, rest: r3 } = parseBoolFlag(r2, '--allow-private-directory')
+  const { present: force, rest: positional } = parseBoolFlag(r3, '--force')
+  const [locator] = positional
+  if (!locator) {
     process.stderr.write(
-      'error: flyway recognize requires a peer repo path\n\n',
+      'error: flyway recognize requires a peer repo path or did:web identifier\n\n',
     )
     process.stderr.write(HELP)
     return 2
   }
+  // A did:web argument is resolved over HTTPS; anything else is a local path.
+  const isDid = locator.startsWith('did:')
   try {
     const result = await runRecognize({
       cwd: process.cwd(),
-      peerRepoPath,
+      ...(isDid ? { peerDid: locator } : { peerRepoPath: locator }),
       force,
+      ...(branch !== undefined ? { branch } : {}),
+      ...(allowPrivate ? { allowPrivate: true } : {}),
       ...(note !== undefined ? { note } : {}),
     })
     process.stdout.write(
