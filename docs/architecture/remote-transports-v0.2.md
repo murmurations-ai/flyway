@@ -279,7 +279,7 @@ implement → walkthrough → review → harden cadence.
 
 | Phase | Scope | Walkthrough it unlocks |
 | --- | --- | --- |
-| **v0.2a** | Transport A (HTTPS directory fetch) — **shipped** (ADR-0010: `loadDirectory` / `assertPublicHttpsUrl` / `parseDirectoryLocation`) — plus the still-pending `SignalTransport` interface refactor (senders call through a transport, local-fs becomes the default impl) | Tier 6 — discover a peer from a *remote* directory, then recognize it from its `did:web` URL |
+| **v0.2a** | **shipped.** Transport A (HTTPS directory fetch, ADR-0010: `loadDirectory` / `assertPublicHttpsUrl` / `parseDirectoryLocation`) **and** the `SignalTransport` seam (`sendSignal` / `localFsTransport`; all four senders deliver through a transport) | Tier 6 — discover a peer from a *remote* directory, then recognize it from its `did:web` URL |
 | **v0.2b** | Transport B (github-pr) + `verify-signal` Action | Tier 7 — a tension delivered by PR across two real GitHub repos; recipient's CI verifies; merge lands it in the inbox |
 | **v0.2c** | Transport C (url-webhook) — only if a consumer needs it | — |
 

@@ -30,7 +30,7 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | **Tools wired (end-to-end)** | 9 of 9 |
 | **Executable walkthroughs** | 5 (Tier 1–5) |
 | **ADRs accepted** | 10 |
-| **Tests passing** | 379 across 26 test files |
+| **Tests passing** | 386 across 27 test files |
 | **Open issues** | 11 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
@@ -80,6 +80,7 @@ Each milestone produces *behaviour*, not just code — the cadence is implement 
 | **S+7** — discovery | `17f9bc1` | 2026-06-17 | `flyway_discover` — the last tool, completing the 9-tool surface. Pre-trust directory search (free-text or exact-DID) over a published `FlywayDirectory`; v0.1 reads a local directory file, remote fetch reserved | — |
 | **S+8** — agreement provenance | `896b965` | 2026-06-26 | `originTensionId` (Issue #2): the verified tension id propagates through the staging chain and is auto-stamped onto the co-signed agreement, under both signatures; a forged/mismatched link is refused. Closes #2 | [Tier 5](./walkthroughs/2026-06-17-tier5-staging-chain.md) (gap note flipped to resolved) |
 | **S+9** — remote directory fetch | `db90614`+ | 2026-06-26 | v0.2a, part 1: `flyway_discover` loads a directory over `https://` (ADR-0010) — flyway's first non-local-fs operation. HTTPS-only, SSRF-guarded, size/timeout-bounded, fully injectable for tests | — |
+| **S+10** — transport seam | _this branch_ | 2026-06-26 | v0.2a, part 2: the `SignalTransport` interface + `sendSignal` (outbox-first) + `localFsTransport` default. All four senders deliver *through* a transport, so github-pr / url-webhook drop in without touching them. Behavior-preserving | — |
 
 ---
 
@@ -169,7 +170,7 @@ What's left is reach and depth — not new tools:
 
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
-| **Remote transports (v0.2)** | [Specified](./architecture/remote-transports-v0.2.md), phased v0.2a/b/c. **v0.2a HTTPS directory fetch shipped** (ADR-0010). Remaining: the `SignalTransport` interface refactor + GitHub-PR / URL signal transport | The first genuinely non-local-fs operations — peers at a distance |
+| **Remote transports (v0.2)** | [Specified](./architecture/remote-transports-v0.2.md), phased v0.2a/b/c. **v0.2a complete**: HTTPS directory fetch (ADR-0010) + the `SignalTransport` seam. Remaining: **v0.2b** GitHub-PR signal transport, **v0.2c** URL-webhook | Peers at a distance — the first non-local-fs operations |
 | **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
 | ~~Agreement provenance (Issue #2 / G8)~~ ✅ **done** | `originTensionId` propagated through the staging chain and auto-stamped onto the co-signed agreement; refused if it disagrees with the verified chain tension | Machine-followable audit trail — agreement → tension by reference, not five human hops |
 
@@ -231,4 +232,4 @@ pnpm install && pnpm -r build
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed (agreement provenance); v0.2a part 1 shipped — `flyway_discover` fetches directories over HTTPS (ADR-0010), flyway's first non-local-fs operation.*
+*This snapshot is regenerated as milestones land. Last update: 2026-06-26 — surface complete (9 of 9); Issue #2 closed; **v0.2a complete** — HTTPS directory fetch (ADR-0010) and the `SignalTransport` seam, flyway's first non-local-fs operations. Next: v0.2b github-pr transport.*
