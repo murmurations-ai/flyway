@@ -192,6 +192,25 @@ const OUTBOX_HEADER =
   '# Do not hand-edit; this file is a signed envelope.\n'
 
 /**
+ * The recipient-repo-relative path an inbox signal lands at, with POSIX
+ * separators — this is a *repo* path (e.g. the file a github-pr transport
+ * adds), not a filesystem path. Mirrors `signalInboxPath`'s layout.
+ */
+export function inboxSignalRelPath(fromDid: string, id: string): string {
+  return ['flyway', 'inbox', ...peerCachePathSegments(fromDid), `${id}.yaml`].join('/')
+}
+
+/**
+ * Render the exact bytes of an inbox signal file. The single source of truth
+ * for inbox content, shared by the local-fs write and any remote transport
+ * (ADR-0012 github-pr), so a delivered signal is byte-identical on disk
+ * regardless of how it arrived (ADR-0008 invariant 3).
+ */
+export function renderInboxSignalFile(envelope: SignedSignalEnvelope): string {
+  return INBOX_HEADER + yamlStringify(envelope)
+}
+
+/**
  * Write a signal envelope to the recipient repo's inbox. Refuses to
  * overwrite an existing file whose signature differs (which would
  * indicate id reuse with different content). Re-writing identical bytes
@@ -202,7 +221,7 @@ export function writeSignalToInbox(
   envelope: SignedSignalEnvelope,
 ): { path: string; created: boolean } {
   const path = signalInboxPath(recipientCwd, envelope.from, envelope.id)
-  return writeSignalFile(path, envelope, INBOX_HEADER)
+  return writeSignalFile(path, envelope, renderInboxSignalFile(envelope))
 }
 
 /**
@@ -214,17 +233,16 @@ export function writeSignalToOutbox(
   envelope: SignedSignalEnvelope,
 ): { path: string; created: boolean } {
   const path = signalOutboxPath(senderCwd, envelope.to, envelope.id)
-  return writeSignalFile(path, envelope, OUTBOX_HEADER)
+  return writeSignalFile(path, envelope, OUTBOX_HEADER + yamlStringify(envelope))
 }
 
 function writeSignalFile(
   path: string,
   envelope: SignedSignalEnvelope,
-  header: string,
+  content: string,
 ): { path: string; created: boolean } {
   const dir = path.substring(0, path.lastIndexOf('/'))
   mkdirSync(dir, { recursive: true })
-  const content = header + yamlStringify(envelope)
   // Atomic-create-or-fail. Closes the TOCTOU window where two concurrent
   // writers (or a racing attacker) could both pass an existsSync check
   // and have the second writer overwrite without the

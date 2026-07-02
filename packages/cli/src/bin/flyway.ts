@@ -13,6 +13,9 @@ import {
   type ProposalType,
   TENSION_DECISIONS,
   type TensionDecision,
+  type DeliveryReceipt,
+  type SignalTransport,
+  createGithubPrTransport,
   flywayCheck,
   flywayStatus,
 } from '@murmurations-ai/flyway-core'
@@ -72,11 +75,15 @@ Commands:
 
   tension <peer-repo-path> --conditions "..." --effect "..."
           [--relevance "..."] [--proposed-owner "<did>"]
+          [--transport <local-fs|github-pr>]
                                       Flag a tension to a recognized peer
                                       (S3 Navigate via Tension). Signs an
                                       envelope, writes it to your outbox,
-                                      and delivers it to the peer's inbox
-                                      via the local-fs transport.
+                                      and delivers it to the peer's inbox.
+                                      --transport github-pr opens a PR against
+                                      the peer's repo instead of writing their
+                                      tree (ADR-0012); local-fs is the default.
+                                      Shared by respond / propose / exit.
 
   respond <peer-repo-path> --subject-id <id> --decision <d>
           [--reason "..."] [--transfer-to "<did>"]
@@ -266,6 +273,32 @@ function parseBoolFlag(args: string[], flag: string): { present: boolean; rest: 
   return { present: true, rest: [...args.slice(0, idx), ...args.slice(idx + 1)] }
 }
 
+/**
+ * Parse `--transport <local-fs|github-pr>` shared by the four senders
+ * (tension / respond / propose / exit). Defaults to local-fs. `error` is set
+ * (and the caller should exit 2) for an unknown transport name.
+ */
+function parseTransportFlag(args: string[]): {
+  transport?: SignalTransport
+  rest: string[]
+  error?: string
+} {
+  const { value, rest } = parseFlag(args, '--transport')
+  if (value === undefined || value === 'local-fs') return { rest }
+  if (value === 'github-pr') return { transport: createGithubPrTransport(), rest }
+  return { rest, error: `--transport must be local-fs or github-pr (got: ${value})` }
+}
+
+/** One-line delivery status honouring the transport (local write vs offered PR). */
+function formatDelivery(receipt: DeliveryReceipt): string {
+  if (receipt.transport === 'github-pr') {
+    return receipt.delivered
+      ? `  offered   ${receipt.ref ?? '(pr)'} — recipient merges to accept\n`
+      : `  recorded  outbox only — ${receipt.detail ?? 'not delivered'}\n`
+  }
+  return `  delivered ${receipt.ref ?? ''}\n`
+}
+
 async function handleInitCommand(args: string[]): Promise<number> {
   const { value: repoUrl, rest: r1 } = parseFlag(args, '--repo-url')
   const { value: sourceName, rest: r2 } = parseFlag(r1, '--source-name')
@@ -425,7 +458,12 @@ async function handleUnrecognizeCommand(args: string[]): Promise<number> {
 }
 
 async function handleTensionCommand(args: string[]): Promise<number> {
-  const { value: conditions, rest: r1 } = parseFlag(args, '--conditions')
+  const { transport, rest: t0, error: transportError } = parseTransportFlag(args)
+  if (transportError) {
+    process.stderr.write(`error: ${transportError}\n`)
+    return 2
+  }
+  const { value: conditions, rest: r1 } = parseFlag(t0, '--conditions')
   const { value: effect, rest: r2 } = parseFlag(r1, '--effect')
   const { value: relevance, rest: r3 } = parseFlag(r2, '--relevance')
   const { value: proposedOwner, rest: positional } = parseFlag(r3, '--proposed-owner')
@@ -452,13 +490,14 @@ async function handleTensionCommand(args: string[]): Promise<number> {
         ...(relevance !== undefined ? { relevance } : {}),
         ...(proposedOwner !== undefined ? { proposedOwner } : {}),
       },
+      ...(transport !== undefined ? { transport } : {}),
     })
     process.stdout.write(
       `Flagged tension to ${result.peerDid}\n` +
         `  id:       ${result.signal.id}\n` +
         `  sentAt:   ${result.signal.sentAt}\n` +
         `  wrote ${result.outboxPath}\n` +
-        `  delivered ${result.inboxPath}\n`,
+        formatDelivery(result.receipt),
     )
     return 0
   } catch (e) {
@@ -504,7 +543,12 @@ function parseRepeatedFlag(
 }
 
 async function handleRespondCommand(args: string[]): Promise<number> {
-  const { value: subjectId, rest: r1 } = parseFlag(args, '--subject-id')
+  const { transport, rest: t0, error: transportError } = parseTransportFlag(args)
+  if (transportError) {
+    process.stderr.write(`error: ${transportError}\n`)
+    return 2
+  }
+  const { value: subjectId, rest: r1 } = parseFlag(t0, '--subject-id')
   const { value: decisionRaw, rest: r2 } = parseFlag(r1, '--decision')
   const { value: reason, rest: r3 } = parseFlag(r2, '--reason')
   const { value: transferTo, rest: r4 } = parseFlag(r3, '--transfer-to')
@@ -538,6 +582,7 @@ async function handleRespondCommand(args: string[]): Promise<number> {
       ...(reason !== undefined ? { reason } : {}),
       ...(transferTo !== undefined ? { transferTo } : {}),
       ...(concerns.length > 0 ? { concernsToRecord: concerns } : {}),
+      ...(transport !== undefined ? { transport } : {}),
     })
     process.stdout.write(
       `Responded to ${result.subject.kind} ${result.subject.id} from ${result.peerDid}\n` +
@@ -545,7 +590,7 @@ async function handleRespondCommand(args: string[]): Promise<number> {
         `  id:       ${result.response.id}\n` +
         `  sentAt:   ${result.response.sentAt}\n` +
         `  wrote ${result.outboxPath}\n` +
-        `  delivered ${result.inboxPath}\n`,
+        formatDelivery(result.receipt),
     )
     return 0
   } catch (e) {
@@ -555,7 +600,12 @@ async function handleRespondCommand(args: string[]): Promise<number> {
 }
 
 async function handleProposeCommand(args: string[]): Promise<number> {
-  const { value: typeRaw, rest: r1 } = parseFlag(args, '--type')
+  const { transport, rest: t0, error: transportError } = parseTransportFlag(args)
+  if (transportError) {
+    process.stderr.write(`error: ${transportError}\n`)
+    return 2
+  }
+  const { value: typeRaw, rest: r1 } = parseFlag(t0, '--type')
   const { value: title, rest: r2 } = parseFlag(r1, '--title')
   const { value: body, rest: r3 } = parseFlag(r2, '--body')
   const { value: stageRaw, rest: r4 } = parseFlag(r3, '--stage')
@@ -658,6 +708,7 @@ async function handleProposeCommand(args: string[]): Promise<number> {
       body: proposalBody as any,
       ...(previousStageId !== undefined ? { previousStageId } : {}),
       ...(promoteTensionId !== undefined ? { promoteTensionId } : {}),
+      ...(transport !== undefined ? { transport } : {}),
     })
     process.stdout.write(
       `Proposed ${typeRaw} to ${result.peerDid}\n` +
@@ -665,7 +716,7 @@ async function handleProposeCommand(args: string[]): Promise<number> {
         `  stage:    ${stage ?? 'final'}\n` +
         `  sentAt:   ${result.proposal.sentAt}\n` +
         `  wrote ${result.outboxPath}\n` +
-        `  delivered ${result.inboxPath}\n`,
+        formatDelivery(result.receipt),
     )
     return 0
   } catch (e) {
@@ -679,7 +730,12 @@ function isExitTargetType(value: string): value is ExitTargetType {
 }
 
 async function handleExitCommand(args: string[]): Promise<number> {
-  const { value: targetTypeRaw, rest: r1 } = parseFlag(args, '--target-type')
+  const { transport, rest: t0, error: transportError } = parseTransportFlag(args)
+  if (transportError) {
+    process.stderr.write(`error: ${transportError}\n`)
+    return 2
+  }
+  const { value: targetTypeRaw, rest: r1 } = parseFlag(t0, '--target-type')
   const { value: target, rest: r2 } = parseFlag(r1, '--target')
   const { value: reason, rest: positional } = parseFlag(r2, '--reason')
   const [peerRepoPath] = positional
@@ -706,6 +762,7 @@ async function handleExitCommand(args: string[]): Promise<number> {
       targetType: targetTypeRaw,
       ...(target !== undefined ? { target } : {}),
       ...(reason !== undefined ? { reason } : {}),
+      ...(transport !== undefined ? { transport } : {}),
     })
     const body = result.signal.body as { target: string; targetType: string }
     process.stdout.write(
@@ -713,7 +770,7 @@ async function handleExitCommand(args: string[]): Promise<number> {
         `  id:       ${result.signal.id}\n` +
         `  sentAt:   ${result.signal.sentAt}\n` +
         `  wrote ${result.outboxPath}\n` +
-        `  delivered ${result.inboxPath}\n`,
+        formatDelivery(result.receipt),
     )
     return 0
   } catch (e) {
