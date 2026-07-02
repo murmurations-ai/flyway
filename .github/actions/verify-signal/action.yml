@@ -1,0 +1,35 @@
+# Composite action a recipient murmuration can drop into its own workflow to
+# verify signals delivered by the github-pr transport (ADR-0012). It runs
+# `flyway check` over the repo's flyway/inbox/** and fails the step if any
+# delivered signal is from an unrecognized peer or carries an invalid
+# signature — so the recipient's merge decision is gated on THEIR own
+# recognition, not on trusting the PR author.
+#
+# Usage in a recipient repo (.github/workflows/flyway.yml):
+#
+#   on:
+#     pull_request:
+#       paths: ['flyway/inbox/**']
+#   jobs:
+#     verify:
+#       runs-on: ubuntu-latest
+#       steps:
+#         - uses: actions/checkout@v4
+#         - uses: murmurations-ai/flyway/.github/actions/verify-signal@main
+#
+# Requires @murmurations-ai/flyway-cli to be resolvable via npx (published, or
+# vendored). Until then, copy .github/workflows/verify-signal.yml, which builds
+# the CLI from a flyway checkout instead.
+name: flyway verify-signal
+description: Verify flyway signals delivered into flyway/inbox via a pull request.
+inputs:
+  flyway-version:
+    description: Version of @murmurations-ai/flyway-cli to run via npx.
+    required: false
+    default: latest
+runs:
+  using: composite
+  steps:
+    - name: Verify delivered signals
+      shell: bash
+      run: npx --yes @murmurations-ai/flyway-cli@${{ inputs.flyway-version }} check

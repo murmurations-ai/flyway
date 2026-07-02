@@ -65,14 +65,12 @@ function parseDidWeb(did: string): { host: string; segments: string[] } {
 }
 
 /**
- * Map a did:web to the URLs of its published identity artifacts, using the
- * raw.githubusercontent convention for github.com-hosted murmurations
- * (ADR-0011). Non-github hosts are not yet supported.
+ * Map a `did:web:github.com:<owner>:<repo>` to its GitHub owner/repo pair.
+ * The single place the github.com host + 2-segment convention (ADR-0011) is
+ * enforced; both HTTPS identity resolution and the github-pr transport
+ * (ADR-0012) resolve their target repo through here.
  */
-export function didWebResolutionUrls(
-  did: string,
-  branch: string = DEFAULT_BRANCH,
-): DidWebResolutionUrls {
+export function githubRepoForDid(did: string): { owner: string; repo: string } {
   const { host, segments } = parseDidWeb(did)
   if (host !== 'github.com') {
     throw new Error(
@@ -87,6 +85,19 @@ export function didWebResolutionUrls(
     )
   }
   const [owner, repo] = segments as [string, string]
+  return { owner, repo }
+}
+
+/**
+ * Map a did:web to the URLs of its published identity artifacts, using the
+ * raw.githubusercontent convention for github.com-hosted murmurations
+ * (ADR-0011). Non-github hosts are not yet supported.
+ */
+export function didWebResolutionUrls(
+  did: string,
+  branch: string = DEFAULT_BRANCH,
+): DidWebResolutionUrls {
+  const { owner, repo } = githubRepoForDid(did)
   // encodeURIComponent is the injection guard: it percent-encodes '/', '@',
   // ':' etc., so a crafted owner/repo/branch cannot change the host or escape
   // the path. The host is a fixed literal; only the path is interpolated.

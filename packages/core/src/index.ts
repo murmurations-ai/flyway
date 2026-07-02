@@ -82,7 +82,9 @@ export {
   findInboxSignalById,
   findOutboxSignalById,
   generateSignalId,
+  inboxSignalRelPath,
   readSignalFile,
+  renderInboxSignalFile,
   signalInboxPath,
   signalOutboxPath,
   verifySignedSignal,
@@ -97,6 +99,13 @@ export type {
   SignalTransport,
 } from './transport.js'
 export { localFsTransport, sendSignal } from './transport.js'
+export type { GhResult, GithubPrTransportDeps, RunGh } from './github-pr.js'
+export {
+  createGithubPrTransport,
+  defaultRunGh,
+  githubPrBranchName,
+  githubPrTransport,
+} from './github-pr.js'
 export type { HttpsFetchDeps } from './http.js'
 export { assertPublicHttpsUrl, fetchTextOverHttps } from './http.js'
 export type {
@@ -104,7 +113,7 @@ export type {
   ResolvePeerOptions,
   ResolvedPeerIdentity,
 } from './resolve.js'
-export { didWebResolutionUrls, resolvePeerIdentity } from './resolve.js'
+export { didWebResolutionUrls, githubRepoForDid, resolvePeerIdentity } from './resolve.js'
 export type {
   MaterializeAgreementInput,
   MaterializedAgreement,

@@ -67,3 +67,4 @@ authored 13 colliding ADRs at numbers already in use).
 | [ADR-0009](./0009-antecedent-verification-before-signing.md)                   | Antecedent verification before signing                             | Accepted |
 | [ADR-0010](./0010-remote-directory-fetch.md)                                   | Remote directory fetch (HTTPS)                                     | Accepted |
 | [ADR-0011](./0011-did-web-resolution-convention.md)                            | did:web resolution convention (raw.githubusercontent)             | Accepted |
+| [ADR-0012](./0012-github-pr-signal-transport.md)                               | github-pr signal transport                                        | Proposed |

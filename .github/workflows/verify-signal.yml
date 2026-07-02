@@ -1,0 +1,97 @@
+# verify-signal — the recipient-side CI half of the github-pr signal transport
+# (ADR-0012 §4). When a peer opens a PR delivering a signal into
+# flyway/inbox/**, this workflow runs `flyway check` on the inbox and comments
+# the verdict: is the sender a recognized peer, and does the signature verify
+# over the delivered bytes? It lets a recipient automate the consent decision
+# WITHOUT trusting the PR author — recognition runs in the recipient's own CI,
+# against the recipient's own cached keys. The PR author is claimed, never
+# trusted (ADR-0012).
+#
+# This file lives in the flyway repo so it dogfoods itself and stays in lockstep
+# with the envelope format it validates. A recipient murmuration copies it (or,
+# once @murmurations-ai/flyway-cli is published, references the composite action
+# at .github/actions/verify-signal that runs `npx flyway check`).
+name: verify-signal
+
+on:
+  pull_request:
+    paths:
+      - 'flyway/inbox/**'
+  # Allow a recipient repo to call this as a reusable workflow.
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install & build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm -r build
+
+      - name: Verify delivered signals
+        id: check
+        # `flyway check` exits 0 iff every inbox signal is from a recognized
+        # peer AND its signature verifies; non-zero otherwise. We capture the
+        # human-readable report either way and let the step's own exit code
+        # gate the merge.
+        run: |
+          set +e
+          REPORT="$(node packages/cli/dist/bin/flyway.js check 2>&1)"
+          CODE=$?
+          echo "$REPORT"
+          {
+            echo 'report<<EOF'
+            echo "$REPORT"
+            echo EOF
+            echo "code=$CODE"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Comment verdict on the PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = `${{ steps.check.outputs.report }}`
+            const ok = '${{ steps.check.outputs.code }}' === '0'
+            const heading = ok
+              ? '✅ **flyway verify-signal — all delivered signals verify**'
+              : '⚠️ **flyway verify-signal — one or more signals do not verify**'
+            const body = [
+              heading,
+              '',
+              'The sender is *claimed*, not trusted, until recognition verifies the',
+              'signature over these exact bytes. Review before merging.',
+              '',
+              '```',
+              report,
+              '```',
+            ].join('\n')
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            })
+
+      - name: Gate the merge on the verdict
+        if: steps.check.outputs.code != '0'
+        run: |
+          echo "::error::One or more delivered signals failed verification (unrecognized sender or bad signature)."
+          exit 1
