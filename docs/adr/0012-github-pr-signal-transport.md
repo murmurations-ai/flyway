@@ -1,7 +1,7 @@
 # ADR-0012 — github-pr signal transport
 
-- **Status:** Proposed
-- **Date:** 2026-07-02
+- **Status:** Accepted
+- **Date:** 2026-07-02 (accepted 2026-07-04)
 - **Decision-maker(s):** Source (Nori / Kozan)
 - **Consulted:** [remote-transports-v0.2 spec](../architecture/remote-transports-v0.2.md) §4, §7
 
