@@ -1,6 +1,6 @@
 # ADR-0013 — exit-aware effective status & agreement membership
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-10
 - **Decision-maker(s):** Source (Nori / Kozan)
 - **Consulted:** [ADR-0008](./0008-signal-transport-convention.md) (signal envelope),
