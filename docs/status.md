@@ -1,7 +1,7 @@
 ---
-date: 2026-07-04
+date: 2026-07-10
 protocol-version: 0.1.0
-code-sha: d0b4d17
+code-sha: 1576181
 purpose: project status snapshot for reviewers
 audience: external reviewers, peer Sources, and anyone evaluating flyway for adoption
 ---
@@ -13,9 +13,11 @@ audience: external reviewers, peer Sources, and anyone evaluating flyway for ado
 > directory, establish mutual recognition, exchange a tension, run a full S3 proposal-forming
 > cycle (driver → requirements → draft → refinement → final), **co-sign an engagement
 > agreement** — each side independently materializing a byte-identical
-> `flyway/agreements/<id>.yaml` — and **exit cleanly**, with a signed, unilateral exit notice
-> that no peer can prevent. Cryptographic verification on both sides throughout; the agreement
-> cycle is proven by an executable walkthrough at SHA [`10d7045`](../).
+> `flyway/agreements/<id>.yaml` — **exit cleanly**, with a signed, unilateral exit notice
+> that no peer can prevent, and **read the exit lifecycle back**: a single `flyway_status` now
+> reports which relationships and agreements are effectively closed by exit, without ever
+> rewriting the co-signed file (ADR-0013). Cryptographic verification on both sides throughout;
+> the agreement cycle is proven by an executable walkthrough at SHA [`10d7045`](../).
 
 A visual companion lives at [`docs/status.html`](./status.html) — same content, browser-rendered.
 
@@ -26,12 +28,12 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | | |
 | --- | --- |
 | **Protocol version** | 0.1.0 |
-| **Code SHA** | `d0b4d17` |
+| **Code SHA** | `1576181` |
 | **Tools wired (end-to-end)** | 9 of 9 |
-| **Executable walkthroughs** | 7 (Tier 1–7) |
-| **ADRs accepted** | 12 |
-| **Tests passing** | 427 across 30 test files |
-| **Open issues** | 11 (9 closed since the 3-agent review) |
+| **Executable walkthroughs** | 8 (Tier 1–8) |
+| **ADRs accepted** | 13 |
+| **Tests passing** | 445 across 30 test files |
+| **Open issues** | 12 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
 ---
@@ -44,7 +46,7 @@ through every adapter (agent skill, MCP server, CLI) without rewriting. Status o
 | # | Tool | Purpose | Status | Demo |
 | - | ---- | ------- | ------ | ---- |
 | 1 | `flyway_init` | Initialize the murmuration's identity — DID document + signed entity statement + Ed25519 keypair | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
-| 2 | `flyway_status` | Report identity + peers + agreements + signature validity | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) |
+| 2 | `flyway_status` | Report identity + peers + agreements + signature validity, and **effective exit state** — relationships/agreements closed by a verified exit (ADR-0013) | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) · [Tier 8](./walkthroughs/2026-07-10-tier8-exit-aware-status.md) |
 | 3 | `flyway_discover` | Search a flyway directory for potential peers (pre-trust; verify at recognition). Loads from a local file **or an `https://` URL** (ADR-0010) | ✅ **Wired** | smoke + tests |
 | 4 | `flyway_recognize` (+ `unrecognize`) | Verify a peer's identity and produce a signed recognition entry. Resolves the peer locally **or from its `did:web` URL over HTTPS** (ADR-0011) | ✅ **Wired** | [Tier 1](./walkthroughs/2026-05-21-tier1-mutual-recognition.md) · [Tier 6](./walkthroughs/2026-06-26-tier6-remote-recognition.md) |
 | 5 | `flyway_tension` | Flag a tension to a recognized peer (S3 *Navigate via Tension*) | ✅ **Wired** | [Tier 2](./walkthroughs/2026-05-25-tier2-signal-exchange.md) |
@@ -83,7 +85,9 @@ Each milestone produces *behaviour*, not just code — the cadence is implement 
 | **S+10** — transport seam | `58ddf69` | 2026-06-26 | v0.2a, part 2: the `SignalTransport` interface + `sendSignal` (outbox-first) + `localFsTransport` default. All four senders deliver *through* a transport, so github-pr / url-webhook drop in without touching them. Behavior-preserving | — |
 | **S+11** — recognize at a distance | _this branch_ | 2026-06-26 | A peer is resolved from its `did:web` URL over HTTPS and recognized with no shared filesystem (ADR-0011). Shared `http.ts` fetch helper; `resolvePeerIdentity` is pre-trust, `recognizePeer` still verifies. Completes the discover→recognize remote flow | [Tier 6](./walkthroughs/2026-06-26-tier6-remote-recognition.md) |
 | **Review hardening** | `7f70fce` | 2026-06-26 | Acted on a 3-agent (architecture / security / QA) review of the v0.2 work: strengthened the SSRF guard against IPv6-embedded private IPv4 (mapped/NAT64/6to4) and switched to per-hop redirect validation; closed a divergent-tension provenance gap; made `localFsTransport` reject (not throw) on write failure; guarded `did:web` percent-decoding; +19 tests incl. a new `http.test.ts` | — |
-| **S+12** — deliver at a distance | _this branch_ | 2026-07-02 | v0.2b: the `github-pr` transport (ADR-0012) — a signal is delivered by opening a PR against the peer's repo (fork-first, no write access to their tree); the recipient merges to accept. Deterministic-branch idempotency; PR-open = delivered; `gh`-CLI auth behind an injectable `RunGh` (offline-tested); shared `renderInboxSignalFile` keeps PR-delivered bytes byte-identical to local-fs. `--transport github-pr` on all four senders; `verify-signal` GitHub Action. +10 tests | [Tier 7](./walkthroughs/2026-07-02-tier7-pr-delivery.md) |
+| **S+12** — deliver at a distance | `57e4dfe` | 2026-07-02 | v0.2b: the `github-pr` transport (ADR-0012) — a signal is delivered by opening a PR against the peer's repo (fork-first, no write access to their tree); the recipient merges to accept. Deterministic-branch idempotency; PR-open = delivered; `gh`-CLI auth behind an injectable `RunGh` (offline-tested); shared `renderInboxSignalFile` keeps PR-delivered bytes byte-identical to local-fs. `--transport github-pr` on all four senders; `verify-signal` GitHub Action. +10 tests | [Tier 7](./walkthroughs/2026-07-02-tier7-pr-delivery.md) |
+| **S+13** — exit-aware status | `1576181` | 2026-07-10 | `flyway_status` reads the exit lifecycle back (ADR-0013): it scans outbox + inbox for signed exits, honors an inbox exit only through the full `flyway_check` trust gate, and reports effective `closed` state for peer relationships and agreements — the co-signed file never rewritten. Agreements gain opaque, co-signed `projectId`/`syndicateId` so project/syndicate exits can bind. Surfaced through CLI + MCP. +23 tests | [Tier 8](./walkthroughs/2026-07-10-tier8-exit-aware-status.md) |
+| **Review hardening** | `0fdb07e` | 2026-07-10 | Acted on a 4-agent (security / architecture / design / QA) review of S+13: closed an inbox-exit **replay** path (added the on-disk placement + recipient checks the gate was missing), verified outbox exits against our own key, added a **temporal guard** so a stale exit can't close a *re-formed* agreement, and surfaced a mistyped exit target as an advisory. +8 tests; ADR-0013 amended | [Tier 8](./walkthroughs/2026-07-10-tier8-exit-aware-status.md) |
 
 ---
 
@@ -121,13 +125,14 @@ Proves: identity.      Proves: send+verify.  Proves: round-trip.   Proves: co-si
 | [2026-06-12 — Tier 4 co-signed agreement](./walkthroughs/2026-06-12-tier4-cosigned-agreement.md) | Executable | `10d7045` | A proposes a final agreement, B co-signs by accepting; both materialize a byte-identical agreement file. 2 gaps surfaced. |
 | [2026-06-17 — Tier 5 staging chain](./walkthroughs/2026-06-17-tier5-staging-chain.md) | Executable | `4c894b6` | The full driver→final chain; B's objection at draft is integrated in a refinement and lands in the co-signed agreement. 2 gaps (G8/#2, G10). |
 | [2026-06-26 — Tier 6 remote recognition](./walkthroughs/2026-06-26-tier6-remote-recognition.md) | Executable (test-backed) | `8dfadaf` | A peer is discovered from a remote HTTPS directory and recognized from its `did:web` URL — no shared filesystem. Closes the "recognition at a distance" gap Tier 1 left open. |
-| [2026-07-02 — Tier 7 PR delivery](./walkthroughs/2026-07-02-tier7-pr-delivery.md) | Executable (test-backed) | _this branch_ | A signal is delivered by opening a PR against the peer's repo (fork-first, no write access); the recipient merges to accept. Completes the discover → recognize → deliver loop with no shared filesystem. 3 gaps surfaced. |
+| [2026-07-02 — Tier 7 PR delivery](./walkthroughs/2026-07-02-tier7-pr-delivery.md) | Executable (test-backed) | `57e4dfe` | A signal is delivered by opening a PR against the peer's repo (fork-first, no write access); the recipient merges to accept. Completes the discover → recognize → deliver loop with no shared filesystem. 3 gaps surfaced. |
+| [2026-07-10 — Tier 8 exit-aware status](./walkthroughs/2026-07-10-tier8-exit-aware-status.md) | Executable (test-backed) | `1576181` | An exited relationship and an agreement closed by a project exit both read as closed from a single `flyway_status`, the co-signed file never rewritten. A 4-agent review then hardened the trust gate against exit replay. 3 gaps surfaced (G-T8-1/2/3). |
 
 ---
 
 ## Architecture invariants — ADR digest
 
-Twelve ADRs are accepted; each pins one load-bearing decision.
+Thirteen ADRs are accepted; each pins one load-bearing decision.
 
 | # | Title | What it locks in |
 | - | ----- | ---------------- |
@@ -143,6 +148,7 @@ Twelve ADRs are accepted; each pins one load-bearing decision.
 | [ADR-0010](./adr/0010-remote-directory-fetch.md) | **Remote directory fetch (HTTPS)** | `flyway_discover` may fetch a directory over `https://`; HTTPS-only, SSRF-guarded, size/timeout-bounded — flyway's first non-local-fs operation |
 | [ADR-0011](./adr/0011-did-web-resolution-convention.md) | **did:web resolution convention** | `did:web:github.com:owner:repo` resolves to raw.githubusercontent identity artifacts; reuses the ADR-0010 fetch hardening; verified at recognition |
 | [ADR-0012](./adr/0012-github-pr-signal-transport.md) | **github-pr signal transport** | Deliver a signal by opening a PR against the peer's repo; fork-first, PR-open = delivered, `gh`-CLI auth, deterministic-branch idempotency; recipient merges to accept |
+| [ADR-0013](./adr/0013-exit-aware-effective-status.md) | **Exit-aware effective status & agreement membership** | `flyway_status` computes effective `closed` from verified exit records — never rewriting the co-signed file; inbox exits reuse the `flyway_check` trust gate; opaque co-signed `projectId`/`syndicateId` let project/syndicate exits bind |
 
 ---
 
@@ -165,6 +171,7 @@ Where each property is enforced and verified:
 | **SSRF guard** (v0.2) — remote fetches refuse loopback/private/link-local IPs incl. IPv6-embedded IPv4; redirects validated per-hop before connecting; HTTPS-only | `assertPublicHttpsUrl` / `fetchTextOverHttps` | n/a — enforced before each network call | `http.test.ts` (scheme, IPv4/IPv6 ranges, H-1 bypasses, redirect H-2) |
 | **Pre-trust remote resolution** — remotely-fetched identity is verified at recognition, never trusted by transport | `resolvePeerIdentity` (pre-trust) | `recognizePeer` (signature + key binding) | `resolve.test.ts`, `recognize.test.ts` remote tamper-rejected |
 | **Recognition-window ordering** — signals must be sent after the peer was recognized | `flywayCheck` | `flywayCheck` | `check.test.ts` |
+| **Exit-honor gate** (ADR-0013) — an inbox exit closes nothing unless it sits under its sender's subtree, is addressed to us, comes from a recognized peer, verifies, and is not retroactive; outbox exits verify against our own key | `flywayStatus` (`honorInboxExit` / `honorOutboxExit`) | n/a — enforced before an exit informs effective state | `status.test.ts` replay/recipient/retroactive/outbox suites |
 | **Atomic write** — concurrent signal writers can't race past the differently-signed-envelope guard | `writeSignalFile` (`flag: 'wx'`) | n/a — enforced at write time | — |
 
 ---
@@ -180,17 +187,19 @@ What's left is reach and depth — not new tools:
 | Milestone | Scope | Unlocks |
 | --------- | ----- | ------- |
 | **Remote transports (v0.2)** | [Specified](./architecture/remote-transports-v0.2.md), phased v0.2a/b/c. **v0.2a complete** (HTTPS directory fetch + `SignalTransport` seam), **recognize-at-a-distance** shipped (ADR-0011, Tier 6), and **v0.2b complete** (github-pr signal transport + `verify-signal` Action, ADR-0012, Tier 7). Remaining: **v0.2c** URL-webhook (gated on real sub-PR-latency demand) | Peers at a distance — the full discover → recognize → deliver loop now runs with no shared filesystem |
-| **Exit-aware status** | `flyway_status` / `flyway_check` interpret exit records — surface a relationship or agreement as closed | Makes the exit lifecycle legible without re-reading raw signals |
+| ~~Exit-aware status~~ ✅ **done** (S+13, ADR-0013) | `flyway_status` interprets exit records — a relationship or agreement reads as effectively `closed` from a single read, the co-signed file never rewritten; project/syndicate exits bind via co-signed membership ids | Makes the exit lifecycle legible without re-reading raw signals (Tier 8) |
 | ~~Agreement provenance (Issue #2 / G8)~~ ✅ **done** | `originTensionId` propagated through the staging chain and auto-stamped onto the co-signed agreement; refused if it disagrees with the verified chain tension | Machine-followable audit trail — agreement → tension by reference, not five human hops |
+| **v0.2c — url-webhook** | The last reserved transport (ADR-0008 §5); direct HTTP delivery. Gated on real sub-PR-latency demand — github-pr is the production default | Lower-latency delivery when a peer needs it |
 
 ### Open issues by theme
 
-11 open issues (9 closed: #3, #6, #7, #8, #9, #14, #15, **#2**, and one historical). Grouped:
+12 open issues (9 closed: #3, #6, #7, #8, #9, #14, #15, **#2**, and one historical). Grouped:
 
 **Protocol gaps (`protocol-gap`)** — soundness or correctness holes that don't block current functionality but accumulate risk:
 
 - [#16](https://github.com/murmurations-ai/flyway/issues/16) `flyway_check` should flag responses whose `sentAt` precedes the subject's
 - [#19](https://github.com/murmurations-ai/flyway/issues/19) Constrain tension `proposedOwner` to a recognized peer
+- [#28](https://github.com/murmurations-ai/flyway/issues/28) Extract one shared `verifyInboxSignal` predicate so `flyway_status` and `flyway_check` provably can't drift (surfaced by the S+13 review)
 
 **Protocol design (`protocol-design`)** — open design questions:
 
@@ -207,7 +216,7 @@ What's left is reach and depth — not new tools:
 
 - [#10](https://github.com/murmurations-ai/flyway/issues/10) Sync vs async filesystem policy decision
 - [#13](https://github.com/murmurations-ai/flyway/issues/13) Validate `peerRepoPath` against recognition-time path
-- [#17](https://github.com/murmurations-ai/flyway/issues/17) `flyway_status` should surface inbox state
+- [#17](https://github.com/murmurations-ai/flyway/issues/17) `flyway_status` should surface inbox state — *exit half addressed by S+13 (closed relationships/agreements); inbox/outbox delivery-state half remains*
 - [#20](https://github.com/murmurations-ai/flyway/issues/20) CLI error messages should end with imperative recovery commands
 
 ---
@@ -235,10 +244,10 @@ pnpm install && pnpm -r build
 
 - **Code:** [github.com/murmurations-ai/flyway](https://github.com/murmurations-ai/flyway)
 - **Issues:** [github.com/murmurations-ai/flyway/issues](https://github.com/murmurations-ai/flyway/issues)
-- **ADRs:** [`docs/adr/`](./adr/) (12 accepted)
-- **Walkthroughs:** [`docs/walkthroughs/`](./walkthroughs/) (6 executable, 1 narrative)
+- **ADRs:** [`docs/adr/`](./adr/) (13 accepted)
+- **Walkthroughs:** [`docs/walkthroughs/`](./walkthroughs/) (7 executable, 1 narrative)
 - **Architecture reference:** [`docs/architecture/how-flyway-works.md`](./architecture/how-flyway-works.md) + [`.html`](./architecture/how-flyway-works.html)
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-07-02 — surface complete (9 of 9); **v0.2b complete** (ADR-0012): the github-pr transport delivers a signal by opening a PR against the peer's repo — fork-first, PR-open = delivered, recipient merges to accept — plus a `verify-signal` Action and `--transport github-pr` on all four senders (Tier 7). With Tier 6, the full discover → recognize → deliver loop now runs with no shared filesystem. Next: v0.2c url-webhook, gated on real demand.*
+*This snapshot is regenerated as milestones land. Last update: 2026-07-10 — surface complete (9 of 9); **S+13 complete** (ADR-0013): `flyway_status` now reads the exit lifecycle back — a relationship or agreement closed by a verified exit reports as effectively `closed` from a single read, the co-signed file never rewritten (Tier 8). A 4-agent review then hardened the inbox-exit trust gate against replay. With Tiers 6–8, a Source can stand up a cross-boundary collaboration, run it, and see exactly what's still live — all with no shared filesystem. Next: v0.2c url-webhook (gated on demand); extract a shared inbox-verify predicate (#28).*
