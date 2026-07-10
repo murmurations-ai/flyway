@@ -124,6 +124,20 @@ export interface FlywayAgreement {
    * to the originating tension's own response chain.
    */
   readonly originTensionId?: string
+  /**
+   * Optional membership label (ADR-0013) — the id of the project this
+   * agreement is part of. Opaque and co-signed: a `project` exit whose
+   * `target` equals this id closes the agreement (as an effective-state
+   * view; the file is never rewritten). flyway does not invent a standing
+   * Project object — this is a string both participants agreed to.
+   */
+  readonly projectId?: string
+  /**
+   * Optional membership label (ADR-0013) — the id of the syndicate this
+   * agreement is part of. Same semantics as `projectId`, matched by a
+   * `syndicate` exit.
+   */
+  readonly syndicateId?: string
 }
 
 export const FLYWAY_DECISION_RULES: readonly FlywayDecisionRule[] = [
@@ -414,6 +428,21 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
         'agreement was promoted from. When present, it must equal the ' +
         'verified tensionId carried through the proposal-forming chain, so ' +
         'a reader can trace the agreement back to its originating tension.',
+    },
+    projectId: {
+      type: 'string',
+      description:
+        'Optional membership label (ADR-0013) — the id of the project this ' +
+        'agreement belongs to. Opaque and co-signed; a `project` exit whose ' +
+        'target equals this id closes the agreement as an effective-state ' +
+        'view (the co-signed file is never rewritten).',
+    },
+    syndicateId: {
+      type: 'string',
+      description:
+        'Optional membership label (ADR-0013) — the id of the syndicate ' +
+        'this agreement belongs to. Same semantics as projectId, matched by ' +
+        'a `syndicate` exit.',
     },
   },
   required: [

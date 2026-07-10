@@ -376,13 +376,28 @@ async function handleStatusCommand(args: string[]): Promise<number> {
     )
     for (const peer of peers.entries) {
       const sig = peer.recognitionValid ? 'sig valid' : 'sig INVALID'
-      process.stdout.write(`  - ${peer.sourceName} (${peer.did}) — ${sig}\n`)
+      const closed = peer.closure
+        ? ` — CLOSED (${peer.closure.direction === 'we-exited' ? 'we exited' : 'peer exited'}` +
+          `${peer.closure.reason ? `: ${peer.closure.reason}` : ''})`
+        : ''
+      process.stdout.write(`  - ${peer.sourceName} (${peer.did}) — ${sig}${closed}\n`)
     }
     process.stdout.write(
-      `Agreements: ${agreements.count} on file` +
-        (agreements.ids.length > 0 ? ` (${agreements.ids.join(', ')})` : '') +
+      `\nAgreements: ${agreements.count} on file` +
+        (agreements.closedCount > 0 ? `, ${agreements.closedCount} closed` : '') +
         '\n',
     )
+    for (const a of agreements.entries) {
+      const state = a.effectiveState ?? a.fileState ?? 'unknown'
+      const supersededByExit =
+        a.closure !== undefined && a.fileState !== 'closed'
+          ? ` (closed by ${a.closure.via} exit — file still ${a.fileState ?? 'unknown'})`
+          : ''
+      process.stdout.write(`  - ${a.id} [${state}]${supersededByExit}\n`)
+    }
+    for (const issue of agreements.entries.flatMap((a) => a.issues).concat(status.exits.issues)) {
+      process.stdout.write(`  ! ${issue}\n`)
+    }
     const peerSigBroken = peers.entries.some((p) => !p.recognitionValid)
     return identity.initialized && identity.issues.length === 0 && !peerSigBroken ? 0 : 1
   } catch (e) {
