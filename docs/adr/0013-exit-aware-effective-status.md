@@ -71,26 +71,44 @@ The load-bearing decisions:
    Peer entries gain a symmetric `closure?` record when a peer relationship
    has been exited.
 
-3. **An inbox exit is honored only if it passes the `flyway_check` trust
-   gate.** A signal sitting in the inbox is a *claim*. Before an inbox exit
-   is allowed to close anything it must: come from a recognized peer
-   (present in `flyway/peers.yaml`); verify against that peer's
-   recognition-time cached DID document; and have `sentAt >= recognizedAt`
-   (no retroactive exits — same rule ADR-0009 / Issue #16 apply at check).
-   An unsigned, forged, or unrecognized-sender inbox file **cannot** close a
-   relationship or an agreement; it surfaces as an issue instead. Outbox
-   exits are our own signed records and are trusted as authored.
+3. **An inbox exit is honored only if it passes the full `flyway_check`
+   trust gate.** A signal sitting in the inbox is a *claim*. Before an inbox
+   exit is allowed to close anything it must: sit under the sender's inbox
+   subtree (`flyway/inbox/<segments-of-from>/…` — the on-disk placement
+   binding, so a peer can't replay another peer's genuinely-signed exit from
+   their own delivery path); be **addressed to us** (`to == our DID`, so a
+   peer's exit to a third party can't be replayed to close *our*
+   relationship); come from a recognized peer (present in
+   `flyway/peers.yaml`); verify against that peer's recognition-time cached
+   DID document; and have `sentAt >= recognizedAt` (no retroactive exits —
+   same rule ADR-0009 / Issue #16 apply at check). An unsigned, forged,
+   misplaced, mis-addressed, or unrecognized-sender inbox file **cannot**
+   close anything; it surfaces as an issue. Outbox exits are honored only if
+   they are actually from us and verify against our own DID document —
+   trusting outbox write-isolation implicitly would be a hole a future
+   PR-merge transport could open. *(The gate is a faithful superset of
+   `flyway_check`'s `inspectSignalFile`; extracting one shared
+   `verifyInboxSignal` predicate so the two provably can't drift is a
+   tracked follow-up.)*
 
-4. **Exit → closed mapping (both directions).** An exit has a *direction*
-   from the reading Source's vantage: `we-exited` (found in our outbox) or
-   `peer-exited` (found, verified, in our inbox).
-   - **peer** exit → closes the peer relationship *and* every agreement in
-     which the exited/​exiting peer is a `participant`. (Exit ends joint
+4. **Exit → closed mapping (both directions), scoped in time.** An exit has
+   a *direction* from the reading Source's vantage: `we-exited` (found in
+   our outbox) or `peer-exited` (found, verified, in our inbox). An exit
+   **cannot close an agreement created after it** (`agreement.createdAt >
+   exit.sentAt` ⇒ no match): exit does not retract recognition, so
+   re-collaborating with a previously-exited peer is a first-class flow and
+   a stale exit must not close the *new* agreement.
+   - **peer** exit → closes the peer relationship *and* every prior agreement
+     in which the exited/​exiting peer is a `participant`. (Exit ends joint
      commitments; it does **not** retract recognition — that is
      `flyway_unrecognize`.)
-   - **project** exit → closes every agreement whose `projectId` equals the
-     exit `target` and in which the other party is a participant.
+   - **project** exit → closes every prior agreement whose `projectId` equals
+     the exit `target` and in which the other party is a participant.
    - **syndicate** exit → same, keyed on `syndicateId`.
+   Effective `closed` is a **monotone latch** — any non-closed file state
+   (including `suspended`) goes effective-`closed` under a matching exit, and
+   re-entry after exit is out of scope for v1 (the temporal guard is what
+   keeps a *new* post-exit agreement live).
 
 5. **Surface it end-to-end.** The new fields flow through core
    `flywayStatus`, the CLI `flyway status` renderer, and the MCP status
@@ -119,10 +137,17 @@ The load-bearing decisions:
   because status is already async and the counts are small. Failures are
   reported as per-entry issues, never thrown.
 - **Membership ids are opaque and unenforced.** flyway does not (yet)
-  verify that a `projectId` corresponds to any proposed project; a typo in
-  the label silently fails to match an exit. Acceptable for v1 — the ids
-  are co-signed, so both parties agreed to the exact string; a standing,
-  verifiable Project object is a possible successor ADR if demand appears.
+  verify that a `projectId` corresponds to any proposed project. The
+  agreement's `projectId` is co-signed, but the **exit's `target` is
+  unilateral free text** typed at exit time and validated against nothing —
+  so the real foot-gun is a typo in the *exit target*, which the
+  co-signature does not defend against. Mitigation: a honored
+  `project`/`syndicate` exit that matches **zero** agreements is surfaced as
+  an advisory issue (`… matched no agreement — check the target label`), so
+  a mistyped exit reads as a visible no-op rather than a silent one. A
+  standing, verifiable Project object (or binding an exit to a specific
+  `agreementId` via the envelope `refs`, which the plumbing already allows)
+  is a possible successor if stronger guarantees are wanted.
 - **One exit notice per peer.** A project spanning three peers needs three
   exit notices to fully close on every side; status closes each agreement
   as the relevant notice is seen. This matches the per-peer signal model

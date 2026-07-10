@@ -366,13 +366,26 @@ function seedOursWithRecognizedPeer(cwd: string, ours: Murmuration, peer: Murmur
 function writeAgreement(
   cwd: string,
   id: string,
-  fields: { participants: string[]; state: string; projectId?: string; syndicateId?: string },
+  fields: {
+    participants: string[]
+    state: string
+    projectId?: string
+    syndicateId?: string
+    createdAt?: string
+  },
 ): void {
   mkdirSync(join(cwd, 'flyway', 'agreements'), { recursive: true })
   writeFileSync(
     join(cwd, 'flyway', 'agreements', `${id}.yaml`),
     yamlStringify({ id, schemaVersion: '0.1.0', ...fields }),
   )
+}
+
+/** Place a signal envelope at an arbitrary inbox path (for replay tests). */
+function placeInboxFileAt(cwd: string, fromDid: string, id: string, env: SignedSignalEnvelope): void {
+  const p = signalInboxPath(cwd, fromDid, id)
+  mkdirSync(p.slice(0, p.lastIndexOf('/')), { recursive: true })
+  writeFileSync(p, yamlStringify(env))
 }
 
 describe('flywayStatus — exit-aware peer relationships (ADR-0013)', () => {
@@ -577,5 +590,180 @@ describe('flywayStatus — exit-aware agreements (ADR-0013)', () => {
     const a = status.agreements.entries.find((e) => e.id === 'other-parties')
     expect(a?.effectiveState).toBe('in-flight')
     expect(a?.closure).toBeUndefined()
+  })
+
+  it('closes a syndicateId-tagged agreement on a matching syndicate exit', async () => {
+    writeAgreement(tmp, 'in-guild', {
+      participants: [ours.artifacts.did, peer.artifacts.did],
+      state: 'in-flight',
+      syndicateId: 'guild-7',
+    })
+    const env = await createExit({
+      from: ours.artifacts.did,
+      to: peer.artifacts.did,
+      body: { target: 'guild-7', targetType: 'syndicate' },
+      signer: ours.signer,
+    })
+    writeSignalToOutbox(tmp, env)
+
+    const status = await flywayStatus(tmp)
+    const a = status.agreements.entries.find((e) => e.id === 'in-guild')
+    expect(a?.effectiveState).toBe('closed')
+    expect(a?.closure?.via).toBe('syndicate')
+    expect(a?.closure?.target).toBe('guild-7')
+  })
+
+  it('does NOT close an agreement created after the exit (temporal guard)', async () => {
+    // We exited the peer on 2026-06-01, then formed a NEW agreement later —
+    // exit does not retract recognition, so re-collaboration is normal and
+    // the stale exit must not close the newer agreement.
+    writeAgreement(tmp, 'formed-before', {
+      participants: [ours.artifacts.did, peer.artifacts.did],
+      state: 'in-flight',
+      createdAt: '2026-05-01T00:00:00.000Z',
+    })
+    writeAgreement(tmp, 'formed-after', {
+      participants: [ours.artifacts.did, peer.artifacts.did],
+      state: 'in-flight',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    })
+    const env = await createExit({
+      from: ours.artifacts.did,
+      to: peer.artifacts.did,
+      body: { target: peer.artifacts.did, targetType: 'peer' },
+      signer: ours.signer,
+      now: new Date('2026-06-01T00:00:00.000Z'),
+    })
+    writeSignalToOutbox(tmp, env)
+
+    const status = await flywayStatus(tmp)
+    const before = status.agreements.entries.find((e) => e.id === 'formed-before')
+    const after = status.agreements.entries.find((e) => e.id === 'formed-after')
+    expect(before?.effectiveState).toBe('closed')
+    expect(after?.effectiveState).toBe('in-flight')
+    expect(after?.closure).toBeUndefined()
+  })
+
+  it('flags a project exit whose target matches no agreement (typo advisory)', async () => {
+    writeAgreement(tmp, 'in-aurora', {
+      participants: [ours.artifacts.did, peer.artifacts.did],
+      state: 'in-flight',
+      projectId: 'aurora-2026',
+    })
+    const env = await createExit({
+      from: ours.artifacts.did,
+      to: peer.artifacts.did,
+      body: { target: 'aurora-206', targetType: 'project' }, // transposed digit
+      signer: ours.signer,
+    })
+    writeSignalToOutbox(tmp, env)
+
+    const status = await flywayStatus(tmp)
+    const a = status.agreements.entries.find((e) => e.id === 'in-aurora')
+    expect(a?.effectiveState).toBe('in-flight')
+    expect(status.exits.issues.some((i) => /matched no agreement/.test(i))).toBe(true)
+  })
+
+  it('flags an unknown lifecycle state and does not treat it as a real state', async () => {
+    writeAgreement(tmp, 'weird', {
+      participants: [ours.artifacts.did],
+      state: 'banana',
+    })
+    const status = await flywayStatus(tmp)
+    const a = status.agreements.entries.find((e) => e.id === 'weird')
+    expect(a?.fileState).toBeUndefined()
+    expect(a?.issues.some((i) => /unknown agreement state/.test(i))).toBe(true)
+  })
+})
+
+describe('flywayStatus — exit trust-gate hardening (review)', () => {
+  let tmp: string
+  let ours: Murmuration
+  let peer: Murmuration
+  beforeEach(async () => {
+    tmp = freshTmp()
+    ours = await makeMurmuration('xeeban', 'us')
+    peer = await makeMurmuration('emergent', 'them')
+    seedOursWithRecognizedPeer(tmp, ours, peer)
+  })
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('refuses a peer-signed exit placed under the WRONG inbox subtree (cross-peer replay)', async () => {
+    // The peer genuinely signed an exit to us; an attacker copies it into a
+    // different sender's inbox subtree. The placement check must reject it.
+    const env = await createExit({
+      from: peer.artifacts.did,
+      to: ours.artifacts.did,
+      body: { target: ours.artifacts.did, targetType: 'peer' },
+      signer: peer.signer,
+    })
+    // Place under a THIRD party's segments instead of the peer's.
+    placeInboxFileAt(tmp, 'did:web:github.com:attacker:m', env.id, env)
+
+    const status = await flywayStatus(tmp)
+    expect(status.exits.count).toBe(0)
+    expect(status.exits.issues.some((i) => /not under sender/.test(i))).toBe(true)
+    const p = status.peers.entries.find((e) => e.did === peer.artifacts.did)
+    expect(p?.closure).toBeUndefined()
+  })
+
+  it('refuses a valid peer exit addressed to a third party (wrong-recipient replay)', async () => {
+    const env = await createExit({
+      from: peer.artifacts.did,
+      to: 'did:web:github.com:someone:else',
+      body: { target: 'did:web:github.com:someone:else', targetType: 'peer' },
+      signer: peer.signer,
+    })
+    // Correctly placed under the peer's subtree, but not addressed to us.
+    placeInboxFileAt(tmp, peer.artifacts.did, env.id, env)
+
+    const status = await flywayStatus(tmp)
+    expect(status.exits.count).toBe(0)
+    expect(status.exits.issues.some((i) => /not us/.test(i))).toBe(true)
+  })
+
+  it('refuses an inbox exit dated before recognition (retroactive)', async () => {
+    const env = await createExit({
+      from: peer.artifacts.did,
+      to: ours.artifacts.did,
+      body: { target: ours.artifacts.did, targetType: 'peer' },
+      signer: peer.signer,
+      now: new Date('2026-01-01T00:00:00.000Z'), // before recognizedAt 2026-05-21
+    })
+    writeSignalToInbox(tmp, env)
+
+    const status = await flywayStatus(tmp)
+    expect(status.exits.count).toBe(0)
+    expect(status.exits.issues.some((i) => /not after recognizedAt/.test(i))).toBe(true)
+  })
+
+  it('refuses an outbox exit whose signature does not verify as ours', async () => {
+    // A file appears in our outbox that we did not authentically sign
+    // (e.g. slipped in by a mis-merged PR). It must not be trusted as a
+    // "we-exited" closure just because it sits in the outbox.
+    const env = await createExit({
+      from: ours.artifacts.did,
+      to: peer.artifacts.did,
+      body: { target: peer.artifacts.did, targetType: 'peer', reason: 'authentic' },
+      signer: ours.signer,
+    })
+    const forged = { ...env, body: { ...(env.body as object), reason: 'tampered' } } as SignedSignalEnvelope
+    const outPath = join(
+      tmp,
+      'flyway',
+      'outbox',
+      ...peer.artifacts.did.replace(/^did:web:/, '').split(':'),
+      `${env.id}.yaml`,
+    )
+    mkdirSync(outPath.slice(0, outPath.lastIndexOf('/')), { recursive: true })
+    writeFileSync(outPath, yamlStringify(forged))
+
+    const status = await flywayStatus(tmp)
+    expect(status.exits.count).toBe(0)
+    expect(status.exits.issues.some((i) => /does not verify against our DID document/.test(i))).toBe(true)
+    const p = status.peers.entries.find((e) => e.did === peer.artifacts.did)
+    expect(p?.closure).toBeUndefined()
   })
 })

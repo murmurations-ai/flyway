@@ -41,7 +41,7 @@ Reproduce:
 
 ```bash
 pnpm -r build
-pnpm --filter @murmurations-ai/flyway-core test status   # 23 tests, incl. the ADR-0013 suites
+pnpm --filter @murmurations-ai/flyway-core test status   # 31 tests, incl. the ADR-0013 suites
 ```
 
 ## The flow
@@ -96,20 +96,28 @@ attestation (that is `flyway_unrecognize`).
 | **Tampered inbox exit closes nothing** | mutated body ⇒ signature fails to verify ⇒ not honored |
 | **File-closed vs exit-superseded** | `state: closed` on disk ⇒ `effectiveState: closed`, **no** `closure`; an exit ⇒ `effectiveState: closed` **with** `closure` and `fileState` preserved |
 | **Peer exit closes the agreement** | `in-flight` + a `peer` exit for a participant ⇒ `effectiveState: closed`, `closedCount == 1` |
-| **Project exit is selective** | only the agreement whose `projectId` matches the exit `target` closes; a sibling `projY` agreement stays `in-flight` |
+| **Project / syndicate exit is selective** | only the agreement whose `projectId` / `syndicateId` matches the exit `target` closes; a sibling stays `in-flight` |
 | **Non-participant untouched** | a `peer` exit does not close an agreement the exiting peer is not party to |
+| **Temporal guard** | an agreement whose `createdAt` post-dates the exit stays live — a stale exit never closes a *re-formed* collaboration |
+| **Cross-peer replay refused** | a peer-signed exit dropped under the *wrong* inbox subtree is not honored (on-disk placement binding) |
+| **Wrong-recipient replay refused** | a valid peer exit addressed to a *third party*, replayed into our inbox, is not honored |
+| **Retroactive refused** | an inbox exit with `sentAt < recognizedAt` closes nothing |
+| **Outbox authenticity** | an outbox file that doesn't verify against *our* DID document is not trusted as "we-exited" |
+| **Typo advisory** | a `project`/`syndicate` exit matching zero agreements surfaces `… matched no agreement` |
+| **Unknown state flagged** | a non-lifecycle `state:` string is reported as an issue, not echoed as a real state |
 
-All ten hold at HEAD; `flyway status` (human + `--json`) and the MCP status
-tool carry the new fields end-to-end.
+All hold at HEAD (31 tests); `flyway status` (human + `--json`) and the MCP
+status tool carry the new fields end-to-end.
 
 ## Gaps surfaced
 
 - **G-T8-1 — membership ids are opaque and unenforced.** flyway does not
-  verify that a `projectId` names any proposed project; a typo silently
-  fails to match an exit. Acceptable for v1 (the id is co-signed, so both
-  parties agreed to the exact string) — a first-class, verifiable Project
-  object is a possible successor ADR if demand appears (ADR-0013,
-  Alternatives §2).
+  verify that a `projectId` names any proposed project. The exit `target` is
+  unilateral free text, so a typo fails to match — now surfaced as an
+  advisory (`… matched no agreement`) rather than a silent no-op, but still
+  unenforced. A first-class, verifiable Project object, or binding an exit to
+  a specific `agreementId` via the envelope `refs`, is a possible successor
+  (ADR-0013, Consequences + Alternatives §2).
 - **G-T8-2 — one exit notice per peer.** A project spanning three peers needs
   three notices to close on every side; status closes each agreement as the
   relevant notice is seen. This matches the per-peer signal model and is
