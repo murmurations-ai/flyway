@@ -1,7 +1,7 @@
 ---
-date: 2026-06-12
+date: 2026-07-04
 protocol-version: 0.1.0
-code-sha: 17f9bc1
+code-sha: d0b4d17
 purpose: project status snapshot for reviewers
 audience: external reviewers, peer Sources, and anyone evaluating flyway for adoption
 ---
@@ -26,10 +26,10 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | | |
 | --- | --- |
 | **Protocol version** | 0.1.0 |
-| **Code SHA** | `17f9bc1` |
+| **Code SHA** | `d0b4d17` |
 | **Tools wired (end-to-end)** | 9 of 9 |
 | **Executable walkthroughs** | 7 (Tier 1–7) |
-| **ADRs accepted** | 11 (+1 proposed: ADR-0012) |
+| **ADRs accepted** | 12 |
 | **Tests passing** | 427 across 30 test files |
 | **Open issues** | 11 (9 closed since the 3-agent review) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
@@ -127,7 +127,7 @@ Proves: identity.      Proves: send+verify.  Proves: round-trip.   Proves: co-si
 
 ## Architecture invariants — ADR digest
 
-Eleven ADRs are accepted; each pins one load-bearing decision.
+Twelve ADRs are accepted; each pins one load-bearing decision.
 
 | # | Title | What it locks in |
 | - | ----- | ---------------- |
@@ -142,7 +142,7 @@ Eleven ADRs are accepted; each pins one load-bearing decision.
 | [ADR-0009](./adr/0009-antecedent-verification-before-signing.md) | **Antecedent verification before signing** | A signer never signs over an unverified antecedent artifact; the verifying key is the recognition-time cached copy |
 | [ADR-0010](./adr/0010-remote-directory-fetch.md) | **Remote directory fetch (HTTPS)** | `flyway_discover` may fetch a directory over `https://`; HTTPS-only, SSRF-guarded, size/timeout-bounded — flyway's first non-local-fs operation |
 | [ADR-0011](./adr/0011-did-web-resolution-convention.md) | **did:web resolution convention** | `did:web:github.com:owner:repo` resolves to raw.githubusercontent identity artifacts; reuses the ADR-0010 fetch hardening; verified at recognition |
-| [ADR-0012](./adr/0012-github-pr-signal-transport.md) | **github-pr signal transport** _(proposed)_ | Deliver a signal by opening a PR against the peer's repo; fork-first, PR-open = delivered, `gh`-CLI auth, deterministic-branch idempotency; recipient merges to accept |
+| [ADR-0012](./adr/0012-github-pr-signal-transport.md) | **github-pr signal transport** | Deliver a signal by opening a PR against the peer's repo; fork-first, PR-open = delivered, `gh`-CLI auth, deterministic-branch idempotency; recipient merges to accept |
 
 ---
 
@@ -235,7 +235,7 @@ pnpm install && pnpm -r build
 
 - **Code:** [github.com/murmurations-ai/flyway](https://github.com/murmurations-ai/flyway)
 - **Issues:** [github.com/murmurations-ai/flyway/issues](https://github.com/murmurations-ai/flyway/issues)
-- **ADRs:** [`docs/adr/`](./adr/) (11 accepted, 1 proposed)
+- **ADRs:** [`docs/adr/`](./adr/) (12 accepted)
 - **Walkthroughs:** [`docs/walkthroughs/`](./walkthroughs/) (6 executable, 1 narrative)
 - **Architecture reference:** [`docs/architecture/how-flyway-works.md`](./architecture/how-flyway-works.md) + [`.html`](./architecture/how-flyway-works.html)
 
