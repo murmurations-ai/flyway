@@ -62,6 +62,20 @@
   table.data a { font-family:"Plex Mono",monospace; font-size:.8rem; white-space:nowrap; }
   .miss { color:var(--ink-faint); font-family:"Plex Mono",monospace; font-size:.78rem; }
 
+  .idfields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px; background:var(--hairline); border:1px solid var(--hairline); margin-bottom:var(--s-lg); }
+  .idfields > div { background:var(--surface); padding:14px 18px; }
+  .idfields .k { font-family:"Plex Mono",monospace; font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); }
+  .idfields .v { color:var(--ink); font-size:.95rem; margin-top:4px; }
+  .idfields .v .mono { color:var(--gold-ink); }
+  @media (max-width:640px){ .idfields { grid-template-columns:1fr; } }
+  .checklist { list-style:none; margin:var(--s-md) 0 0; padding:0; display:grid; gap:10px; }
+  .checklist li { display:flex; gap:12px; align-items:flex-start; padding:12px 16px; border:1px solid var(--hairline); background:var(--surface); }
+  .checklist .box { color:var(--good); font-family:"Plex Mono",monospace; font-weight:700; flex:0 0 auto; }
+  .checklist .box.pend { color:var(--warn); }
+  .checklist .t { color:var(--ink-muted); font-size:.92rem; }
+  .checklist .t b { color:var(--ink); }
+  .subhead { font-size:.6em; font-stretch:normal; font-weight:400; font-family:"Plex Mono",monospace; color:var(--ink-faint); letter-spacing:.04em; }
+
   .close-band { background:var(--hero-sky); border-top:1px solid var(--hairline); }
   .close-band .q { font-family:"Archivo",sans-serif; font-stretch:112%; font-weight:700; font-size:clamp(1.5rem,3.4vw,2.3rem); line-height:1.28; letter-spacing:-.01em; }
   .close-band .q em { color:var(--gold-ink); font-style:normal; }
@@ -283,14 +297,22 @@
 <!-- FINAL REPORT -->
 <section class="band" id="final-report" style="background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)">
   <div class="wrap">
-    <p class="eyebrow reveal">gimbalabs piece of pi · final report</p>
-    <h2 class="display reveal" style="margin-bottom:var(--s-sm)">Verification.</h2>
-    <p class="lead measure reveal" style="margin-bottom:var(--s-lg)">The four items the hackathon requires to prove the work — collected in one place.</p>
+    <p class="eyebrow reveal">gimbalabs piece of pi · final report · builder pie</p>
+    <h2 class="display reveal" style="margin-bottom:var(--s-sm)">Builder verification.</h2>
+    <p class="lead measure reveal" style="margin-bottom:var(--s-lg)">Everything the hackathon template requires to prove the work — in one place.</p>
+
+    <div class="idfields reveal">
+      <div><div class="k">project</div><div class="v">flyway</div></div>
+      <div><div class="k">track</div><div class="v">Builder Pie <span class="muted">+ Feedback Pie (below)</span></div></div>
+      <div><div class="k">team · presenter</div><div class="v">Nori Nishigaya (solo) · <span class="mono">@Xeeban</span></div></div>
+      <div><div class="k">one-sentence</div><div class="v">A runtime-agnostic protocol for collaboration between independent AI-agent murmurations.</div></div>
+    </div>
+
     <div class="verify reveal">
       <a class="vcard" href="https://github.com/murmurations-ai/flyway">
         <div class="k">01 · public repository</div>
         <div class="v">github.com/murmurations-ai/flyway</div>
-        <div class="m">MIT-licensed monorepo · flyway-core, cli, mcp, agent · 449 tests · 13 ADRs.</div>
+        <div class="m">Public, MIT-licensed monorepo · flyway-core, cli, mcp, agent · 449 tests · 13 ADRs.</div>
       </a>
       <a class="vcard" href="./demo.html">
         <div class="k">02 · live demo</div>
@@ -298,15 +320,44 @@
         <div class="m">A self-contained animated run — init → recognize → tension → status → check — verbatim from the built CLI.</div>
       </a>
       <a class="vcard" href="https://murmurations-ai.github.io/flyway/">
-        <div class="k">03 · deployed project</div>
+        <div class="k">03 · deployed public product</div>
         <div class="v">murmurations-ai.github.io/flyway</div>
-        <div class="m">Live docs site — landing, this deck, the demo, architecture reference, and status dashboard — deployed from <span class="mono">docs/</span> via GitHub Pages.</div>
+        <div class="m">Live public site (no login) — landing, this deck, the demo, architecture, status — from <span class="mono">docs/</span> via GitHub Pages.</div>
       </a>
       <a class="vcard" href="#tweets">
-        <div class="k">04 · weekly progress tweets</div>
+        <div class="k">04 · weekly progress posts</div>
         <div class="v">@Xeeban · 12-week thread ↓</div>
         <div class="m">Every Friday, 2026-05-01 → 2026-07-17. Full index below.</div>
       </a>
+    </div>
+
+    <div class="grid-3 reveal" style="margin-top:var(--s-xl)">
+      <div class="panel"><div class="k">the user</div><h3>A Source — or their agent</h3><p>A human running an agent swarm (a murmuration), or the agents acting under that Source's authority.</p></div>
+      <div class="panel"><div class="k">what they can do</div><h3>Speak the nine tools</h3><p>Discover, recognize, raise tensions, co-sign agreements, and exit — across another murmuration's boundary.</p></div>
+      <div class="panel"><div class="k">the value</div><h3>Consent, no controller</h3><p>Sovereign cross-boundary coordination, cryptographically verified end to end, with no central authority in the middle.</p></div>
+    </div>
+    <p class="muted reveal" style="margin-top:var(--s-sm); font-size:.86rem"><span class="mono" style="color:var(--gold-ink)">payment:</span> none — flyway is free and MIT-licensed. The value is the protocol itself, not a paywall (Builder track).</p>
+
+    <div class="reveal" style="margin-top:var(--s-xl)">
+      <h3 class="display">The walkthrough <span class="subhead">— the product is a protocol, so the "core action" is the signed round-trip</span></h3>
+      <div class="table-scroll" style="margin-top:var(--s-md)">
+        <table class="data">
+          <thead><tr><th>Template step</th><th>In flyway</th></tr></thead>
+          <tbody>
+            <tr><td class="desc">Landing</td><td>the deployed site → this deck + the live demo</td></tr>
+            <tr><td class="desc">Account creation</td><td><span class="mono">flyway init</span> — mints a DID + EdDSA-signed identity + Ed25519 keypair</td></tr>
+            <tr><td class="desc">Core action</td><td>recognize a peer, sign a tension, run the S3 consent cycle, co-sign an agreement</td></tr>
+            <tr><td class="desc">Payment gate</td><td>n/a — free &amp; open-source</td></tr>
+            <tr><td class="desc">Delivered result</td><td>a verified inbox signal + a byte-identical co-signed <span class="mono">agreements/&lt;id&gt;.yaml</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="grid-3 reveal" style="margin-top:var(--s-xl)">
+      <div class="panel"><div class="k">repo · public</div><h3>Open &amp; cloneable</h3><p><span class="mono">github.com/murmurations-ai/flyway</span> — public, MIT, buildable from a clean checkout.</p></div>
+      <div class="panel"><div class="k">repo · key folders</div><h3>What's where</h3><p><span class="mono">packages/</span> core · agent · mcp · cli — and <span class="mono">docs/</span> adr · walkthroughs · architecture.</p></div>
+      <div class="panel"><div class="k">repo · history</div><h3>Built in the open</h3><p>Implement → walkthrough → review → harden, milestone by milestone across the twelve weeks.</p></div>
     </div>
 
     <div id="tweets" style="margin-top:var(--s-xl)">
@@ -331,6 +382,28 @@
         </table>
       </div>
       <p class="muted reveal" style="font-size:.82rem; margin-top:var(--s-sm)">All eleven weekly tweets to date are linked (weeks 1–11). The week-12 finale posts at submission — <span class="mono">2026-07-17</span>.</p>
+    </div>
+
+    <div class="reveal" style="margin-top:var(--s-xl)">
+      <h3 class="display">Builder verification checklist</h3>
+      <ul class="checklist">
+        <li><span class="box">✓</span><span class="t"><b>A live demo of your product</b> — replayable end-to-end run at <a class="link-fly" href="./demo.html">/demo.html</a>, reproducible from a clean clone.</span></li>
+        <li><span class="box">✓</span><span class="t"><b>Official public repository link</b> — <a class="link-fly" href="https://github.com/murmurations-ai/flyway">github.com/murmurations-ai/flyway</a> (public, MIT, 449 tests).</span></li>
+        <li><span class="box">✓</span><span class="t"><b>Deployed public product link</b> — <a class="link-fly" href="https://murmurations-ai.github.io/flyway/">murmurations-ai.github.io/flyway</a> (opens without an account).</span></li>
+        <li><span class="box pend">◐</span><span class="t"><b>All twelve weekly progress posts</b> — weeks 1–11 linked above; the week-12 finale posts at submission (<span class="mono">2026-07-17</span>).</span></li>
+        <li><span class="box">✓</span><span class="t"><b>Publicly verifiable</b> — every link above opens without a login.</span></li>
+      </ul>
+    </div>
+
+    <div class="reveal" style="margin-top:var(--s-xl)">
+      <h3 class="display">Feedback Pie <span class="subhead">— second track</span></h3>
+      <p class="muted measure" style="margin:var(--s-sm) 0 var(--s-md)">Recorded peer feedback on a fellow builder's project — the second Piece of Pi track, alongside the Builder submission above.</p>
+      <div class="idfields">
+        <div><div class="k">project reviewed</div><div class="v">Piece of Pi Hackathon framework — <span class="mono">@newman5</span></div></div>
+        <div><div class="k">recording</div><div class="v"><a class="link-fly mono" href="https://youtu.be/UJWgvef-GaI">youtu.be/UJWgvef-GaI</a> <span class="muted">· unlisted</span></div></div>
+        <div><div class="k">date · participants</div><div class="v">2026-06-04 · Nori Nishigaya (<span class="mono">@Xeeban</span>) + Newman (<span class="mono">@newman5</span>)</div></div>
+        <div><div class="k">relevance</div><div class="v">Peer feedback between PCPI builders on the hackathon's own open-source tooling.</div></div>
+      </div>
     </div>
   </div>
 </section>
