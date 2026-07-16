@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>flyway — a corridor for independent murmurations</title>
+<meta name="description" content="flyway is a runtime-agnostic protocol that lets independent AI-agent murmurations discover, recognize, and reach co-signed agreements without a central controller." />
+<style>
+  :root {
+    --paper:#0d1424; --paper2:#0a1020; --card:#111a2e; --ink:#e9ebf2; --soft:#b7bccd;
+    --mute:#7f879e; --rule:#212d49; --a:#e6a651; --ai:#f0bd77; --v:#a494cc; --ok:#6fb98a;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:
+      radial-gradient(1100px 520px at 78% -8%, #17213c 0%, transparent 62%), var(--paper);
+      color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height:1.6; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .serif { font-family:"Iowan Old Style", Palatino, Georgia, serif; }
+  .wrap { max-width: 940px; margin:0 auto; padding: 0 24px; }
+  a { color:var(--ai); text-underline-offset:3px; }
+  header { padding: 92px 0 44px; }
+  .eyebrow { font-family: ui-monospace, Menlo, monospace; font-size:12px; letter-spacing:.22em; text-transform:uppercase; color:var(--ai); margin:0 0 20px; display:flex; align-items:center; gap:12px; }
+  .eyebrow::before { content:""; width:26px; height:1px; background:var(--a); }
+  h1 { font-family:"Iowan Old Style", Palatino, Georgia, serif; font-weight:600; font-size:clamp(46px,10vw,96px); letter-spacing:-.03em; line-height:.92; margin:0; }
+  h1 .d { color:var(--a); }
+  .sub { font-size:clamp(18px,2.4vw,24px); color:var(--soft); max-width:24ch; margin:22px 0 0; }
+  .chips { display:flex; flex-wrap:wrap; gap:9px; margin-top:34px; }
+  .chip { font-family: ui-monospace, Menlo, monospace; font-size:12.5px; border:1px solid var(--rule); border-radius:999px; padding:6px 13px; color:var(--soft); }
+  .chip b { color:var(--ai); }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; padding: 8px 0 40px; }
+  @media (max-width:640px){ .grid { grid-template-columns:1fr; } }
+  .cardlink { display:block; text-decoration:none; color:inherit; background:var(--card); border:1px solid var(--rule); border-radius:13px; padding:22px 24px; transition:border-color .2s, transform .2s; }
+  .cardlink:hover { border-color:var(--a); transform:translateY(-2px); }
+  .cardlink .k { font-family: ui-monospace, Menlo, monospace; font-size:11.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--v); }
+  .cardlink.hot .k { color:var(--ai); }
+  .cardlink h3 { margin:8px 0 6px; font-size:19px; font-weight:600; }
+  .cardlink p { margin:0; color:var(--soft); font-size:14.5px; }
+  section h2 { font-family:"Iowan Old Style", Palatino, Georgia, serif; font-weight:600; font-size:clamp(24px,4vw,34px); letter-spacing:-.015em; margin: 30px 0 18px; }
+  .lead { color:var(--soft); max-width:66ch; }
+  .install { background:#080d18; border:1px solid var(--rule); border-radius:12px; padding:18px 20px; margin:20px 0 46px; overflow-x:auto; }
+  .install pre { margin:0; font-family: ui-monospace, Menlo, monospace; font-size:13px; color:#d7dced; }
+  .install .c { color:var(--mute); }
+  footer { border-top:1px solid var(--rule); padding:30px 0 70px; color:var(--mute); font-size:13.5px; }
+</style>
+</head>
+<body>
+  <header class="wrap">
+    <p class="eyebrow">protocol v0.1.0 · @murmurations-ai/flyway</p>
+    <h1 class="serif">flyway<span class="d">.</span></h1>
+    <p class="sub">A corridor in the open sky where independent AI-agent murmurations meet — and agree — without anyone flying the whole flock.</p>
+    <div class="chips">
+      <span class="chip"><b>9</b> tools</span>
+      <span class="chip"><b>13</b> ADRs</span>
+      <span class="chip"><b>8</b> walkthroughs</span>
+      <span class="chip"><b>449</b> tests 🟢</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <a class="cardlink hot" href="./demo.html">
+        <div class="k">▶ live demo</div>
+        <h3>Watch the loop run</h3>
+        <p>Two murmurations initialize, recognize each other, and pass a signed tension across the boundary — animated from a real CLI run.</p>
+      </a>
+      <a class="cardlink hot" href="./architecture/how-flyway-works.html">
+        <div class="k">architecture</div>
+        <h3>How flyway works</h3>
+        <p>Sequence diagrams, state machines, and the signed-envelope contract — the 10-minute technical read.</p>
+      </a>
+      <a class="cardlink" href="./status.html">
+        <div class="k">dashboard</div>
+        <h3>Status snapshot</h3>
+        <p>Tool maturity, milestone timeline, and open-issue themes — the project at a glance.</p>
+      </a>
+      <a class="cardlink" href="https://github.com/murmurations-ai/flyway/tree/main/docs/walkthroughs">
+        <div class="k">evidence</div>
+        <h3>Executable walkthroughs</h3>
+        <p>Eight tiers, each running real code against a real on-disk repo, verified end to end.</p>
+      </a>
+      <a class="cardlink" href="https://github.com/murmurations-ai/flyway/tree/main/docs/adr">
+        <div class="k">decisions</div>
+        <h3>13 ADRs</h3>
+        <p>Every architectural decision recorded before code — the system's institutional memory.</p>
+      </a>
+      <a class="cardlink" href="https://github.com/murmurations-ai/flyway">
+        <div class="k">source</div>
+        <h3>The repository</h3>
+        <p>MIT-licensed monorepo: flyway-core, cli, mcp, agent. One protocol, three adapters.</p>
+      </a>
+    </div>
+
+    <section>
+      <h2 class="serif">Run it yourself</h2>
+      <p class="lead">The whole protocol is nine typed tools defined once in <span class="mono">flyway-core</span> and exposed through an agent skill, an MCP server, and a CLI. From a clean clone:</p>
+      <div class="install"><pre><span class="c"># two independent murmurations, mutual recognition, a signed tension</span>
+git clone https://github.com/murmurations-ai/flyway &amp;&amp; cd flyway
+pnpm install &amp;&amp; pnpm --filter '!*harness' -r build
+node packages/cli/dist/bin/flyway.js init --repo-url https://github.com/you/repo --source-name "You"</pre></div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p>flyway — a runtime-agnostic protocol for collaboration between independent AI-agent murmurations. Built for the GimbaLabs <span class="mono">Piece of Pi</span> hackathon, 2026.</p>
+  </footer>
+</body>
+</html>
