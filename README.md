@@ -2,34 +2,82 @@
 
 # flyway
 
+### One open corridor, no controller.
+
 **A runtime-agnostic protocol for collaboration between independent AI-agent murmurations.**
 
-flyway is the shared corridor that lets autonomous murmurations discover one another, recognize each other, exchange signals, and coordinate work without surrendering sovereignty to a central controller.
+flyway is the shared airspace that lets sovereign, autonomous murmurations **discover** one another, **recognize** identity cryptographically, **exchange** governance signals, **co-sign** byte-identical agreements, and **exit clean** — without surrendering authority to a central controller.
 
-**Status (June 2026 · SHA `17f9bc1`):** see [`docs/status.md`](./docs/status.md) for the full dashboard ([visual companion](./docs/status.html)). In short: the protocol surface, agent skill, and MCP server are wired, typed, and tested. **All nine tools run end-to-end:** **`flyway_init`** produces a cryptographically signed identity (DID document, EdDSA-signed entity statement, ed25519 keypair); **`flyway_status`** reads it back and verifies signatures; **`flyway_discover`** searches a flyway directory for potential peers (pre-trust — you verify at recognition); **`flyway_recognize`** (+ `unrecognize`) writes signed peer-recognition entries; **`flyway_check`** reads and verifies incoming signals; **`flyway_tension`** signs and delivers the first cross-murmuration signal envelope (S3 *Navigate via Tension*); **`flyway_respond`** completes the round-trip on both tensions (`acknowledge` / `dispute` / `dissolve` / `transfer`) and proposals (`accept` / `object` / `exit`); **`flyway_propose`** drives the full S3 staging chain (driver → requirements → draft → refinement → final), and an accepted final-stage agreement is **materialized into a byte-identical co-signed `flyway/agreements/<id>.yaml`** on both repos (`flyway materialize`); and **`flyway_exit`** delivers a signed, unilateral clean exit that no peer can prevent. Signals travel via the ADR-0008 local-fs transport (remote directory fetch for `flyway_discover` and remote signal transport are the reserved v0.2 seams). Signing is pluggable through the `Signer` interface ([ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md)); a future `flyway-cardano` package will add a Cardano-resident signer and on-chain anchoring without touching `flyway-core`.
+**🌅 [Live site](https://murmurations-ai.github.io/flyway/) · [Presentation](https://murmurations-ai.github.io/flyway/presentation.html) · [Live demo](https://murmurations-ai.github.io/flyway/demo.html) · [Status dashboard](https://murmurations-ai.github.io/flyway/status.html)**
 
-## What Is A Murmuration?
+> **Status (protocol v0.1.0).** All **nine tools run end-to-end**. Two independent murmurations can discover each other, establish mutual recognition, exchange a tension, run a full S3 proposal-forming cycle (driver → requirements → draft → refinement → final), **co-sign an engagement agreement** (each side independently materializing a byte-identical `flyway/agreements/<id>.yaml`), and **exit cleanly** — with cryptographic verification on both sides throughout. **449 tests** across 30 files · **13 ADRs** accepted · **8 executable walkthroughs** (Tier 1–8). See [`docs/status.md`](./docs/status.md) for the full dashboard.
 
-A murmuration is any agent swarm controlled by a human **Source**.
+---
 
-> **Source** is used here in the sense developed by [Peter Koenig](https://www.tomnixon.co.uk/) and popularized in Tom Nixon's *Work with Source* (2021): the person who first takes the initiative and the risk on an idea, and who holds the vision, authority, and accountability for it. See [`docs/concepts/defining-source.md`](./docs/concepts/defining-source.md) for a primer and links to the source material.
+## Quickstart
 
-A murmuration might be:
+flyway is one typed core exposed three ways — an **agent skill**, an **MCP server**, and a **CLI**. Pick the path that fits who's driving.
 
-- a `murmurations-harness` installation
-- a Claude Code session with subagents
-- a Cursor or IDE-based agent workflow
-- an OpenClaw agent reached through chat
-- a Source scripting agents directly against LLM APIs
-- a human using GitHub manually as the system of record
+### 🧑 For a human
 
-The unifying property is not the runtime. It is a Source whose authority is anchored in a Git-addressable project, with agents or tools acting under that authority.
+```bash
+git clone https://github.com/murmurations-ai/flyway && cd flyway
+pnpm install
+pnpm --filter '!*harness' -r build
 
-## What flyway Does
+# mint this murmuration's cryptographic identity (DID + signed entity statement + Ed25519 keypair)
+node packages/cli/dist/bin/flyway.js init \
+  --repo-url https://github.com/you/your-repo --source-name "You"
 
-flyway exists to support collaboration **between** murmurations.
+# see what you've got
+node packages/cli/dist/bin/flyway.js status
+```
 
-It provides a protocol layer for independent Sources to:
+From there: `recognize` a peer, flag a `tension`, `propose` an agreement, `check` your inbox, `exit` when done. Run `flyway <command> --help` for options, or read the [live demo](https://murmurations-ai.github.io/flyway/demo.html) for the full loop.
+
+### 🤖 For an agent (or a Source pointing their murmuration at flyway)
+
+A murmuration doesn't need a human at the keyboard. Point your agent at this repo and it can learn and speak the protocol three ways:
+
+**1. Install the skill** — the [Agent Skills IO](https://agentskills.io) `SKILL.md` teaches the nine tools and works across Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI Codex, Goose, Roo Code, and 30+ agent environments:
+
+```bash
+# writes the flyway SKILL.md into your agent's skills directory
+node packages/cli/dist/bin/flyway.js skill install
+node packages/cli/dist/bin/flyway.js skill list      # what's installed, and whether it drifted
+```
+
+**2. Or run the MCP server** — exposes all nine tools over stdio to any MCP-capable client:
+
+```bash
+node packages/mcp/dist/bin/flyway-mcp.js
+# then register it in your MCP client's server config
+```
+
+**3. Or call the CLI directly** — every tool is a subcommand with `--json` output where it matters (`status --json`, `check --json`), so an agent can drive it and parse results.
+
+**What to read to learn the protocol.** The canonical specification *is* the code — there is no separate spec at v0.1:
+
+- **Tool schemas + protocol instructions:** [`packages/core/src`](./packages/core/src) — the nine tools defined once, in JSON Schema, with the instructions every adapter serves.
+- **The skill:** the generated `flyway/SKILL.md` (from [`packages/agent`](./packages/agent)) — a self-contained protocol primer written for agents.
+- **How it works:** [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — sequence diagrams, state machines, the signed-envelope contract.
+- **Executable walkthroughs:** [`docs/walkthroughs/`](./docs/walkthroughs/) — eight tiers, each running real code against a real on-disk repo, verified end to end.
+
+Everything an agent needs is Git-addressable and machine-readable. The human docs (this README, the [live site](https://murmurations-ai.github.io/flyway/)) and the agent surface describe the *same* nine tools — neither is downstream of the other.
+
+---
+
+## What is a murmuration?
+
+A murmuration is any agent swarm answering to a single human **Source**.
+
+> **Source** is used here in the sense developed by [Peter Koenig](https://www.tomnixon.co.uk/) and popularized in Tom Nixon's *Work with Source* (2021): the person who first takes the initiative and the risk on an idea, and who holds the vision, authority, and accountability for it. See [`docs/concepts/defining-source.md`](./docs/concepts/defining-source.md) for a primer.
+
+A murmuration might be a `murmurations-harness` installation, a Claude Code session with subagents, a Cursor or IDE agent workflow, an agent reached through chat, a Source scripting agents directly against LLM APIs, or a human using GitHub by hand. The unifying property is not the runtime — it is a Source whose authority is anchored in a Git-addressable project, with agents or tools acting under that authority.
+
+## What flyway does
+
+flyway exists to support collaboration **between** murmurations. It provides a protocol layer for independent Sources to:
 
 - discover one another
 - verify identity and trust
@@ -39,179 +87,87 @@ It provides a protocol layer for independent Sources to:
 - coordinate shared projects or ongoing syndicates
 - exit cleanly when collaboration ends or consent fails
 
-## What flyway Is Not
+## What flyway is not
 
-flyway is not:
+flyway is **not** a master controller above murmurations, a central authority, a runtime or required daemon, harness-specific, a dependency of `murmurations-harness`, or a mechanism for **forcing** agreement between sovereign Sources.
 
-- a master controller above murmurations
-- a central authority
-- a runtime or required daemon
-- harness-specific
-- a dependency of `murmurations-harness`
-- a mechanism for **forcing** agreement between sovereign Sources
+## What flyway is for
 
-## What flyway Is For
+flyway helps sovereign Sources **achieve consent** — surface objections, integrate concerns, and reach agreements every party can stand behind. The distinction from forced agreement is load-bearing: forcing agreement overrides one Source's authority for another's benefit; achieving consent does the work of finding what all parties can support.
 
-flyway exists to help sovereign Sources **achieve consent** — surface
-objections, integrate concerns, and reach agreements every party can stand
-behind. The distinction from forced agreement is load-bearing: forcing
-agreement overrides one Source's authority for another's benefit; achieving
-consent does the work of finding what all parties can support.
+It provides explicit primitives for that work: structured proposals, named objections with reasoning, response cycles, pluggable decision rules (S3 consent by default, lazy consent, dual-source sign, and others), and a graduated escalation ladder for tensions that don't resolve quickly. When consent genuinely cannot be reached after good-faith effort, **exit** is a valid outcome — but exit is the *end* of a process, not a substitute for one. Silence is never a valid protocol state.
 
-flyway provides explicit primitives for that work: structured proposals,
-named objections with reasoning, response cycles, pluggable decision rules
-(S3 consent by default, lazy consent, dual-source sign, and others), and
-a graduated escalation ladder for tensions that don't resolve quickly.
+## Design principles
 
-When consent genuinely cannot be reached after good-faith effort, exit is
-a valid outcome — but exit is the *end* of a process, not a substitute
-for one. Silence is never a valid protocol state.
-
-## Design Principles
-
-### Source Sovereignty
-
-Each murmuration's Source retains authority over:
-
-- who they federate with
-- what signals they accept
-- what their agents do
-- what agreements they enter
-- when they exit
-
-### Runtime Independence
-
-flyway must work across different agent runtimes and tools. The protocol should not leak assumptions from `murmurations-harness`, Claude Code, Cursor, OpenClaw, or any other client.
-
-### Git As System Of Record
-
-Each murmuration controls its own authoritative repo. Other murmurations may cache, reference, or propose changes, but they do not overwrite another Source's state.
-
-### Peer Coordination, Not Control
-
-flyway coordinates peers. It does not create a hierarchy above them.
-
-### Small Protocol, Strong Conventions
-
-The goal is not novel infrastructure. The goal is a small set of explicit conventions for identity, recognition, engagement, governance, and exit.
-
-## Shape
-
-flyway is delivered as a small TypeScript monorepo with five packages, each
-covering one role in the protocol stack:
-
-| Package                              | Role                                                                                                                                  | Status   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `@murmurations-ai/flyway-core`       | Canonical tool definitions (JSON Schema), protocol instructions, skill factory. Runtime-agnostic — no Node-only or runtime-specific deps. | Wired    |
-| `@murmurations-ai/flyway-agent`      | Spec-compliant [Agent Skills IO](https://agentskills.io) `SKILL.md` generator. Install one folder, participate from Claude Code, Cursor, VS Code Copilot, Gemini CLI, OpenAI Codex, Goose, Roo Code, and 30+ other agent environments. | Wired    |
-| `@murmurations-ai/flyway-mcp`        | MCP server (stdio) exposing the eight flyway tools to any MCP-capable client.                                                         | Wired    |
-| `@murmurations-ai/flyway-cli`        | Terminal CLI. `flyway init` generates an identity; `flyway skill list / install / uninstall` manages installed skills.                 | Wired    |
-| `@murmurations-ai/flyway-harness`    | `murmurations-harness` adapter.                                                                                                       | Stub     |
-
-None of these clients is privileged. They are different ways for a Source to
-participate in the same protocol — the agent skill is the primary interface
-([ADR-0004](./docs/adr/0004-agent-skill-as-primary-protocol-interface.md));
-everything else is a delivery adapter for the same canonical schemas in
-`flyway-core`.
-
-## Emerging Protocol Concepts
-
-Current research points toward these primitives:
-
-- **Identity:** `did:web` rooted in a Source-controlled repo
-- **Entity statements:** signed metadata inspired by OpenID Federation
-- **Discovery:** thin GitHub-hosted directories plus operator-run aggregators
-- **Recognition:** explicit pairwise recognition between Sources
-- **Engagement agreements:** per-peer or per-project rules committed to participating repos
-- **Governance:** S3-style consent by default, pluggable per agreement
-- **Exit:** clean unilateral exit as a first-class right
-
-## Relationship To murmurations-harness
-
-[`murmurations-harness`](https://github.com/murmurations-ai/murmurations-harness) is a runtime for coordinating agents within one murmuration.
-
-flyway is the protocol for coordinating between murmurations.
-
-The harness should remain useful without flyway. flyway should remain useful without the harness.
+- **Source sovereignty.** Each Source retains authority over who they federate with, what signals they accept, what their agents do, what agreements they enter, and when they exit.
+- **Runtime independence.** The protocol leaks no assumptions from any one runtime — harness, Claude Code, Cursor, or otherwise.
+- **Git as system of record.** Each murmuration controls its own authoritative repo. Others may cache, reference, or propose — never overwrite another Source's state.
+- **Peer coordination, not control.** flyway coordinates peers; it does not create a hierarchy above them.
+- **Small protocol, strong conventions.** Not novel infrastructure — a small set of explicit conventions for identity, recognition, engagement, governance, and exit.
 
 ## The nine flyway tools
 
-The protocol surface is nine tools, defined once in `flyway-core` and exposed
-through every adapter without rewriting:
+Defined once in `flyway-core`, exposed through every adapter without rewriting. All nine run end-to-end.
 
-| Tool               | Purpose                                                                                       | Status         |
-| ------------------ | --------------------------------------------------------------------------------------------- | -------------- |
-| `flyway_init`      | Initialize this murmuration's identity (DID + entity statement)                               | Wired          |
-| `flyway_status`    | Report current peers, agreements, and open signals                                            | Wired          |
-| `flyway_discover`  | Look up murmurations in a flyway directory                                                    | Not yet wired  |
-| `flyway_recognize` | Propose mutual recognition with a peer                                                        | Wired          |
-| `flyway_tension`   | Flag a tension to a peer — pre-proposal observation (S3 Navigate via Tension)                 | Wired          |
-| `flyway_propose`   | Send a directive, project, or engagement agreement to a peer                                  | Not yet wired  |
-| `flyway_respond`   | Respond to a proposal (accept/object/exit) or tension (acknowledge/dispute/dissolve/transfer) | Wired (tensions only) |
-| `flyway_check`     | Read incoming flyway signals from peers                                                       | Wired          |
-| `flyway_exit`      | Cleanly leave a peer relationship, project, or syndicate                                      | Not yet wired  |
+| Tool | Purpose | Status |
+| ---- | ------- | ------ |
+| `flyway_init` | Mint this murmuration's identity (DID + EdDSA-signed entity statement + Ed25519 keypair) | ✅ Wired |
+| `flyway_status` | Report identity, peers, agreements, effective exit-state, and inbox delivery-state | ✅ Wired |
+| `flyway_discover` | Search a flyway directory for potential peers (pre-trust; local file or `https://` URL) | ✅ Wired |
+| `flyway_recognize` | Verify a peer's identity and write a signed recognition entry (local or `did:web` over HTTPS) | ✅ Wired |
+| `flyway_tension` | Flag a tension to a recognized peer (S3 *Navigate via Tension*) | ✅ Wired |
+| `flyway_propose` | Drive the full S3 staging chain: driver → requirements → draft → refinement → final | ✅ Wired |
+| `flyway_respond` | Answer a tension (acknowledge/dispute/dissolve/transfer) or proposal (accept/object/exit) | ✅ Wired |
+| `flyway_check` | Read incoming signals; verify signatures against the recognition-time cached key | ✅ Wired |
+| `flyway_exit` | Leave a peer, project, or syndicate — a signed, unilateral notice no peer can prevent | ✅ Wired |
 
-The schemas, descriptions, and protocol instructions are the authoritative
-specification. There is no separate spec document at v0.1.
+Beyond the nine, agreement **materialization** (`flyway materialize`) turns an accepted final-stage proposal into a co-signed `flyway/agreements/<id>.yaml` — a local act over records both sides already hold. The schemas, descriptions, and protocol instructions in `flyway-core` are the authoritative specification.
 
-## Repository layout
+## Packages
 
-```
-flyway/
-├── docs/
-│   ├── adr/                # Architecture decision records (8 accepted)
-│   ├── concepts/           # Foundational primers (Source, S3, consent mechanisms)
-│   └── research/           # Pre-implementation research synthesis
-├── packages/
-│   ├── core/               # @murmurations-ai/flyway-core
-│   ├── agent/              # @murmurations-ai/flyway-agent
-│   ├── mcp/                # @murmurations-ai/flyway-mcp
-│   ├── cli/                # @murmurations-ai/flyway-cli (stub)
-│   └── harness/            # @murmurations-ai/flyway-harness (stub)
-├── pnpm-workspace.yaml
-└── tsconfig.base.json
-```
+A small TypeScript monorepo — one package per role in the protocol stack:
 
-**Where to start (for reviewers):**
+| Package | Role | Status |
+| ------- | ---- | ------ |
+| `@murmurations-ai/flyway-core` | Canonical tool definitions (JSON Schema), protocol instructions, skill factory. Runtime-agnostic. | ✅ Wired |
+| `@murmurations-ai/flyway-agent` | Spec-compliant [Agent Skills IO](https://agentskills.io) `SKILL.md` generator. One folder to participate from 30+ agent environments. | ✅ Wired |
+| `@murmurations-ai/flyway-mcp` | MCP server (stdio) exposing all nine tools to any MCP-capable client. | ✅ Wired |
+| `@murmurations-ai/flyway-cli` | Terminal CLI: `init`, `status`, `recognize`, `tension`, `propose`, `respond`, `check`, `exit`, `materialize`, `skill install/list`. | ✅ Wired |
+| `@murmurations-ai/flyway-harness` | `murmurations-harness` adapter. | Reserved |
 
-- [`docs/status.md`](./docs/status.md) — current status dashboard ([visual](./docs/status.html)): tools wired, milestones, walkthroughs, open issues, ADR digest.
-- [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — concrete sequence diagrams, state machines, and contracts. Versioned against code SHA. A visual companion with hand-crafted SVG diagrams lives at [`docs/architecture/how-flyway-works.html`](./docs/architecture/how-flyway-works.html) (open in a browser).
-- [`docs/walkthroughs/`](./docs/walkthroughs/) — three executable walkthroughs (Tier 1 / 2 / 3) prove the protocol carries real cross-murmuration acts end-to-end.
+No client is privileged. The agent skill is the primary interface ([ADR-0004](./docs/adr/0004-agent-skill-as-primary-protocol-interface.md)); everything else is a delivery adapter for the same canonical schemas.
 
-Accepted ADRs:
+## Protocol concepts
 
-- [ADR-0001](./docs/adr/0001-project-framing-and-scope.md) — project framing and scope
-- [ADR-0002](./docs/adr/0002-typescript-as-implementation-language.md) — TypeScript as implementation language
-- [ADR-0003](./docs/adr/0003-monorepo-layout.md) — pnpm monorepo layout
-- [ADR-0004](./docs/adr/0004-agent-skill-as-primary-protocol-interface.md) — agent skill as the primary protocol interface
-- [ADR-0005](./docs/adr/0005-s3-patterns-as-canonical-protocol-vocabulary.md) — S3 patterns as canonical protocol vocabulary
-- [ADR-0006](./docs/adr/0006-skill-distribution-and-installation.md) — skill distribution and installation
-- [ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md) — pluggable signers and on-chain anchoring (optional)
-- [ADR-0008](./docs/adr/0008-signal-transport-convention.md) — signal transport convention (envelope + inbox/outbox + pluggable transports)
-- [ADR-0009](./docs/adr/0009-antecedent-verification-before-signing.md) — antecedent verification before signing (the rule lives in core; adapters can't skip it)
+- **Identity:** `did:web` rooted in a Source-controlled repo
+- **Entity statements:** signed metadata inspired by OpenID Federation
+- **Discovery:** thin Git-hosted directories plus operator-run aggregators
+- **Recognition:** explicit pairwise recognition, binding a peer's key and a statement fingerprint at trust-time
+- **Engagement agreements:** per-peer or per-project rules co-signed into participating repos
+- **Governance:** S3-style consent by default, pluggable per agreement
+- **Exit:** clean, unilateral exit as a first-class right
 
-## MVP Direction
+Signing is pluggable through the `Signer` interface ([ADR-0007](./docs/adr/0007-pluggable-signers-and-anchors.md)); a future `flyway-cardano` package will add a Cardano-resident signer and on-chain anchoring without touching `flyway-core`.
 
-The MVP is a cross-runtime demonstration:
+## Relationship to murmurations-harness
 
-> mirrored cross-murmuration directives between one `murmurations-harness` installation and one Agent Skills IO–compatible agent (Claude Code, Cursor, etc.).
+[`murmurations-harness`](https://github.com/murmurations-ai/murmurations-harness) is a runtime for coordinating agents *within* one murmuration. flyway is the protocol for coordinating *between* murmurations. The harness stays useful without flyway; flyway stays useful without the harness.
 
-This intentionally proves flyway is not a harness feature — it is a protocol
-that different runtimes can speak. The wiring (tool schemas, agent skill, MCP
-server, monorepo) is in place; the next milestone implements the actual tool
-behaviour in `flyway-core`.
+## Where to start
+
+- [`docs/status.md`](./docs/status.md) — status dashboard ([visual](https://murmurations-ai.github.io/flyway/status.html)): tools wired, milestones, walkthroughs, open issues.
+- [`docs/architecture/how-flyway-works.md`](./docs/architecture/how-flyway-works.md) — sequence diagrams, state machines, contracts ([visual](https://murmurations-ai.github.io/flyway/architecture/how-flyway-works.html)).
+- [`docs/walkthroughs/`](./docs/walkthroughs/) — eight executable walkthroughs proving the protocol carries real cross-murmuration acts end to end.
+- [`docs/adr/`](./docs/adr/) — 13 accepted architecture decision records (see the [index](./docs/adr/README.md)).
 
 ## Name
 
-A flyway is an ornithological term for a shared migration corridor used by many independent flocks.
-
-That is the intended posture of this project:
-
-- shared route
-- no central authority
-- autonomy preserved
-- coordination by agreement
+A **flyway** is an ornithological term for a shared migration corridor used by many independent flocks: a shared route, no central authority, autonomy preserved, coordination by agreement. That is the posture of this project.
 
 ## License
 
-See `LICENSE`.
+MIT — see [`LICENSE`](./LICENSE).
+
+---
+
+<sub>Built for the GimbaLabs **Piece of Pi** hackathon, 2026 · [@Xeeban](https://x.com/Xeeban)</sub>
