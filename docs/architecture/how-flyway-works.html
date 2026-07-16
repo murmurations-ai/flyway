@@ -6,39 +6,38 @@
 <title>How flyway works — Architecture reference</title>
 <meta name="description" content="A concrete walk-through of the flyway protocol: components, sequence diagrams, state machines, and contracts.">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../brand.css" />
 
 <style>
   :root {
-    /* Paper (light sections) */
-    --paper: #faf7ee;
-    --paper-warm: #f4ecd8;
-    --paper-edge: #ebe3cf;
-    --ink: #1a2030;
-    --ink-soft: #3a4458;
-    --ink-mute: #6b7180;
-    --rule: #d8d0b8;
-    --rule-soft: #ebe3cf;
+    /* ── Page grounds → brand tokens (theme-aware: dusk-dark default / bright light) ── */
+    --paper: var(--ground);
+    --paper-warm: var(--surface-2);
+    --paper-edge: var(--hairline);
+    /* --ink is provided by brand.css and is theme-aware — do not redeclare */
+    --ink-soft: var(--ink-muted);
+    --ink-mute: var(--ink-faint);
+    --rule: var(--hairline);
+    --rule-soft: var(--hairline);
 
-    /* Canvas (dark diagram backgrounds) */
+    /* ── Diagram canvas — intentionally dark in BOTH themes so the inline SVG
+       palette (light figures) stays legible as a panel on the page ground ── */
     --canvas: #0f1828;
     --canvas-deep: #08101e;
     --canvas-mid: #1a2942;
     --canvas-rule: #2a3a52;
     --canvas-rule-soft: #1f2d44;
 
-    /* On-canvas text */
+    /* On-canvas text (fixed light-on-dark) */
     --inverse: #faf7ee;
     --inverse-soft: #cbc8b8;
     --inverse-mute: #94a3b8;
     --inverse-quiet: #6b7c95;
 
-    /* Accents */
-    --amber: #d97706;
-    --amber-bright: #f59e0b;
-    --gold: #fbbf24;
+    /* Accents — page chrome uses gold-ink (legible on both grounds);
+       diagram/canvas accents stay bright gold. --gold comes from brand.css. */
+    --amber: var(--gold-ink);
+    --amber-bright: var(--gold);
     --gold-soft: #fcd34d;
     --peach: #fb923c;
     --slate: #94a3b8;
@@ -48,10 +47,11 @@
     --status-implemented: #f59e0b;
     --status-deferred: #94a3b8;
 
-    /* Type */
-    --serif: 'Crimson Pro', 'Iowan Old Style', Georgia, serif;
-    --sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-    --mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+    /* Type — brand fonts, self-hosted via brand.css */
+    --display: "Archivo", system-ui, sans-serif;
+    --sans: "Plex Sans", system-ui, -apple-system, sans-serif;
+    --serif: var(--sans);
+    --mono: "Plex Mono", "SF Mono", Menlo, monospace;
 
     /* Layout */
     --measure: 64rem;
@@ -116,8 +116,9 @@
     background: var(--paper);
   }
   .site-head .marque {
-    font-family: var(--serif);
-    font-weight: 600;
+    font-family: var(--display);
+    font-stretch: 125%;
+    font-weight: 700;
     font-size: clamp(1.5rem, 2.6vw, 2rem);
     line-height: 1;
     letter-spacing: -0.005em;
@@ -188,8 +189,9 @@
 
   /* Section display heading */
   .display {
-    font-family: var(--serif);
-    font-weight: 500;
+    font-family: var(--display);
+    font-stretch: 125%;
+    font-weight: 700;
     font-size: clamp(1.85rem, 4vw, 2.8rem);
     line-height: 1.05;
     letter-spacing: -0.015em;
@@ -251,20 +253,19 @@
   .canvas {
     background: var(--canvas);
     color: var(--inverse);
-    border-radius: 4px;
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
     padding: clamp(1.25rem, 3vw, 2.25rem);
     margin: 1.75rem 0 0;
     position: relative;
-    box-shadow:
-      0 1px 0 var(--paper-edge),
-      0 12px 32px -16px rgba(15, 24, 40, 0.35);
+    box-shadow: none;
   }
   .canvas::before {
     content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
-    border-radius: 4px;
+    border-radius: 3px;
     background:
       radial-gradient(circle at 0% 0%, rgba(217, 119, 6, 0.05), transparent 40%),
       radial-gradient(circle at 100% 100%, rgba(251, 191, 36, 0.04), transparent 40%);
@@ -328,8 +329,9 @@
     display: block;
   }
   .reading-guide .item h3 {
-    font-family: var(--serif);
-    font-weight: 500;
+    font-family: var(--display);
+    font-stretch: 125%;
+    font-weight: 700;
     font-size: 1.05rem;
     color: var(--ink);
     margin-bottom: 0.25rem;
@@ -462,6 +464,7 @@
     margin-top: 4rem;
     padding: 2.5rem var(--gutter);
     background: var(--canvas);
+    border-top: 1px solid var(--hairline);
     color: var(--inverse-soft);
     font-family: var(--mono);
     font-size: 0.78rem;
@@ -1760,6 +1763,9 @@
     </div>
   </div>
 </footer>
+
+<button class="theme-toggle" data-theme-toggle aria-label="Toggle theme">◐ theme</button>
+<script src="../brand.js"></script>
 
 </body>
 </html>
