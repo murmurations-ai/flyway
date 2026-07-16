@@ -2,6 +2,40 @@ import { FLYWAY_TOOLS } from '@murmurations-ai/flyway-core'
 import { describe, expect, it } from 'vitest'
 import { callFlywayTool, listFlywayTools } from './handlers.js'
 
+// Test-only shapes for the JSON payloads returned by the handlers. Casting
+// JSON.parse's `any` to these keeps the assertions type-safe without asserting
+// the production types (which are richer than what the tests inspect).
+interface TestEnvelope {
+  id: string
+  kind: string
+  from: string
+  to: string
+  signature: { domain: string }
+  body: {
+    conditions?: string
+    relevance?: string
+    type?: string
+    stage?: string
+    decision?: string
+    concernsToRecord?: unknown[]
+  }
+  refs: { tensionId?: string; proposalId?: string }
+}
+
+interface TestPayload {
+  did: string
+  didDocument: { id: string }
+  entityStatement: {
+    sourceName: string
+    signature: { algorithm: string; domain: string }
+  }
+  keypair: { publicKeyJwk: { crv: string }; privateKeyPem: string }
+  identity: { initialized: boolean }
+  cwd: string
+  envelope: TestEnvelope
+  matches: { sourceName: string }[]
+}
+
 describe('listFlywayTools', () => {
   it('returns every flyway tool defined in flyway-core', () => {
     const result = listFlywayTools()
@@ -39,7 +73,7 @@ describe('callFlywayTool — flyway_init (implemented)', () => {
     expect(result.isError).toBeUndefined()
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(first.text)
+    const payload = JSON.parse(first.text) as TestPayload
     expect(payload.did).toBe('did:web:github.com:xeeban:flyway')
     expect(payload.didDocument.id).toBe(payload.did)
     expect(payload.entityStatement.sourceName).toBe('Nori')
@@ -81,7 +115,7 @@ describe('callFlywayTool — flyway_status (implemented)', () => {
     expect(result.isError).toBeUndefined()
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(first.text)
+    const payload = JSON.parse(first.text) as TestPayload
     expect(payload).toHaveProperty('identity')
     expect(payload).toHaveProperty('peers')
     expect(payload).toHaveProperty('agreements')
@@ -96,7 +130,7 @@ describe('callFlywayTool — flyway_status (implemented)', () => {
     expect(result.isError).toBeUndefined()
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(first.text)
+    const payload = JSON.parse(first.text) as TestPayload
     expect(payload.cwd).toBe('/')
     expect(payload.identity.initialized).toBe(false)
   })
@@ -143,7 +177,7 @@ describe('callFlywayTool — flyway_tension (implemented)', () => {
     expect(result.isError).toBeUndefined()
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(first.text)
+    const payload = JSON.parse(first.text) as TestPayload
     expect(payload.envelope.kind).toBe('tension')
     expect(payload.envelope.from).toBe(me.did)
     expect(payload.envelope.to).toBe('did:web:github.com:emergent:praxis')
@@ -226,7 +260,7 @@ describe('callFlywayTool — flyway_respond (implemented, tensions only)', () =>
     })
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    return JSON.parse(first.text).envelope
+    return (JSON.parse(first.text) as TestPayload).envelope
   }
 
   it('B can sign an acknowledge response to A’s tension', async () => {
@@ -249,7 +283,7 @@ describe('callFlywayTool — flyway_respond (implemented, tensions only)', () =>
     expect(result.isError).toBeUndefined()
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(first.text)
+    const payload = JSON.parse(first.text) as TestPayload
     expect(payload.envelope.kind).toBe('respond')
     expect(payload.envelope.from).toBe(B.did)
     expect(payload.envelope.to).toBe(A.did)
@@ -366,7 +400,7 @@ describe('callFlywayTool — flyway_propose (implemented)', () => {
     expect(result.isError).toBeUndefined()
     const first = result.content[0]
     if (first?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(first.text)
+    const payload = JSON.parse(first.text) as TestPayload
     expect(payload.envelope.kind).toBe('proposal')
     expect(payload.envelope.signature.domain).toBe('flyway-v1:proposal')
     expect(payload.envelope.body.type).toBe('directive')
@@ -450,7 +484,7 @@ describe('callFlywayTool — flyway_respond proposal branch', () => {
     })
     const proposeFirst = proposeResult.content[0]
     if (proposeFirst?.type !== 'text') throw new Error('expected text content')
-    const proposal = JSON.parse(proposeFirst.text).envelope
+    const proposal = (JSON.parse(proposeFirst.text) as TestPayload).envelope
     const respondResult = await callFlywayTool({
       method: 'tools/call',
       params: {
@@ -468,7 +502,7 @@ describe('callFlywayTool — flyway_respond proposal branch', () => {
     expect(respondResult.isError).toBeUndefined()
     const respondFirst = respondResult.content[0]
     if (respondFirst?.type !== 'text') throw new Error('expected text content')
-    const payload = JSON.parse(respondFirst.text)
+    const payload = JSON.parse(respondFirst.text) as TestPayload
     expect(payload.envelope.kind).toBe('respond')
     expect(payload.envelope.refs.proposalId).toBe(proposal.id)
     expect(payload.envelope.body.decision).toBe('accept')
@@ -493,9 +527,9 @@ describe('callFlywayTool — flyway_discover (implemented)', () => {
     expect(result.isError).toBeUndefined()
     const text = result.content[0]
     if (text?.type === 'text') {
-      const payload = JSON.parse(text.text)
+      const payload = JSON.parse(text.text) as TestPayload
       expect(payload.matches).toHaveLength(1)
-      expect(payload.matches[0].sourceName).toBe('Alpha')
+      expect(payload.matches[0]?.sourceName).toBe('Alpha')
     }
   })
 
@@ -510,7 +544,10 @@ describe('callFlywayTool — flyway_discover (implemented)', () => {
   it('returns isError (not a crash) for a malformed directory', async () => {
     const result = await callFlywayTool({
       method: 'tools/call',
-      params: { name: 'flyway_discover', arguments: { directory: { schemaVersion: '0.1.0', entries: [{ sourceName: 'no-did' }] } } },
+      params: {
+        name: 'flyway_discover',
+        arguments: { directory: { schemaVersion: '0.1.0', entries: [{ sourceName: 'no-did' }] } },
+      },
     })
     expect(result.isError).toBe(true)
   })

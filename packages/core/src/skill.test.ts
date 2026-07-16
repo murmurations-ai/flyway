@@ -84,7 +84,15 @@ describe('createFlywaySkill', () => {
     expect(respond).toBeDefined()
     const decisionSchema = respond?.inputSchema.properties?.['decision']
     expect(decisionSchema?.enum).toEqual(
-      expect.arrayContaining(['accept', 'object', 'exit', 'acknowledge', 'dispute', 'dissolve', 'transfer']),
+      expect.arrayContaining([
+        'accept',
+        'object',
+        'exit',
+        'acknowledge',
+        'dispute',
+        'dissolve',
+        'transfer',
+      ]),
     )
   })
 

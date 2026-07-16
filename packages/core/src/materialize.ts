@@ -39,7 +39,7 @@ import { join } from 'node:path'
 import { stringify as yamlStringify } from 'yaml'
 import type { FlywayAgreement, FlywayAgreementSignature } from './agreements.js'
 import type { DidDocument } from './init.js'
-import type { ProposalAgreementBody, ProposalBody } from './propose.js'
+import type { ProposalBody } from './propose.js'
 import type { ProposalResponseBody } from './respond.js'
 import { type SignedSignalEnvelope, verifySignedSignal } from './signal.js'
 import {
@@ -59,9 +59,8 @@ import {
  * materialized — state forced to 'agreed', signatures stripped (a
  * signature cannot cover itself or its co-signature).
  */
-export function buildAgreementSigningTarget(
-  agreement: FlywayAgreement,
-): FlywayAgreement {
+export function buildAgreementSigningTarget(agreement: FlywayAgreement): FlywayAgreement {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure-omit strips signatures
   const { signatures: _omit, ...rest } = agreement
   return { ...rest, state: 'agreed' }
 }
@@ -71,11 +70,7 @@ export async function signAgreement(
   agreement: FlywayAgreement,
   signer: Signer,
 ): Promise<SignatureEnvelope> {
-  return signArtifactDetached(
-    DOMAIN_AGREEMENT,
-    buildAgreementSigningTarget(agreement),
-    signer,
-  )
+  return signArtifactDetached(DOMAIN_AGREEMENT, buildAgreementSigningTarget(agreement), signer)
 }
 
 /** Verify a detached agreement signature against a participant's DID document. */
@@ -174,8 +169,7 @@ const AGREEMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/
 export async function materializeAgreement(
   input: MaterializeAgreementInput,
 ): Promise<MaterializedAgreement> {
-  const { proposalEnvelope, responseEnvelope, proposerDidDocument, responderDidDocument } =
-    input
+  const { proposalEnvelope, responseEnvelope, proposerDidDocument, responderDidDocument } = input
 
   // The proposal side.
   if (proposalEnvelope.kind !== 'proposal') {
@@ -195,7 +189,7 @@ export async function materializeAgreement(
       `materializeAgreement: only final-stage agreement proposals materialize (got stage: ${stage})`,
     )
   }
-  const agreementBody = proposalBody as ProposalAgreementBody
+  const agreementBody = proposalBody
   const proposerSignature = agreementBody.agreementSignature
   if (!proposerSignature) {
     throw new Error(
@@ -223,11 +217,14 @@ export async function materializeAgreement(
   }
   if (responseEnvelope.refs?.proposalId !== proposalEnvelope.id) {
     throw new Error(
-      `materializeAgreement: response refs.proposalId (${responseEnvelope.refs?.proposalId}) ` +
+      `materializeAgreement: response refs.proposalId (${String(responseEnvelope.refs?.proposalId)}) ` +
         `does not match proposalEnvelope.id (${proposalEnvelope.id})`,
     )
   }
-  if (responseEnvelope.from !== proposalEnvelope.to || responseEnvelope.to !== proposalEnvelope.from) {
+  if (
+    responseEnvelope.from !== proposalEnvelope.to ||
+    responseEnvelope.to !== proposalEnvelope.from
+  ) {
     throw new Error(
       'materializeAgreement: response from/to does not mirror the proposal — ' +
         `proposal ${proposalEnvelope.from} → ${proposalEnvelope.to}, ` +

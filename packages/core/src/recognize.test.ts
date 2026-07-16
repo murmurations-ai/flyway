@@ -8,11 +8,13 @@ import {
   verifyRecognitionEntry,
   verifyUnrecognitionRecord,
 } from './recognize.js'
-import {
-  DOMAIN_RECOGNITION,
-  DOMAIN_UNRECOGNITION,
-  localEd25519Signer,
-} from './signing.js'
+import { DOMAIN_RECOGNITION, DOMAIN_UNRECOGNITION, localEd25519Signer } from './signing.js'
+
+/** Assert a fixture value is present without a non-null assertion. */
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('must: expected a defined value')
+  return value
+}
 
 async function makeMurmuration(owner: string, name: string, sourceName: string) {
   const artifacts = await flywayInit({
@@ -53,7 +55,7 @@ describe('recognizePeer', () => {
     expect(entry.peerPublicKey.kty).toBe('OKP')
     expect(entry.peerPublicKey.crv).toBe('Ed25519')
     expect(entry.peerPublicKey.x).toBe(
-      B.artifacts.didDocument.verificationMethod[0]!.publicKeyJwk.x,
+      must(B.artifacts.didDocument.verificationMethod[0]).publicKeyJwk.x,
     )
   })
 
@@ -210,8 +212,6 @@ describe('peerCachePathSegments', () => {
     'did:web:github.com:xee\\ban:repo',
     'did:web:github.com:xeeban:re po',
   ])('rejects unsafe DID: %s', (did) => {
-    expect(() => peerCachePathSegments(did)).toThrow(
-      /unsafe segment|characters outside/,
-    )
+    expect(() => peerCachePathSegments(did)).toThrow(/unsafe segment|characters outside/)
   })
 })

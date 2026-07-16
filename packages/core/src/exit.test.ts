@@ -48,7 +48,11 @@ describe('createExit', () => {
     const env = await createExit({
       from: A.artifacts.did,
       to: PEER,
-      body: { target: 'retro-cadence-2026', targetType: 'project', reason: 'Cadence no longer fits.' },
+      body: {
+        target: 'retro-cadence-2026',
+        targetType: 'project',
+        reason: 'Cadence no longer fits.',
+      },
       signer: A.signer,
     })
     const body = env.body as Record<string, unknown>
@@ -90,8 +94,7 @@ describe('createExit', () => {
       createExit({
         from: A.artifacts.did,
         to: PEER,
-        // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-        body: { target: PEER, targetType: 'galaxy' as any },
+        body: { target: PEER, targetType: 'galaxy' as never },
         signer: A.signer,
       }),
     ).rejects.toThrow(/targetType must be one of/)

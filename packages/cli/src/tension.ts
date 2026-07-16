@@ -68,15 +68,11 @@ export async function runTension(options: RunTensionOptions): Promise<RunTension
     ['private key', ourKeyPath] as const,
   ]) {
     if (!existsSync(p)) {
-      throw new Error(
-        `flyway tension: missing our ${label} at ${p}. Run \`flyway init\` first.`,
-      )
+      throw new Error(`flyway tension: missing our ${label} at ${p}. Run \`flyway init\` first.`)
     }
   }
   const ourDidDocument = JSON.parse(readFileSync(ourDidDocPath, 'utf-8')) as DidDocument
-  const ourEntityStatement = JSON.parse(
-    readFileSync(ourStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
+  const ourEntityStatement = JSON.parse(readFileSync(ourStmtPath, 'utf-8')) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
   // 2. Resolve the peer DID from their published did.json.
@@ -84,7 +80,7 @@ export async function runTension(options: RunTensionOptions): Promise<RunTension
   if (!existsSync(peerDidDocPath)) {
     throw new Error(
       `flyway tension: peer DID document missing at ${peerDidDocPath}. ` +
-        `Is ${peerRepoPath} a flyway-initialized repo?`,
+        `Run \`flyway init\` in ${peerRepoPath} first, or point at the peer's initialized repo.`,
     )
   }
   const peerDidDocument = JSON.parse(readFileSync(peerDidDocPath, 'utf-8')) as DidDocument
@@ -104,8 +100,7 @@ export async function runTension(options: RunTensionOptions): Promise<RunTension
 
   // 4. Build the signer and the signed envelope.
   const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
-  const verificationKeyId =
-    ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
+  const verificationKeyId = ourEntityStatement.verificationKeyId
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
     publicKeyJwk: ownVerificationMethod.publicKeyJwk,

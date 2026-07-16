@@ -4,7 +4,7 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
   {
     name: 'flyway_init',
     description:
-      'Initialize flyway in this agent\'s repository. Generates a DID document at ' +
+      "Initialize flyway in this agent's repository. Generates a DID document at " +
       '.well-known/did.json and an entity statement at flyway/entity-statement.json. ' +
       'Run once per Source. After init, the agent has a stable identity and can be ' +
       'discovered and recognized by peers.',
@@ -14,7 +14,7 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
         repoUrl: {
           type: 'string',
           description:
-            'HTTPS URL of this agent\'s GitHub repository (e.g. https://github.com/org/repo)',
+            "HTTPS URL of this agent's GitHub repository (e.g. https://github.com/org/repo)",
         },
         sourceName: {
           type: 'string',
@@ -217,8 +217,7 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
       properties: {
         subjectId: {
           type: 'string',
-          description:
-            'ID of the proposal or tension to respond to (returned by flyway_check).',
+          description: 'ID of the proposal or tension to respond to (returned by flyway_check).',
         },
         decision: {
           type: 'string',
@@ -243,7 +242,7 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
         transferTo: {
           type: 'string',
           description:
-            "DID of the peer or role this tension should be transferred to. " +
+            'DID of the peer or role this tension should be transferred to. ' +
             "Required when decision is 'transfer'.",
         },
       },
@@ -278,15 +277,14 @@ export const FLYWAY_TOOLS: readonly FlywayToolDefinition[] = [
     description:
       'Exit a peer relationship, project, or syndicate cleanly. Exit is always valid — ' +
       'no peer can prevent it. The exit is recorded in both repos. In-flight work may ' +
-      'continue per the agreement\'s transition clause, but no new joint commitments ' +
+      "continue per the agreement's transition clause, but no new joint commitments " +
       'are made after exit.',
     inputSchema: {
       type: 'object',
       properties: {
         target: {
           type: 'string',
-          description:
-            'DID of the peer (for peer exit) or ID of the project or syndicate to exit',
+          description: 'DID of the peer (for peer exit) or ID of the project or syndicate to exit',
         },
         targetType: {
           type: 'string',

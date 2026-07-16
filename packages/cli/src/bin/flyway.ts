@@ -6,6 +6,7 @@ import {
   type FlywayMode,
   PROPOSAL_DECISIONS,
   type ProposalDecision,
+  type ProposalBody,
   type ProposalRequirement,
   type ProposalStage,
   PROPOSAL_STAGES,
@@ -28,13 +29,7 @@ import { runRecognize } from '../recognize.js'
 import { runRespond } from '../respond.js'
 import { runTension } from '../tension.js'
 import { runUnrecognize } from '../unrecognize.js'
-import {
-  inferTarget,
-  installSkill,
-  listSkills,
-  SKILL_REGISTRY,
-  uninstallSkill,
-} from '../skill.js'
+import { inferTarget, installSkill, listSkills, SKILL_REGISTRY, uninstallSkill } from '../skill.js'
 
 const HELP = `flyway — runtime-agnostic protocol for cross-murmuration collaboration
 
@@ -173,17 +168,9 @@ directory: .claude/skills/ if a .claude/ directory exists; ./skills/ otherwise.
 More: https://github.com/murmurations-ai/flyway
 `
 
-const VALID_MODES: readonly FlywayMode[] = [
-  'persistent',
-  'interactive',
-  'async',
-  'ephemeral',
-]
+const VALID_MODES: readonly FlywayMode[] = ['persistent', 'interactive', 'async', 'ephemeral']
 
-function parseFlag(
-  args: string[],
-  flag: string,
-): { value: string | undefined; rest: string[] } {
+function parseFlag(args: string[], flag: string): { value: string | undefined; rest: string[] } {
   const idx = args.indexOf(flag)
   if (idx === -1) return { value: undefined, rest: args }
   const value = args[idx + 1]
@@ -214,9 +201,7 @@ function handleSkillCommand(args: string[]): number {
       const [name] = positional
       if (!name) {
         process.stderr.write('error: flyway skill install requires a skill name\n')
-        process.stderr.write(
-          `available skills: ${Object.keys(SKILL_REGISTRY).join(', ')}\n`,
-        )
+        process.stderr.write(`available skills: ${Object.keys(SKILL_REGISTRY).join(', ')}\n`)
         return 2
       }
       const target = explicitTarget ?? inferTarget().target
@@ -259,9 +244,7 @@ function handleSkillCommand(args: string[]): number {
     }
 
     default:
-      process.stderr.write(
-        `error: unknown skill subcommand: ${subcommand ?? '(none)'}\n\n`,
-      )
+      process.stderr.write(`error: unknown skill subcommand: ${subcommand ?? '(none)'}\n\n`)
       process.stderr.write(HELP)
       return 2
   }
@@ -306,18 +289,14 @@ async function handleInitCommand(args: string[]): Promise<number> {
   const { present: force } = parseBoolFlag(r3, '--force')
 
   if (!repoUrl || !sourceName) {
-    process.stderr.write(
-      'error: flyway init requires --repo-url and --source-name\n\n',
-    )
+    process.stderr.write('error: flyway init requires --repo-url and --source-name\n\n')
     process.stderr.write(HELP)
     return 2
   }
 
   const mode: FlywayMode = (modeRaw as FlywayMode | undefined) ?? 'interactive'
   if (!VALID_MODES.includes(mode)) {
-    process.stderr.write(
-      `error: --mode must be one of ${VALID_MODES.join(', ')} (got: ${mode})\n`,
-    )
+    process.stderr.write(`error: --mode must be one of ${VALID_MODES.join(', ')} (got: ${mode})\n`)
     return 2
   }
 
@@ -355,24 +334,20 @@ async function handleStatusCommand(args: string[]): Promise<number> {
       process.stdout.write(JSON.stringify(status, null, 2) + '\n')
       return 0
     }
-    const { identity, peers, agreements } = status
+    const { identity, peers, agreements, inbox } = status
     const head = identity.initialized
-      ? `Identity: ${identity.did}  (signature ${identity.signatureValid ? 'valid' : 'INVALID'})`
+      ? `Identity: ${String(identity.did)}  (signature ${identity.signatureValid ? 'valid' : 'INVALID'})`
       : 'Identity: not initialized'
     process.stdout.write(head + '\n')
     if (identity.initialized) {
-      process.stdout.write(`  Source:   ${identity.sourceName}\n`)
-      process.stdout.write(`  Mode:     ${identity.mode}\n`)
+      process.stdout.write(`  Source:   ${String(identity.sourceName)}\n`)
+      process.stdout.write(`  Mode:     ${String(identity.mode)}\n`)
     }
     for (const issue of identity.issues) {
       process.stdout.write(`  ! ${issue}\n`)
     }
     process.stdout.write(
-      `\nPeers:    ${
-        peers.present
-          ? `${peers.count} recognized`
-          : 'no peers file yet'
-      }\n`,
+      `\nPeers:    ${peers.present ? `${String(peers.count)} recognized` : 'no peers file yet'}\n`,
     )
     for (const peer of peers.entries) {
       const sig = peer.recognitionValid ? 'sig valid' : 'sig INVALID'
@@ -383,8 +358,8 @@ async function handleStatusCommand(args: string[]): Promise<number> {
       process.stdout.write(`  - ${peer.sourceName} (${peer.did}) — ${sig}${closed}\n`)
     }
     process.stdout.write(
-      `\nAgreements: ${agreements.count} on file` +
-        (agreements.closedCount > 0 ? `, ${agreements.closedCount} closed` : '') +
+      `\nAgreements: ${String(agreements.count)} on file` +
+        (agreements.closedCount > 0 ? `, ${String(agreements.closedCount)} closed` : '') +
         '\n',
     )
     for (const a of agreements.entries) {
@@ -397,6 +372,14 @@ async function handleStatusCommand(args: string[]): Promise<number> {
     }
     for (const issue of agreements.entries.flatMap((a) => a.issues).concat(status.exits.issues)) {
       process.stdout.write(`  ! ${issue}\n`)
+    }
+    process.stdout.write(
+      `\nInbox:    ${String(inbox.total)} signal${inbox.total === 1 ? '' : 's'} ` +
+        `(${String(inbox.verified)} verified` +
+        `${inbox.flagged > 0 ? `, ${String(inbox.flagged)} flagged` : ''})\n`,
+    )
+    if (inbox.flagged > 0) {
+      process.stdout.write('  Run `flyway check` to inspect flagged signals.\n')
     }
     const peerSigBroken = peers.entries.some((p) => !p.recognitionValid)
     return identity.initialized && identity.issues.length === 0 && !peerSigBroken ? 0 : 1
@@ -489,9 +472,7 @@ async function handleTensionCommand(args: string[]): Promise<number> {
     return 2
   }
   if (!conditions || !effect) {
-    process.stderr.write(
-      'error: flyway tension requires --conditions and --effect\n\n',
-    )
+    process.stderr.write('error: flyway tension requires --conditions and --effect\n\n')
     process.stderr.write(HELP)
     return 2
   }
@@ -538,10 +519,7 @@ function isProposalStage(value: string): value is ProposalStage {
 }
 
 /** Collect every `--<flag>` occurrence and return its values + the rest of argv. */
-function parseRepeatedFlag(
-  args: string[],
-  flag: string,
-): { values: string[]; rest: string[] } {
+function parseRepeatedFlag(args: string[], flag: string): { values: string[]; rest: string[] } {
   const values: string[] = []
   const rest: string[] = []
   for (let i = 0; i < args.length; i++) {
@@ -575,9 +553,7 @@ async function handleRespondCommand(args: string[]): Promise<number> {
     return 2
   }
   if (!subjectId || !decisionRaw) {
-    process.stderr.write(
-      'error: flyway respond requires --subject-id and --decision\n\n',
-    )
+    process.stderr.write('error: flyway respond requires --subject-id and --decision\n\n')
     process.stderr.write(HELP)
     return 2
   }
@@ -628,10 +604,7 @@ async function handleProposeCommand(args: string[]): Promise<number> {
   const { value: promoteTensionId, rest: r6 } = parseFlag(r5, '--promote-tension-id')
   const { value: deadline, rest: r7 } = parseFlag(r6, '--deadline')
   const { value: agreementFile, rest: r8 } = parseFlag(r7, '--agreement-file')
-  const { value: requirementsFile, rest: positional } = parseFlag(
-    r8,
-    '--requirements-file',
-  )
+  const { value: requirementsFile, rest: positional } = parseFlag(r8, '--requirements-file')
   const [peerRepoPath] = positional
 
   if (!peerRepoPath) {
@@ -640,9 +613,7 @@ async function handleProposeCommand(args: string[]): Promise<number> {
     return 2
   }
   if (!typeRaw || !title || !body) {
-    process.stderr.write(
-      'error: flyway propose requires --type, --title, and --body\n\n',
-    )
+    process.stderr.write('error: flyway propose requires --type, --title, and --body\n\n')
     process.stderr.write(HELP)
     return 2
   }
@@ -671,7 +642,7 @@ async function handleProposeCommand(args: string[]): Promise<number> {
   if (typeRaw === 'agreement') {
     if (!agreementFile) {
       process.stderr.write(
-        "error: --type=agreement requires --agreement-file <path> pointing at a YAML/JSON FlywayAgreement.\n",
+        'error: --type=agreement requires --agreement-file <path> pointing at a YAML/JSON FlywayAgreement.\n',
       )
       return 2
     }
@@ -687,7 +658,7 @@ async function handleProposeCommand(args: string[]): Promise<number> {
   if (stage === 'requirements') {
     if (!requirementsFile) {
       process.stderr.write(
-        "error: --stage=requirements requires --requirements-file <path> pointing at a YAML/JSON list of {id,description,mustOrShould?,rationale?}.\n",
+        'error: --stage=requirements requires --requirements-file <path> pointing at a YAML/JSON list of {id,description,mustOrShould?,rationale?}.\n',
       )
       return 2
     }
@@ -696,11 +667,9 @@ async function handleProposeCommand(args: string[]): Promise<number> {
       return 2
     }
     const raw = readFileSync(requirementsFile, 'utf-8')
-    const parsed = parseDocument(raw).toJS()
+    const parsed: unknown = parseDocument(raw).toJS()
     if (!Array.isArray(parsed)) {
-      process.stderr.write(
-        `error: --requirements-file must parse to a YAML/JSON array.\n`,
-      )
+      process.stderr.write(`error: --requirements-file must parse to a YAML/JSON array.\n`)
       return 2
     }
     requirements = parsed as ProposalRequirement[]
@@ -719,8 +688,8 @@ async function handleProposeCommand(args: string[]): Promise<number> {
     const result = await runPropose({
       cwd: process.cwd(),
       peerRepoPath,
-      // biome-ignore lint/suspicious/noExplicitAny: discriminated body assembled from CLI flags
-      body: proposalBody as any,
+      // discriminated body assembled from CLI flags; structural cast to the core union
+      body: proposalBody as unknown as ProposalBody,
       ...(previousStageId !== undefined ? { previousStageId } : {}),
       ...(promoteTensionId !== undefined ? { promoteTensionId } : {}),
       ...(transport !== undefined ? { transport } : {}),
@@ -820,9 +789,11 @@ async function handleMaterializeCommand(args: string[]): Promise<number> {
       `Materialized co-signed agreement with ${result.peerDid}\n` +
         `  agreement: ${materialized.agreement.id}\n` +
         `  state:     ${materialized.agreement.state}\n` +
-        `  signers:   ${materialized.agreement.signatures?.map((s) => s.participant).join(', ')}\n` +
+        `  signers:   ${String(materialized.agreement.signatures?.map((s) => s.participant).join(', '))}\n` +
         `  sha256:    ${materialized.sha256}\n` +
-        (result.created ? `  wrote ${result.path}\n` : `  already on file ${result.path} (identical bytes)\n`) +
+        (result.created
+          ? `  wrote ${result.path}\n`
+          : `  already on file ${result.path} (identical bytes)\n`) +
         '\nThe peer materializes the same file from their own records — compare\n' +
         'the sha256 values to confirm byte-identity.\n',
     )
@@ -852,7 +823,12 @@ async function handleDiscoverCommand(args: string[]): Promise<number> {
     if (asJson) {
       process.stdout.write(
         JSON.stringify(
-          { query: result.query, byDid: result.byDid, total: result.total, matches: result.matches },
+          {
+            query: result.query,
+            byDid: result.byDid,
+            total: result.total,
+            matches: result.matches,
+          },
           null,
           2,
         ) + '\n',
@@ -860,11 +836,12 @@ async function handleDiscoverCommand(args: string[]): Promise<number> {
       return 0
     }
     const scope = result.query
-      ? `${result.matches.length} of ${result.total} match${result.matches.length === 1 ? '' : 'es'} for "${result.query}"`
-      : `${result.total} murmuration${result.total === 1 ? '' : 's'}`
+      ? `${String(result.matches.length)} of ${String(result.total)} match${result.matches.length === 1 ? '' : 'es'} for "${result.query}"`
+      : `${String(result.total)} murmuration${result.total === 1 ? '' : 's'}`
     process.stdout.write(`Directory: ${scope}\n`)
     for (const e of result.matches) {
-      const tags = e.capabilities && e.capabilities.length > 0 ? `  [${e.capabilities.join(', ')}]` : ''
+      const tags =
+        e.capabilities && e.capabilities.length > 0 ? `  [${e.capabilities.join(', ')}]` : ''
       const mode = e.mode ? ` (${e.mode})` : ''
       process.stdout.write(`  - ${e.sourceName}${mode}  ${e.did}${tags}\n`)
       if (e.repoUrl) process.stdout.write(`      ${e.repoUrl}\n`)
@@ -892,7 +869,7 @@ async function handleCheckCommand(args: string[]): Promise<number> {
       return 0
     }
     process.stdout.write(
-      `Inbox: ${inbox.totalCount} signal${inbox.totalCount === 1 ? '' : 's'} (${inbox.validCount} verified)\n`,
+      `Inbox: ${String(inbox.totalCount)} signal${inbox.totalCount === 1 ? '' : 's'} (${String(inbox.validCount)} verified)\n`,
     )
     for (const s of inbox.signals) {
       const status = s.signatureValid
@@ -964,7 +941,7 @@ async function main(argv: string[]): Promise<number> {
 
 main(process.argv.slice(2)).then(
   (code) => process.exit(code),
-  (e) => {
+  (e: unknown) => {
     process.stderr.write(`fatal: ${(e as Error).message}\n`)
     process.exit(1)
   },

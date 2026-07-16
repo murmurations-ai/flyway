@@ -88,15 +88,13 @@ export interface CreateExitInput {
  * No antecedent verification: exit is unilateral and always valid, so it
  * does not sign over a prior artifact the way a response does.
  */
-export async function createExit(
-  input: CreateExitInput,
-): Promise<SignedSignalEnvelope> {
+export async function createExit(input: CreateExitInput): Promise<SignedSignalEnvelope> {
   const { body } = input
 
   if (!EXIT_TARGET_TYPES.includes(body.targetType)) {
     throw new Error(
       `createExit: targetType must be one of ${EXIT_TARGET_TYPES.join(', ')} ` +
-        `(got: ${String(body.targetType)})`,
+        `(got: ${body.targetType})`,
     )
   }
   if (typeof body.target !== 'string' || body.target.trim() === '') {

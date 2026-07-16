@@ -13,6 +13,12 @@ import {
 } from './signal.js'
 import { localEd25519Signer } from './signing.js'
 
+/** Assert a fixture value is present without a non-null assertion. */
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('must: expected a defined value')
+  return value
+}
+
 function freshTmp(): string {
   return mkdtempSync(join(tmpdir(), 'flyway-check-test-'))
 }
@@ -36,9 +42,14 @@ async function makeMurmuration(owner: string, name: string) {
  * and the cached peer DID document. Mirrors what flyway init + flyway
  * recognize would produce, without going through the CLI.
  */
-async function seedReceiverWithRecognizedPeer(cwd: string, peer: {
-  artifacts: { did: string; didDocument: unknown; entityStatement: unknown }
-}, ours: { artifacts: { did: string; didDocument: unknown; entityStatement: unknown } }) {
+// eslint-disable-next-line @typescript-eslint/require-await -- callers-await; keeps the async signature
+async function seedReceiverWithRecognizedPeer(
+  cwd: string,
+  peer: {
+    artifacts: { did: string; didDocument: unknown; entityStatement: unknown }
+  },
+  ours: { artifacts: { did: string; didDocument: unknown; entityStatement: unknown } },
+) {
   // Own identity
   mkdirSync(join(cwd, '.well-known'), { recursive: true })
   mkdirSync(join(cwd, 'flyway', 'keys'), { recursive: true })
@@ -54,10 +65,7 @@ async function seedReceiverWithRecognizedPeer(cwd: string, peer: {
   const peerSegs = peer.artifacts.did.replace(/^did:web:/, '').split(':')
   const peerCache = join(cwd, 'flyway', 'peers', ...peerSegs)
   mkdirSync(peerCache, { recursive: true })
-  writeFileSync(
-    join(peerCache, 'did.json'),
-    JSON.stringify(peer.artifacts.didDocument, null, 2),
-  )
+  writeFileSync(join(peerCache, 'did.json'), JSON.stringify(peer.artifacts.didDocument, null, 2))
   writeFileSync(
     join(peerCache, 'entity-statement.json'),
     JSON.stringify(peer.artifacts.entityStatement, null, 2),
@@ -67,8 +75,10 @@ async function seedReceiverWithRecognizedPeer(cwd: string, peer: {
   const fp = fingerprintEntityStatement(
     peer.artifacts.entityStatement as Parameters<typeof fingerprintEntityStatement>[0],
   )
-  const peerKey = (peer.artifacts.didDocument as { verificationMethod: { publicKeyJwk: { x: string } }[] })
-    .verificationMethod[0]!.publicKeyJwk.x
+  const peerKey = must(
+    (peer.artifacts.didDocument as { verificationMethod: { publicKeyJwk: { x: string } }[] })
+      .verificationMethod[0],
+  ).publicKeyJwk.x
   const peersYaml = [
     'schema: flyway-peers-v0',
     'peers:',
@@ -138,7 +148,7 @@ describe('flywayCheck — signal from a recognized peer', () => {
     const result = await flywayCheck(tmp)
     expect(result.totalCount).toBe(1)
     expect(result.validCount).toBe(1)
-    const entry = result.signals[0]!
+    const entry = must(result.signals[0])
     expect(entry.kind).toBe('tension')
     expect(entry.fromRecognized).toBe(true)
     expect(entry.signatureValid).toBe(true)
@@ -200,11 +210,9 @@ describe('flywayCheck — sentAt vs recognizedAt ordering', () => {
     const result = await flywayCheck(tmp)
     expect(result.totalCount).toBe(1)
     expect(result.validCount).toBe(0)
-    const entry = result.signals[0]!
+    const entry = must(result.signals[0])
     expect(entry.signatureValid).toBe(true) // signature itself is valid
-    expect(
-      entry.issues.some((i) => /predates peer recognizedAt/.test(i)),
-    ).toBe(true)
+    expect(entry.issues.some((i) => /predates peer recognizedAt/.test(i))).toBe(true)
   })
 })
 
@@ -253,6 +261,45 @@ describe('flywayCheck — refs.tensionId resolution (Issue #14 / G7)', () => {
     expect(result.signals[0]?.issues).toEqual([])
   })
 
+  it('flags a respond signal dated before the subject it answers (Issue #16 / G9)', async () => {
+    const recipient = await makeMurmuration('xeeban', 'r')
+    const responder = await makeMurmuration('emergent', 'p')
+    await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
+
+    // Our tension was sent at 12:00.
+    const ourTension = await buildSignedSignal({
+      from: recipient.artifacts.did,
+      to: responder.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'X', effect: 'Y' },
+      signer: recipient.signer,
+      id: 'our-tension-2',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+    })
+    writeSignalToOutbox(tmp, ourTension)
+
+    // Their response is dated 11:00 — an hour BEFORE the subject. The
+    // signature is valid and the ref resolves, but the ordering is
+    // impossible for a genuine reply.
+    const earlyResponse = await buildSignedSignal({
+      from: responder.artifacts.did,
+      to: recipient.artifacts.did,
+      kind: 'respond',
+      body: { decision: 'acknowledge' },
+      refs: { tensionId: 'our-tension-2', inReplyTo: 'our-tension-2' },
+      signer: responder.signer,
+      id: 'early-response-1',
+      now: new Date('2026-05-25T11:00:00.000Z'),
+    })
+    writeSignalToInbox(tmp, earlyResponse)
+
+    const result = await flywayCheck(tmp)
+    expect(result.totalCount).toBe(1)
+    expect(result.validCount).toBe(0)
+    const issues = result.signals[0]?.issues ?? []
+    expect(issues.some((i) => /predates its subject/.test(i))).toBe(true)
+  })
+
   it("flags a respond signal whose refs.tensionId doesn't exist in our outbox (fabricated reference)", async () => {
     const recipient = await makeMurmuration('xeeban', 'r')
     const responder = await makeMurmuration('emergent', 'p')
@@ -278,7 +325,7 @@ describe('flywayCheck — refs.tensionId resolution (Issue #14 / G7)', () => {
     expect(issues.some((i) => /no matching signal in our outbox/.test(i))).toBe(true)
   })
 
-  it("flags a respond signal whose refs.tensionId resolves to a tension we sent to someone else", async () => {
+  it('flags a respond signal whose refs.tensionId resolves to a tension we sent to someone else', async () => {
     const recipient = await makeMurmuration('xeeban', 'r')
     const responder = await makeMurmuration('emergent', 'p')
     const third = await makeMurmuration('third', 'party')
@@ -337,11 +384,13 @@ describe('flywayCheck — refs.tensionId resolution (Issue #14 / G7)', () => {
 
     const result = await flywayCheck(tmp)
     const issues = result.signals[0]?.issues ?? []
-    expect(issues.some((i) => /missing both refs\.tensionId and refs\.proposalId/.test(i))).toBe(true)
+    expect(issues.some((i) => /missing both refs\.tensionId and refs\.proposalId/.test(i))).toBe(
+      true,
+    )
     expect(result.validCount).toBe(0)
   })
 
-  it("flags a respond signal whose refs.tensionId resolves to a non-tension signal", async () => {
+  it('flags a respond signal whose refs.tensionId resolves to a non-tension signal', async () => {
     const recipient = await makeMurmuration('xeeban', 'r')
     const responder = await makeMurmuration('emergent', 'p')
     await seedReceiverWithRecognizedPeer(tmp, responder, recipient)
@@ -412,7 +461,7 @@ describe('flywayCheck — signal from an unrecognized sender', () => {
     const result = await flywayCheck(tmp)
     expect(result.totalCount).toBe(1)
     expect(result.validCount).toBe(0)
-    const entry = result.signals[0]!
+    const entry = must(result.signals[0])
     expect(entry.fromRecognized).toBe(false)
     expect(entry.signatureValid).toBeUndefined()
     expect(entry.issues.some((i) => /not in flyway\/peers/.test(i))).toBe(true)
@@ -452,13 +501,9 @@ describe('flywayCheck — misplaced signals', () => {
     )
 
     const result = await flywayCheck(tmp)
-    const entry = result.signals.find(
-      (s) => s.envelope.id === 'mp-001',
-    )
+    const entry = result.signals.find((s) => s.envelope.id === 'mp-001')
     expect(entry).toBeDefined()
     expect(entry?.fromPathMatchesEnvelope).toBe(false)
-    expect(
-      entry?.issues.some((i) => /not in the expected inbox/.test(i)),
-    ).toBe(true)
+    expect(entry?.issues.some((i) => /not in the expected inbox/.test(i))).toBe(true)
   })
 })

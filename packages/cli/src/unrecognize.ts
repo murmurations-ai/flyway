@@ -17,6 +17,7 @@ import {
   type DidDocument,
   type SignedEntityStatement,
   type SignedUnrecognitionRecord,
+  getPrimaryVerificationKey,
   localEd25519Signer,
   unrecognizePeer,
 } from '@murmurations-ai/flyway-core'
@@ -57,9 +58,7 @@ export async function runUnrecognize(
     }
   }
   const ourDidDocument = JSON.parse(readFileSync(ourDidDocPath, 'utf-8')) as DidDocument
-  const ourEntityStatement = JSON.parse(
-    readFileSync(ourStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
+  const ourEntityStatement = JSON.parse(readFileSync(ourStmtPath, 'utf-8')) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
   // 2. Find the peer in peers.yaml.
@@ -67,18 +66,19 @@ export async function runUnrecognize(
   const peersFile = readPeersFile(peersFilePath)
   const idx = peersFile.peers.findIndex((p) => p.did === peerDid)
   if (idx < 0) {
-    throw new Error(
-      `flyway unrecognize: peer ${peerDid} is not currently in ${peersFilePath}.`,
-    )
+    throw new Error(`flyway unrecognize: peer ${peerDid} is not currently in ${peersFilePath}.`)
   }
-  const priorEntry = peersFile.peers[idx]!
+  const priorEntry = peersFile.peers[idx]
+  if (priorEntry === undefined) {
+    throw new Error(`flyway unrecognize: peer ${peerDid} is not currently in ${peersFilePath}.`)
+  }
 
   // 3. Build a signer and produce a signed unrecognition record.
+  const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
-    publicKeyJwk: ourDidDocument.verificationMethod[0]!.publicKeyJwk,
-    verificationKeyId:
-      ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`,
+    publicKeyJwk: ownVerificationMethod.publicKeyJwk,
+    verificationKeyId: ourEntityStatement.verificationKeyId,
   })
   const record = await unrecognizePeer({
     priorEntry,

@@ -1,12 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import {
-  type FlywayAgreement,
-  FLYWAY_AGREEMENT_SCHEMA_VERSION,
-} from './agreements.js'
+import { type FlywayAgreement, FLYWAY_AGREEMENT_SCHEMA_VERSION } from './agreements.js'
 import { flywayInit } from './init.js'
 import {
   type ProposalAgreementBody,
-  type ProposalAntecedent,
   type ProposalBody,
   type ProposalDirectiveBody,
   PROPOSAL_STAGES,
@@ -54,9 +50,7 @@ function exampleAgreement(participants: readonly string[]): FlywayAgreement {
   }
 }
 
-function directive(
-  partial: Partial<ProposalDirectiveBody> = {},
-): ProposalDirectiveBody {
+function directive(partial: Partial<ProposalDirectiveBody> = {}): ProposalDirectiveBody {
   return {
     type: 'directive',
     title: 'Send weekly status digest',
@@ -75,13 +69,7 @@ describe('PROPOSAL_TYPES / PROPOSAL_STAGES', () => {
   })
 
   it('lists the five proposal stages in canonical order', () => {
-    expect(PROPOSAL_STAGES).toEqual([
-      'driver',
-      'requirements',
-      'draft',
-      'refinement',
-      'final',
-    ])
+    expect(PROPOSAL_STAGES).toEqual(['driver', 'requirements', 'draft', 'refinement', 'final'])
   })
 })
 
@@ -162,7 +150,7 @@ describe('createProposal — happy paths', () => {
     expect(body.agreement.participants).toContain(B.artifacts.did)
   })
 
-  it("signs a requirements-stage proposal with structured requirements (Issue #6)", async () => {
+  it('signs a requirements-stage proposal with structured requirements (Issue #6)', async () => {
     const A = await makeMurmuration('xeeban', 'a')
     // Build a chain: driver → requirements
     const driverProposal = await createProposal({
@@ -180,7 +168,11 @@ describe('createProposal — happy paths', () => {
         stage: 'requirements',
         previousStageId: 'driver-001',
         requirements: [
-          { id: 'r1', description: 'Digest is delivered by Friday 17:00 UTC.', mustOrShould: 'must' },
+          {
+            id: 'r1',
+            description: 'Digest is delivered by Friday 17:00 UTC.',
+            mustOrShould: 'must',
+          },
           { id: 'r2', description: 'Digest under 500 words.', mustOrShould: 'should' },
         ],
       },
@@ -262,8 +254,7 @@ describe('createProposal — base field validation', () => {
       createProposal({
         from: A.artifacts.did,
         to: 'did:web:github.com:emergent:praxis',
-        // biome-ignore lint/suspicious/noExplicitAny: validating runtime input
-        body: { ...directive(), type: 'maybe' as any },
+        body: { ...directive(), type: 'maybe' as never },
         signer: A.signer,
       }),
     ).rejects.toThrow(/type must be one of/)
@@ -293,8 +284,7 @@ describe('createProposal — base field validation', () => {
       createProposal({
         from: A.artifacts.did,
         to: 'did:web:github.com:emergent:praxis',
-        // biome-ignore lint/suspicious/noExplicitAny: validating runtime input
-        body: { ...directive(), stage: 'almost-final' as any },
+        body: { ...directive(), stage: 'almost-final' as never },
         signer: A.signer,
       }),
     ).rejects.toThrow(/stage must be one of/)
@@ -323,8 +313,7 @@ describe("createProposal — type='agreement' validation", () => {
       createProposal({
         from: A.artifacts.did,
         to: 'did:web:github.com:emergent:praxis',
-        // biome-ignore lint/suspicious/noExplicitAny: validating runtime input
-        body: { type: 'agreement', title: 'X', body: 'Y' } as any,
+        body: { type: 'agreement', title: 'X', body: 'Y' } as never,
         signer: A.signer,
       }),
     ).rejects.toThrow(/requires body\.agreement/)
@@ -490,7 +479,7 @@ describe('createProposal — stage validation', () => {
     ).rejects.toThrow(/invalid stage transition/)
   })
 
-  it("rejects previousStageId mismatch with proposalAntecedent.envelope.id", async () => {
+  it('rejects previousStageId mismatch with proposalAntecedent.envelope.id', async () => {
     const draft = await createProposal({
       from: A.artifacts.did,
       to: 'did:web:github.com:emergent:praxis',
@@ -554,7 +543,7 @@ describe('createProposal — antecedent verification (ADR-0009)', () => {
     ).rejects.toThrow(/tensionAntecedent\.envelope\.kind must be 'tension'/)
   })
 
-  it("rejects a tension antecedent with mismatched senderDidDocument", async () => {
+  it('rejects a tension antecedent with mismatched senderDidDocument', async () => {
     const A = await makeMurmuration('xeeban', 'a')
     const B = await makeMurmuration('emergent', 'praxis')
     const C = await makeMurmuration('third', 'party')
@@ -813,25 +802,38 @@ describe('createProposal — agreement provenance (Issue #2)', () => {
     const B = await makeMurmuration('emergent', 'praxis')
     // B raises two tensions; A promotes T1 into a driver-stage chain.
     const t1 = await createTension({
-      from: B.artifacts.did, to: A.artifacts.did,
-      body: { conditions: 'X', effect: 'Y' }, signer: B.signer, id: 'tension-001',
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { conditions: 'X', effect: 'Y' },
+      signer: B.signer,
+      id: 'tension-001',
     })
     const t2 = await createTension({
-      from: B.artifacts.did, to: A.artifacts.did,
-      body: { conditions: 'P', effect: 'Q' }, signer: B.signer, id: 'tension-002',
+      from: B.artifacts.did,
+      to: A.artifacts.did,
+      body: { conditions: 'P', effect: 'Q' },
+      signer: B.signer,
+      id: 'tension-002',
     })
     const driver = await createProposal({
-      from: A.artifacts.did, to: B.artifacts.did,
-      body: { ...directive(), stage: 'driver' }, signer: A.signer, id: 'driver-001',
+      from: A.artifacts.did,
+      to: B.artifacts.did,
+      body: { ...directive(), stage: 'driver' },
+      signer: A.signer,
+      id: 'driver-001',
       tensionAntecedent: { envelope: t1, senderDidDocument: B.artifacts.didDocument },
     })
     // Now build a final agreement that chains from the driver (carries T1) but
     // ALSO supplies a divergent fresh promotion of T2 — must be refused.
     await expect(
       createProposal({
-        from: A.artifacts.did, to: B.artifacts.did,
+        from: A.artifacts.did,
+        to: B.artifacts.did,
         body: {
-          type: 'agreement', title: 'X', body: 'final', stage: 'final',
+          type: 'agreement',
+          title: 'X',
+          body: 'final',
+          stage: 'final',
           previousStageId: 'driver-001',
           agreement: exampleAgreement([A.artifacts.did, B.artifacts.did]),
         },

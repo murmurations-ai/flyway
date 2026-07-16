@@ -13,7 +13,7 @@ import type { FlywaySkill } from '@murmurations-ai/flyway-core'
  */
 export function toSkillMarkdown(skill: FlywaySkill): string {
   const toolList = skill.tools
-    .map((t) => `- **${t.name}**: ${t.description.split('.')[0]}.`)
+    .map((t) => `- **${t.name}**: ${t.description.split('.')[0] ?? ''}.`)
     .join('\n')
 
   return `---

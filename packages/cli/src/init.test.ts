@@ -1,12 +1,7 @@
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { DidDocument, SignedEntityStatement } from '@murmurations-ai/flyway-core'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { runInit } from './init.js'
 
@@ -39,31 +34,34 @@ describe('runInit', () => {
 
   it('the DID document is valid JSON with the expected DID id', async () => {
     await runInit({ ...VALID_INPUT, cwd: tmp })
-    const didDoc = JSON.parse(readFileSync(join(tmp, '.well-known', 'did.json'), 'utf-8'))
+    const didDoc = JSON.parse(
+      readFileSync(join(tmp, '.well-known', 'did.json'), 'utf-8'),
+    ) as DidDocument
     expect(didDoc.id).toBe('did:web:github.com:xeeban:flyway')
     expect(didDoc.verificationMethod).toHaveLength(1)
-    expect(didDoc.verificationMethod[0].publicKeyJwk.crv).toBe('Ed25519')
+    expect(didDoc.verificationMethod[0]?.publicKeyJwk.crv).toBe('Ed25519')
   })
 
   it('the entity statement carries the Source name and mode', async () => {
     await runInit({ ...VALID_INPUT, cwd: tmp })
     const stmt = JSON.parse(
       readFileSync(join(tmp, 'flyway', 'entity-statement.json'), 'utf-8'),
-    )
+    ) as SignedEntityStatement
     expect(stmt.sourceName).toBe('Nori')
     expect(stmt.mode).toBe('interactive')
     expect(stmt.did).toBe('did:web:github.com:xeeban:flyway')
   })
 
   it('the on-disk entity statement carries an EdDSA signature that verifies', async () => {
-    const { DOMAIN_ENTITY_STATEMENT, verifyInlineSignedArtifact } = await import(
-      '@murmurations-ai/flyway-core'
-    )
+    const { DOMAIN_ENTITY_STATEMENT, verifyInlineSignedArtifact } =
+      await import('@murmurations-ai/flyway-core')
     await runInit({ ...VALID_INPUT, cwd: tmp })
     const stmt = JSON.parse(
       readFileSync(join(tmp, 'flyway', 'entity-statement.json'), 'utf-8'),
-    )
-    const didDoc = JSON.parse(readFileSync(join(tmp, '.well-known', 'did.json'), 'utf-8'))
+    ) as SignedEntityStatement
+    const didDoc = JSON.parse(
+      readFileSync(join(tmp, '.well-known', 'did.json'), 'utf-8'),
+    ) as DidDocument
     expect(stmt.signature).toBeDefined()
     expect(stmt.signature.algorithm).toBe('EdDSA')
     const ok = await verifyInlineSignedArtifact(DOMAIN_ENTITY_STATEMENT, stmt, didDoc)

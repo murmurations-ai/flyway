@@ -4,6 +4,7 @@ import { didWebResolutionUrls, resolvePeerIdentity } from './resolve.js'
 
 /** Map URL → response body, so a fetch stub can serve two artifacts. */
 function routedFetch(routes: Record<string, string>): typeof fetch {
+  // eslint-disable-next-line @typescript-eslint/require-await -- stub matches async fetch signature
   return (async (input: string | URL) => {
     const url = typeof input === 'string' ? input : input.toString()
     const body = routes[url]
@@ -92,16 +93,16 @@ describe('resolvePeerIdentity', () => {
       [urls.didDocUrl]: '{not json',
       [urls.entityStatementUrl]: '{}',
     })
-    await expect(
-      resolvePeerIdentity('did:web:github.com:xeeban:a', { fetchImpl }),
-    ).rejects.toThrow(/not valid JSON/)
+    await expect(resolvePeerIdentity('did:web:github.com:xeeban:a', { fetchImpl })).rejects.toThrow(
+      /not valid JSON/,
+    )
   })
 
   it('propagates the HTTPS guard (404 → error)', async () => {
     const fetchImpl = routedFetch({}) // every URL 404s
-    await expect(
-      resolvePeerIdentity('did:web:github.com:xeeban:a', { fetchImpl }),
-    ).rejects.toThrow(/HTTP 404/)
+    await expect(resolvePeerIdentity('did:web:github.com:xeeban:a', { fetchImpl })).rejects.toThrow(
+      /HTTP 404/,
+    )
   })
 
   it('fails if only the entity statement is missing (one-sided failure)', async () => {

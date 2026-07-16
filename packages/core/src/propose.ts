@@ -48,12 +48,7 @@ export const PROPOSAL_TYPES: readonly ProposalType[] = [
   'agreement',
 ] as const
 
-export type ProposalStage =
-  | 'driver'
-  | 'requirements'
-  | 'draft'
-  | 'refinement'
-  | 'final'
+export type ProposalStage = 'driver' | 'requirements' | 'draft' | 'refinement' | 'final'
 
 export const PROPOSAL_STAGES: readonly ProposalStage[] = [
   'driver',
@@ -117,10 +112,7 @@ export interface ProposalAgreementBody extends ProposalBodyBase {
   readonly agreementSignature?: SignatureEnvelope
 }
 
-export type ProposalBody =
-  | ProposalDirectiveBody
-  | ProposalProjectBody
-  | ProposalAgreementBody
+export type ProposalBody = ProposalDirectiveBody | ProposalProjectBody | ProposalAgreementBody
 
 /**
  * Antecedent material for ADR-0009 verification. Caller supplies the
@@ -172,10 +164,7 @@ const VALID_NEXT_STAGES: Readonly<Record<ProposalStage, readonly ProposalStage[]
   final: [],
 }
 
-export function isValidStageTransition(
-  previous: ProposalStage,
-  current: ProposalStage,
-): boolean {
+export function isValidStageTransition(previous: ProposalStage, current: ProposalStage): boolean {
   return VALID_NEXT_STAGES[previous].includes(current)
 }
 
@@ -183,9 +172,7 @@ export function isValidStageTransition(
 // createProposal
 // ────────────────────────────────────────────────────────────────────────
 
-export async function createProposal(
-  input: CreateProposalInput,
-): Promise<SignedSignalEnvelope> {
+export async function createProposal(input: CreateProposalInput): Promise<SignedSignalEnvelope> {
   const { body } = input
 
   validateBaseFields(body)
@@ -250,7 +237,7 @@ function validateBaseFields(body: ProposalBody): void {
   }
   if (body.stage !== undefined && !PROPOSAL_STAGES.includes(body.stage)) {
     throw new Error(
-      `createProposal: stage must be one of ${PROPOSAL_STAGES.join(', ')} (got: ${String(body.stage)})`,
+      `createProposal: stage must be one of ${PROPOSAL_STAGES.join(', ')} (got: ${body.stage})`,
     )
   }
   if (body.deadline !== undefined) {
@@ -260,10 +247,7 @@ function validateBaseFields(body: ProposalBody): void {
   }
 }
 
-function validateTypeSpecificFields(
-  body: ProposalBody,
-  input: CreateProposalInput,
-): void {
+function validateTypeSpecificFields(body: ProposalBody, input: CreateProposalInput): void {
   if (body.type !== 'agreement') return
   if (body.agreementSignature !== undefined) {
     throw new Error(
@@ -272,13 +256,16 @@ function validateTypeSpecificFields(
     )
   }
   const agreement = body.agreement
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- runtime-guard against malformed input cast to the typed body
   if (!agreement || typeof agreement !== 'object') {
-    throw new Error("createProposal: type='agreement' requires body.agreement (FlywayAgreement object)")
+    throw new Error(
+      "createProposal: type='agreement' requires body.agreement (FlywayAgreement object)",
+    )
   }
   if (typeof agreement.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(agreement.id)) {
     throw new Error(
       'createProposal: body.agreement.id must match [A-Za-z0-9_-]{1,128} — ' +
-        `it becomes the flyway/agreements/<id>.yaml filename (got: ${String(agreement.id)})`,
+        `it becomes the flyway/agreements/<id>.yaml filename (got: ${agreement.id})`,
     )
   }
   if (agreement.schemaVersion !== FLYWAY_AGREEMENT_SCHEMA_VERSION) {
@@ -301,16 +288,12 @@ function validateTypeSpecificFields(
     'state',
   ]
   for (const field of required) {
-    if (agreement[field] === undefined || agreement[field] === null) {
-      throw new Error(
-        `createProposal: body.agreement is missing required field '${String(field)}'`,
-      )
+    if (agreement[field] == null) {
+      throw new Error(`createProposal: body.agreement is missing required field '${field}'`)
     }
   }
   if (!Array.isArray(agreement.participants) || agreement.participants.length < 2) {
-    throw new Error(
-      'createProposal: body.agreement.participants must list at least two DIDs',
-    )
+    throw new Error('createProposal: body.agreement.participants must list at least two DIDs')
   }
   if (!agreement.participants.includes(input.from)) {
     throw new Error(
@@ -338,13 +321,16 @@ function validateStageRequirements(body: ProposalBody, stage: ProposalStage): vo
         "createProposal: stage='requirements' requires a non-empty body.requirements array (Issue #6)",
       )
     }
-    for (const [i, req] of body.requirements.entries()) {
+    for (const [i, rawReq] of (body.requirements as readonly unknown[]).entries()) {
+      const req = rawReq as Record<string, unknown>
       if (typeof req.id !== 'string' || req.id.trim() === '') {
-        throw new Error(`createProposal: body.requirements[${i}].id must be a non-empty string`)
+        throw new Error(
+          `createProposal: body.requirements[${String(i)}].id must be a non-empty string`,
+        )
       }
       if (typeof req.description !== 'string' || req.description.trim() === '') {
         throw new Error(
-          `createProposal: body.requirements[${i}].description must be a non-empty string`,
+          `createProposal: body.requirements[${String(i)}].description must be a non-empty string`,
         )
       }
       if (
@@ -353,7 +339,7 @@ function validateStageRequirements(body: ProposalBody, stage: ProposalStage): vo
         req.mustOrShould !== 'should'
       ) {
         throw new Error(
-          `createProposal: body.requirements[${i}].mustOrShould must be 'must' or 'should' if set`,
+          `createProposal: body.requirements[${String(i)}].mustOrShould must be 'must' or 'should' if set`,
         )
       }
     }
@@ -397,7 +383,7 @@ function validateStageTransition(
     // previousStageId must match the antecedent's id.
     if (body.previousStageId !== input.proposalAntecedent.envelope.id) {
       throw new Error(
-        `createProposal: body.previousStageId (${body.previousStageId}) does not match ` +
+        `createProposal: body.previousStageId (${String(body.previousStageId)}) does not match ` +
           `proposalAntecedent.envelope.id (${input.proposalAntecedent.envelope.id})`,
       )
     }
@@ -473,9 +459,7 @@ function normalizeBody(body: ProposalBody): ProposalBody {
     title: body.title,
     body: body.body,
     stage: body.stage ?? 'final',
-    ...(body.previousStageId !== undefined
-      ? { previousStageId: body.previousStageId }
-      : {}),
+    ...(body.previousStageId !== undefined ? { previousStageId: body.previousStageId } : {}),
     ...(body.deadline !== undefined ? { deadline: body.deadline } : {}),
     ...(body.requirements !== undefined ? { requirements: body.requirements } : {}),
   } as const
@@ -505,17 +489,14 @@ function effectiveTensionId(input: CreateProposalInput): string | undefined {
  * if set, it must equal the tension carried (and verified) through the
  * chain. A claim with no verified tension behind it is refused outright.
  */
-function validateAgreementProvenance(
-  body: ProposalBody,
-  input: CreateProposalInput,
-): void {
+function validateAgreementProvenance(body: ProposalBody, input: CreateProposalInput): void {
   if (body.type !== 'agreement') return
   const claimed = body.agreement.originTensionId
   if (claimed === undefined) return
   if (typeof claimed !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(claimed)) {
     throw new Error(
       'createProposal: body.agreement.originTensionId must match [A-Za-z0-9_-]{1,128} ' +
-        `(got: ${String(claimed)})`,
+        `(got: ${claimed})`,
     )
   }
   const verified = effectiveTensionId(input)

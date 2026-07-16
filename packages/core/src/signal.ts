@@ -17,14 +17,7 @@
  */
 
 import { randomBytes } from 'node:crypto'
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseDocument, stringify as yamlStringify } from 'yaml'
 import type { DidDocument } from './init.js'
@@ -42,12 +35,7 @@ import {
 
 export type SignalKind = 'tension' | 'proposal' | 'respond' | 'exit'
 
-export const SIGNAL_KINDS: readonly SignalKind[] = [
-  'tension',
-  'proposal',
-  'respond',
-  'exit',
-]
+export const SIGNAL_KINDS: readonly SignalKind[] = ['tension', 'proposal', 'respond', 'exit']
 
 export const SIGNAL_SCHEMA_VERSION = 'flyway-signal-v0' as const
 
@@ -126,12 +114,8 @@ export async function buildSignedSignal(
     body: input.body,
     ...(input.refs !== undefined ? { refs: input.refs } : {}),
   }
-  const signed = await signArtifactInline(
-    domainForSignalKind(input.kind),
-    envelope,
-    input.signer,
-  )
-  return signed as SignedSignalEnvelope
+  const signed = await signArtifactInline(domainForSignalKind(input.kind), envelope, input.signer)
+  return signed
 }
 
 /**
@@ -147,11 +131,7 @@ export async function verifySignedSignal(
   if (envelope.signature.domain !== domainForSignalKind(envelope.kind)) {
     return false
   }
-  return verifyInlineSignedArtifact(
-    domainForSignalKind(envelope.kind),
-    envelope,
-    senderDidDocument,
-  )
+  return verifyInlineSignedArtifact(domainForSignalKind(envelope.kind), envelope, senderDidDocument)
 }
 
 /**
@@ -269,10 +249,10 @@ export function readSignalFile(path: string): SignedSignalEnvelope | null {
   if (!existsSync(path)) return null
   try {
     const raw = readFileSync(path, 'utf-8')
-    const parsed = parseDocument(raw).toJS() as SignedSignalEnvelope | null
+    const parsed: unknown = parseDocument(raw).toJS()
     if (!parsed || typeof parsed !== 'object') return null
-    if (parsed.schema !== SIGNAL_SCHEMA_VERSION) return null
-    return parsed
+    if ((parsed as { schema?: unknown }).schema !== SIGNAL_SCHEMA_VERSION) return null
+    return parsed as SignedSignalEnvelope
   } catch {
     return null
   }
@@ -286,8 +266,8 @@ export function readSignalFile(path: string): SignedSignalEnvelope | null {
 export function collectYamlFiles(root: string): string[] {
   const out: string[] = []
   const stack = [root]
-  while (stack.length > 0) {
-    const dir = stack.pop()!
+  let dir: string | undefined
+  while ((dir = stack.pop()) !== undefined) {
     let entries: string[]
     try {
       entries = readdirSync(dir)
@@ -320,18 +300,12 @@ export function collectYamlFiles(root: string): string[] {
  * the lexicographically-earlier path wins. Returns null when no match
  * is found or the inbox directory does not exist.
  */
-export function findInboxSignalById(
-  cwd: string,
-  id: string,
-): SignedSignalEnvelope | null {
+export function findInboxSignalById(cwd: string, id: string): SignedSignalEnvelope | null {
   return findSignalById(join(cwd, 'flyway', 'inbox'), id)
 }
 
 /** Outbox counterpart of findInboxSignalById — same resolution rules. */
-export function findOutboxSignalById(
-  cwd: string,
-  id: string,
-): SignedSignalEnvelope | null {
+export function findOutboxSignalById(cwd: string, id: string): SignedSignalEnvelope | null {
   return findSignalById(join(cwd, 'flyway', 'outbox'), id)
 }
 

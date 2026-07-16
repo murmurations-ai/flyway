@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>flyway — live demo</title>
+<meta name="description" content="An animated end-to-end run of the flyway protocol: two independent AI-agent murmurations initialize, recognize each other, and exchange a cryptographically signed tension." />
+<style>
+  :root { --bg:#080d18; --panel:#12182a; --ink:#d7dced; --mute:#6d768f; --a:#e6a651; --b:#a494cc; --ok:#6fb98a; --hl:#ffffff; --rule:#1e2740; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:
+     radial-gradient(1200px 600px at 70% -10%, #16203a 0%, transparent 60%), var(--bg); color:var(--ink);
+     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .stage { min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 18px; gap:18px; }
+  .title { text-align:center; }
+  .title h1 { font-family:"Iowan Old Style", Palatino, Georgia, serif; font-weight:600; font-size:clamp(26px,5vw,40px); letter-spacing:-.02em; margin:0; }
+  .title h1 .d { color:var(--a); }
+  .title p { color:var(--mute); margin:8px 0 0; font-size:15px; }
+  .term { width:min(880px, 100%); background:var(--panel); border:1px solid var(--rule); border-radius:14px; overflow:hidden; box-shadow:0 24px 70px rgba(0,0,0,.5); }
+  .bar { display:flex; align-items:center; gap:8px; padding:12px 15px; border-bottom:1px solid rgba(255,255,255,.06); }
+  .bar i { width:11px; height:11px; border-radius:50%; }
+  .bar i:nth-child(1){background:#e0625b;} .bar i:nth-child(2){background:#e2b04a;} .bar i:nth-child(3){background:#5aa564;}
+  .bar span { margin-left:8px; font-family:ui-monospace, Menlo, monospace; font-size:12px; color:var(--mute); }
+  .screen { height:clamp(360px, 60vh, 560px); overflow:hidden; padding:18px 20px; }
+  pre { margin:0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size:13px; line-height:1.65; white-space:pre-wrap; word-break:break-word; }
+  .ln { opacity:0; }
+  .ln.show { opacity:1; }
+  .a{color:var(--a);} .b{color:var(--b);} .m{color:var(--mute);} .ok{color:var(--ok);} .hl{color:var(--hl);}
+  .cur { display:inline-block; width:8px; height:15px; background:var(--a); vertical-align:-2px; animation:blink 1s steps(2) infinite; margin-left:2px; }
+  @keyframes blink { 50% { opacity:0; } }
+  .controls { display:flex; gap:10px; }
+  button { font-family:ui-monospace, Menlo, monospace; font-size:13px; background:transparent; color:var(--ink); border:1px solid var(--rule); border-radius:999px; padding:8px 16px; cursor:pointer; }
+  button:hover { border-color:var(--a); color:var(--a); }
+  button:focus-visible { outline:2px solid var(--a); outline-offset:3px; }
+  .foot { color:var(--mute); font-size:12.5px; font-family:ui-monospace, Menlo, monospace; }
+  .foot a { color:var(--a); }
+  @media (prefers-reduced-motion: reduce) { .cur { animation:none; } }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="title">
+      <h1>flyway<span class="d">.</span> <span style="font-size:.5em;color:var(--mute);font-family:ui-monospace,Menlo,monospace;">live demo</span></h1>
+      <p>Two independent murmurations · recognize · sign a tension across the boundary</p>
+    </div>
+    <div class="term">
+      <div class="bar"><i></i><i></i><i></i><span>flyway — end-to-end, verbatim from the built CLI</span></div>
+      <div class="screen"><pre id="out"></pre></div>
+    </div>
+    <div class="controls">
+      <button id="replay">↻ replay</button>
+      <a href="https://github.com/murmurations-ai/flyway" style="text-decoration:none"><button>view the repo</button></a>
+    </div>
+    <div class="foot">reproduce: <a href="https://github.com/murmurations-ai/flyway">git clone</a> → <span style="color:var(--ink)">pnpm i &amp;&amp; pnpm -r build</span> → run the smoke</div>
+  </div>
+
+<script>
+  // Each entry: [html, delayAfterMs]. Grouped with pauses between beats.
+  const L = [
+    ['<span class="m"># 1 · two independent murmurations initialize</span>', 340],
+    ['<span class="a">[A]</span> Initialized flyway identity: <span class="hl">did:web:github.com:xeeban:a</span>', 120],
+    ['<span class="b">[B]</span> Initialized flyway identity: <span class="hl">did:web:github.com:emergent:praxis</span>', 620],
+    ['', 60],
+    ['<span class="m"># 2 · mutual recognition — each verifies the other</span>', 320],
+    ['<span class="a">[A]</span> Recognized did:web:github.com:emergent:praxis', 120],
+    ['<span class="a">[A]</span>   fingerprint:  vVP7tUsbgFEF5fVB_PmkUxPVtWRq9hkl…', 120],
+    ['<span class="b">[B]</span> Recognized did:web:github.com:xeeban:a', 120],
+    ['<span class="b">[B]</span>   fingerprint:  8HwJS8SrFNIp1c4qFMycAuko-1qiie82…', 640],
+    ['', 60],
+    ['<span class="m"># 3 · A signs a tension → delivered into B\'s inbox</span>', 320],
+    ['<span class="a">[A]</span> Flagged tension to did:web:github.com:emergent:praxis', 120],
+    ['<span class="a">[A]</span>   id:       1784161602463-80d46002', 120],
+    ['<span class="a">[A]</span>   delivered → …/tmp.B/flyway/inbox/github.com/xeeban/a/…yaml', 640],
+    ['', 60],
+    ['<span class="m"># 4 · B runs status — the inbox line surfaces the signal (Issue #17)</span>', 320],
+    ['<span class="b">[B]</span> Identity: did:web:github.com:emergent:praxis  <span class="ok">(signature valid)</span>', 120],
+    ['<span class="b">[B]</span> Peers:    1 recognized', 120],
+    ['<span class="b">[B]</span>   - Nori (did:web:github.com:xeeban:a) — <span class="ok">sig valid</span>', 120],
+    ['<span class="b">[B]</span> Agreements: 0 on file', 120],
+    ['<span class="b">[B]</span> <span class="hl">Inbox:    1 signal (1 verified)</span>', 640],
+    ['', 60],
+    ['<span class="m"># 5 · B checks the inbox — signature verifies independently</span>', 320],
+    ['<span class="b">[B]</span> Inbox: 1 signal (1 verified)', 120],
+    ['<span class="b">[B]</span>   - tension  1784161602463-80d46002  from …:xeeban:a  <span class="ok">[sig valid]</span>', 500],
+    ['', 200],
+    ['<span class="ok">✓ round-trip complete — no shared database, no central controller.</span>', 0],
+  ];
+
+  const out = document.getElementById('out');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let timers = [];
+
+  function clearTimers(){ timers.forEach(t=>clearTimeout(t)); timers=[]; }
+
+  function play(){
+    clearTimers();
+    out.innerHTML = '';
+    const nodes = L.map(([html]) => {
+      const d = document.createElement('div');
+      d.className = 'ln'; d.innerHTML = html || '&nbsp;';
+      out.appendChild(d); return d;
+    });
+    if (reduce) { nodes.forEach(n=>n.classList.add('show')); return; }
+    let t = 200;
+    L.forEach(([, delay], i) => {
+      timers.push(setTimeout(() => {
+        nodes[i].classList.add('show');
+        const scr = out.parentElement;
+        scr.scrollTop = scr.scrollHeight;
+      }, t));
+      t += (delay || 100) + 90;
+    });
+  }
+
+  document.getElementById('replay').addEventListener('click', play);
+  play();
+</script>
+</body>
+</html>

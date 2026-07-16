@@ -112,20 +112,22 @@ describe('buildEntityStatement', () => {
   })
 
   it('lists every flyway tool as supported', () => {
-    const stmt = buildEntityStatement(
-      'did:web:github.com:owner:repo',
-      { repoUrl: 'https://github.com/owner/repo', sourceName: 'Nori', mode: 'interactive' },
-    )
+    const stmt = buildEntityStatement('did:web:github.com:owner:repo', {
+      repoUrl: 'https://github.com/owner/repo',
+      sourceName: 'Nori',
+      mode: 'interactive',
+    })
     expect(stmt.toolsSupported).toContain('flyway_init')
     expect(stmt.toolsSupported).toContain('flyway_tension')
     expect(stmt.toolsSupported).toContain('flyway_exit')
   })
 
   it('declares the agreement schema version supported', () => {
-    const stmt = buildEntityStatement(
-      'did:web:github.com:owner:repo',
-      { repoUrl: 'https://github.com/owner/repo', sourceName: 'Nori', mode: 'interactive' },
-    )
+    const stmt = buildEntityStatement('did:web:github.com:owner:repo', {
+      repoUrl: 'https://github.com/owner/repo',
+      sourceName: 'Nori',
+      mode: 'interactive',
+    })
     expect(stmt.schemasSupported[0]).toMatch(/^agreement@\d+\.\d+\.\d+$/)
   })
 })
@@ -158,9 +160,7 @@ describe('flywayInit (end-to-end)', () => {
     expect(artifacts.entityStatement.signature).toBeDefined()
     expect(artifacts.entityStatement.signature.algorithm).toBe('EdDSA')
     expect(artifacts.entityStatement.signature.domain).toBe(DOMAIN_ENTITY_STATEMENT)
-    expect(artifacts.entityStatement.signature.verificationKeyId).toBe(
-      `${artifacts.did}#key-1`,
-    )
+    expect(artifacts.entityStatement.signature.verificationKeyId).toBe(`${artifacts.did}#key-1`)
     const ok = await verifyInlineSignedArtifact(
       DOMAIN_ENTITY_STATEMENT,
       artifacts.entityStatement,
