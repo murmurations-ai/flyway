@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>flyway — the season, one open corridor</title>
+<meta name="description" content="The GimbaLabs Piece of Pi season presentation for flyway: a runtime-agnostic protocol for collaboration between independent AI-agent murmurations — the nine tools, the season arc, a live demo, and the required verification links." />
+<link rel="stylesheet" href="./brand.css" />
+<style>
+  .hero { position:relative; overflow:hidden; background:var(--hero-sky); border-bottom:1px solid var(--hairline); }
+  #hero-flock { position:absolute; inset:0; width:100%; height:100%; z-index:0; }
+  .hero .wrap { position:relative; z-index:1; padding:clamp(96px,15vh,160px) 0 clamp(64px,10vh,112px); }
+  .wordmark h1 { font-size:clamp(3.6rem,13vw,7.5rem); line-height:.9; letter-spacing:-.025em; color:var(--ink); }
+  .wordmark .flight { display:block; height:2px; width:120%; margin-top:10px;
+    background:linear-gradient(90deg,var(--gold) 0%,var(--gold) 70%,transparent 100%); box-shadow:0 0 12px var(--gold-glow); }
+  .hero-sub { font-size:clamp(1.15rem,2.5vw,1.7rem); color:var(--ink-muted); max-width:24ch; margin:var(--s-lg) 0 0; line-height:1.28; }
+  .hero-links { margin-top:var(--s-xl); display:flex; flex-wrap:wrap; gap:var(--s-sm); }
+  .chips { margin-top:var(--s-lg); display:flex; flex-wrap:wrap; gap:var(--s-xs); }
+  .chip { font-family:"Plex Mono",monospace; font-size:.78rem; border:1px solid var(--hairline); border-radius:var(--r-pill); padding:6px 13px; color:var(--ink-muted); background:color-mix(in oklab,var(--surface) 55%,transparent); backdrop-filter:blur(3px); }
+  .chip b { color:var(--gold-ink); }
+
+  .two { display:grid; grid-template-columns:0.9fr 1.1fr; gap:var(--s-xl); align-items:start; }
+  @media (max-width:780px){ .two { grid-template-columns:1fr; gap:var(--s-lg); } }
+  .callout { border-left:2px solid var(--gold); padding-left:var(--s-md); color:var(--ink-muted); }
+  .callout .q { font-family:"Archivo",sans-serif; font-stretch:112%; font-size:1.28rem; line-height:1.35; color:var(--ink); font-weight:600; }
+
+  /* timeline as corridor with waypoints */
+  .tl { position:relative; margin-top:var(--s-sm); padding-left:6px; }
+  .tl::before { content:""; position:absolute; left:11px; top:8px; bottom:8px; width:2px; background:linear-gradient(var(--gold),var(--sheen-violet)); opacity:.5; }
+  .tl-item { position:relative; padding:0 0 var(--s-lg) 40px; }
+  .tl-item::before { content:""; position:absolute; left:5px; top:4px; width:14px; height:14px; border-radius:var(--r-pill); background:var(--ground); border:2px solid var(--gold); }
+  .tl-item.review::before { border-color:var(--sheen-violet); }
+  .tl-item.now::before { background:var(--gold); box-shadow:0 0 0 5px var(--gold-glow); }
+  .tl-tag { font-family:"Plex Mono",monospace; font-size:.78rem; color:var(--gold-ink); letter-spacing:.03em; }
+  .tl-item.review .tl-tag { color:var(--sheen-violet); }
+  .tl-title { font-weight:600; margin:2px 0 3px; }
+  .tl-desc { color:var(--ink-muted); font-size:.92rem; margin:0; }
+
+  .term-note { margin-bottom:var(--s-lg); }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--hairline); border:1px solid var(--hairline); }
+  @media (max-width:720px){ .stats { grid-template-columns:repeat(2,1fr); } }
+  .stat { background:var(--surface); padding:var(--s-lg); }
+  .stat .n { font-family:"Archivo",sans-serif; font-stretch:118%; font-weight:800; font-variant-numeric:tabular-nums; font-size:clamp(2rem,4.4vw,2.9rem); line-height:1; color:var(--ink); letter-spacing:-.02em; }
+  .stat .n small { font-size:.5em; color:var(--gold-ink); }
+  .stat .l { margin-top:8px; font-size:.82rem; color:var(--ink-faint); }
+
+  .ledger { list-style:none; margin:0; padding:0; }
+  .ledger li { display:flex; gap:14px; padding:13px 0; border-bottom:1px solid var(--hairline); align-items:baseline; }
+  .ledger li:last-child { border-bottom:none; }
+  .ledger .k { font-family:"Plex Mono",monospace; font-size:.74rem; color:var(--good); flex:0 0 96px; letter-spacing:.03em; }
+  .ledger .k.defer { color:var(--sheen-violet); }
+  .ledger .v { color:var(--ink-muted); } .ledger .v b { color:var(--ink); }
+
+  .verify { display:grid; grid-template-columns:1fr 1fr; gap:var(--s-md); }
+  @media (max-width:680px){ .verify { grid-template-columns:1fr; } }
+  .vcard { display:block; text-decoration:none; color:inherit; background:var(--surface); border:1px solid var(--hairline); padding:var(--s-lg); transition:border-color .2s, transform .2s; }
+  .vcard:hover { border-color:var(--gold); transform:translateY(-2px); }
+  .vcard .k { font-family:"Plex Mono",monospace; font-size:.7rem; letter-spacing:.12em; text-transform:uppercase; color:var(--gold-ink); }
+  .vcard .v { font-family:"Plex Mono",monospace; font-weight:500; font-size:.98rem; color:var(--ink); margin:8px 0 6px; word-break:break-word; }
+  .vcard .m { font-size:.86rem; color:var(--ink-muted); }
+  table.data td.desc { color:var(--ink-muted); font-size:.86rem; }
+  table.data a { font-family:"Plex Mono",monospace; font-size:.8rem; white-space:nowrap; }
+  .miss { color:var(--ink-faint); font-family:"Plex Mono",monospace; font-size:.78rem; }
+
+  .close-band { background:var(--hero-sky); border-top:1px solid var(--hairline); }
+  .close-band .q { font-family:"Archivo",sans-serif; font-stretch:112%; font-weight:700; font-size:clamp(1.5rem,3.4vw,2.3rem); line-height:1.28; letter-spacing:-.01em; }
+  .close-band .q em { color:var(--gold-ink); font-style:normal; }
+  .wp-row { display:flex; align-items:center; gap:12px; margin:var(--s-2xl) 0; padding:0 var(--edge); }
+  .wp-row .line { flex:1; height:1px; background:linear-gradient(90deg,transparent,var(--hairline) 12%,var(--hairline) 88%,transparent); }
+</style>
+</head>
+<body>
+<button class="theme-toggle" data-theme-toggle aria-label="Toggle light or dark theme">◐ theme</button>
+
+<!-- HERO -->
+<header class="hero">
+  <canvas id="hero-flock" data-flock aria-hidden="true"></canvas>
+  <div class="wrap">
+    <p class="eyebrow">season deck · gimbalabs piece of pi · protocol v0.1.0</p>
+    <div class="wordmark">
+      <h1 class="display">flyway</h1>
+      <span class="flight" aria-hidden="true"></span>
+    </div>
+    <p class="hero-sub">One open corridor, no controller — sovereign AI-agent murmurations that recognize each other in flight.</p>
+    <div class="hero-links">
+      <a class="btn primary" href="#final-report">Piece of Pi final report ↓</a>
+      <a class="btn" href="./demo.html">watch the live demo</a>
+      <a class="btn" href="https://github.com/murmurations-ai/flyway">the repository ↗</a>
+    </div>
+    <div class="chips">
+      <span class="chip"><b>9</b> protocol tools</span>
+      <span class="chip"><b>13</b> ADRs</span>
+      <span class="chip"><b>8</b> walkthroughs</span>
+      <span class="chip"><b>449</b> tests 🟢</span>
+    </div>
+  </div>
+</header>
+
+<div class="wp-row"><span class="waypoint gold"></span><span class="line"></span><span class="waypoint hollow"></span></div>
+
+<!-- PROBLEM -->
+<section class="band" style="padding-top:0">
+  <div class="wrap two reveal">
+    <div>
+      <p class="eyebrow">the problem</p>
+      <h2 class="display" style="max-width:12ch">Swarms can act. They can't yet cross a border.</h2>
+    </div>
+    <div class="measure">
+      <p>An autonomous agent swarm — a <strong>murmuration</strong> — already gets real work done under one owner. What it can't do is reach across an organizational boundary to another swarm: verify who it's talking to, exchange a signal, reach a binding agreement, and walk away cleanly.</p>
+      <p>The obvious fix is a central coordinator sitting above everyone. That fix quietly dissolves the thing worth protecting: each owner's sovereignty over their own agents.</p>
+      <p class="muted">flyway is the other answer — a shared protocol, no controller.</p>
+    </div>
+  </div>
+</section>
+
+<!-- MURMURATION -->
+<section class="band" style="background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <p class="eyebrow reveal">first, a definition</p>
+    <h2 class="display reveal" style="max-width:20ch; margin-bottom:var(--s-xl)">A murmuration is any agent swarm answering to a single human Source.</h2>
+    <div class="two reveal">
+      <div class="measure">
+        <p>The unifying property is not the runtime — it's a <strong>Source</strong> whose authority is anchored in a Git-addressable project, with agents acting under it. A murmuration might be a harness install, a Claude Code session with subagents, an IDE agent workflow, or a human driving GitHub by hand.</p>
+        <div class="callout">
+          <p class="q">“Source — the person who first takes the initiative and the risk on an idea, and holds the vision and accountability for it.”</p>
+          <p class="muted mono" style="font-size:.78rem">after Peter Koenig · Tom Nixon, Work with Source (2021)</p>
+        </div>
+      </div>
+      <div class="grid-3" style="grid-template-columns:1fr">
+        <div class="panel"><div class="k">sovereign</div><h3>No master flock</h3><p>Not a controller, daemon, or dependency of any harness. It never forces agreement between Sources.</p></div>
+        <div class="panel"><div class="k">consent</div><h3>Achieve, don't override</h3><p>It helps sovereign Sources surface objections, integrate concerns, and reach agreements every party can stand behind.</p></div>
+        <div class="panel"><div class="k">exact</div><h3>Cryptographic throughout</h3><p>Every identity, recognition, and signal is Ed25519-signed and independently verified on both sides.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NINE TOOLS -->
+<section class="band">
+  <div class="wrap">
+    <p class="eyebrow reveal">the surface</p>
+    <h2 class="display reveal" style="margin-bottom:var(--s-sm)">Nine typed tools, defined once.</h2>
+    <p class="lead measure reveal" style="margin-bottom:var(--s-lg)">The whole protocol is nine tools defined in <span class="mono">flyway-core</span> and exposed through every adapter — the agent skill, an MCP server, and a CLI — without rewriting. All nine run end-to-end.</p>
+    <div class="table-scroll reveal">
+      <table class="data">
+        <thead><tr><th>Tool</th><th>What it does</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="name">flyway_init</td><td class="desc">Mint the murmuration's identity — DID document, EdDSA-signed entity statement, Ed25519 keypair.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_status</td><td class="desc">Report identity, peers, agreements, effective exit-state — and inbox delivery-state.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_discover</td><td class="desc">Search a flyway directory for potential peers (pre-trust) — local file or <span class="mono">https://</span> URL.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_recognize</td><td class="desc">Verify a peer's identity and write a signed recognition entry — locally or over a <span class="mono">did:web</span> URL.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_tension</td><td class="desc">Flag a tension to a recognized peer — the S3 Navigate via Tension pattern.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_propose</td><td class="desc">Drive the full S3 staging chain: driver → requirements → draft → refinement → final.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_respond</td><td class="desc">Answer a tension (acknowledge / dispute / dissolve / transfer) or a proposal (accept / object / exit).</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_check</td><td class="desc">Read incoming signals; verify signatures against the recognition-time cached key; flag anomalies.</td><td><span class="pill ok">wired</span></td></tr>
+          <tr><td class="name">flyway_exit</td><td class="desc">Leave a peer, project, or syndicate — a signed, unilateral notice no peer can prevent.</td><td><span class="pill ok">wired</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="muted reveal" style="font-size:.86rem; margin-top:var(--s-md)">Beyond the nine, agreement <span class="mono">materialize</span> turns an accepted final-stage proposal into a co-signed <span class="mono">flyway/agreements/&lt;id&gt;.yaml</span> — a local act over records both sides already hold.</p>
+  </div>
+</section>
+
+<!-- GROUNDING -->
+<section class="band" style="background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <p class="eyebrow reveal">not invented here</p>
+    <h2 class="display reveal" style="margin-bottom:var(--s-xl)">The protocol stands on three pillars.</h2>
+    <div class="grid-3 reveal">
+      <div class="panel"><div class="k">governance</div><h3>Sociocracy 3.0</h3><p>The signal vocabulary is S3 verbatim — tensions, drivers, consent rounds, proposal forming. Governance patterns, not ad-hoc message types.</p></div>
+      <div class="panel"><div class="k">identity</div><h3>W3C DID + did:web</h3><p>Each Source is a <span class="mono">did:web</span> resolvable from its repo. Recognition binds a peer's key and a fingerprint of their statement at trust-time.</p></div>
+      <div class="panel"><div class="k">method</div><h3>ADR-first discipline</h3><p>Every architectural decision recorded before code — 13 accepted ADRs form the system's institutional memory.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- TIMELINE -->
+<section class="band">
+  <div class="wrap two" style="grid-template-columns:0.8fr 1.2fr; gap:var(--s-xl)">
+    <div class="reveal">
+      <p class="eyebrow">the season</p>
+      <h2 class="display">Implement → walkthrough → review → harden.</h2>
+      <p class="lead" style="margin-top:var(--s-md)">Each milestone produced <em>behaviour</em>, not just code. Every walkthrough runs real code against a real on-disk repo, surfaces gaps as issues, and the next cycle closes them.</p>
+      <p class="muted mono" style="font-size:.78rem">gold nodes ship tools · violet nodes are multi-agent review passes</p>
+    </div>
+    <div class="tl reveal">
+      <div class="tl-item"><div class="tl-tag">S+0 · protocol surface</div><div class="tl-title">Nine tool schemas, agent skill, MCP, CLI scaffold</div><p class="tl-desc">The whole surface, typed and schema-stable, before a single signal moved.</p></div>
+      <div class="tl-item"><div class="tl-tag">S+1 · identity + recognition</div><div class="tl-title">Signed identities; mutual recognition</div><p class="tl-desc">Domain-separated EdDSA; inline peer-key binding. Tier 1.</p></div>
+      <div class="tl-item"><div class="tl-tag">S+2–S+4 · the first dialogue</div><div class="tl-title">Signal envelope → first tension → round-trip</div><p class="tl-desc">Outbox/inbox transport; flyway_check; A↔B response bound to its subject. Tiers 2–3.</p></div>
+      <div class="tl-item review"><div class="tl-tag">review · 3 agents</div><div class="tl-title">Architecture · TypeScript · security</div><p class="tl-desc">ADR-0009 captures the antecedent-verification invariant; 12 findings filed.</p></div>
+      <div class="tl-item"><div class="tl-tag">S+5 · co-signed agreements</div><div class="tl-title">Proposal staging chain → byte-identical agreement</div><p class="tl-desc">Detached signatures ride inside the final + accept; each side materializes the same file. Tier 4.</p></div>
+      <div class="tl-item"><div class="tl-tag">S+6–S+7 · exit &amp; discovery</div><div class="tl-title">Clean unilateral exit; pre-trust directory search</div><p class="tl-desc">The nine-tool surface completes.</p></div>
+      <div class="tl-item"><div class="tl-tag">S+8–S+12 · reach at a distance</div><div class="tl-title">HTTPS directory · did:web recognition · github-pr delivery</div><p class="tl-desc">The full discover → recognize → deliver loop runs with no shared filesystem. Tiers 5–7. ADRs 0010–0012.</p></div>
+      <div class="tl-item"><div class="tl-tag">S+13 · exit-aware status</div><div class="tl-title">Read the exit lifecycle back</div><p class="tl-desc">A relationship or agreement reads as effectively closed from one read — the co-signed file never rewritten. ADR-0013, Tier 8.</p></div>
+      <div class="tl-item now"><div class="tl-tag">S+14 · wrap-up · this week</div><div class="tl-title">Green build; four backlog items resolved</div><p class="tl-desc">Typecheck, lint, and format to zero; an honest v0.2 roadmap; the deployed site + this deck.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FLAGSHIP -->
+<section class="band" style="background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)">
+  <div class="wrap two reveal">
+    <div>
+      <p class="eyebrow">the flagship moment</p>
+      <h2 class="display" style="max-width:13ch">Two flocks. One agreement. Byte-identical.</h2>
+      <p class="measure">A proposes a final-stage engagement agreement; B accepts, co-signing it. Then each side <strong>independently</strong> materializes <span class="mono">flyway/agreements/&lt;id&gt;.yaml</span> from records it already holds — and the two files match to the SHA-256. No central copy. No trusted third party.</p>
+    </div>
+    <div class="grid-3" style="grid-template-columns:1fr">
+      <div class="panel"><div class="k">provenance</div><h3>Every agreement traces to its tension</h3><p>The verified <span class="mono">originTensionId</span> propagates through the staging chain and is auto-stamped under both signatures — a forged link is refused.</p></div>
+      <div class="panel"><div class="k">lifecycle</div><h3>And exits, cleanly</h3><p>A signed, unilateral exit no peer can prevent — distinct from unrecognition, and it never mutates the co-signed file.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE DEMO -->
+<section class="band" id="live-demo">
+  <div class="wrap">
+    <p class="eyebrow reveal">live, from the built cli</p>
+    <h2 class="display reveal" style="margin-bottom:var(--s-sm)">The whole loop in one breath.</h2>
+    <p class="lead measure term-note reveal">Two empty temp directories become two murmurations, recognize each other, and pass a signed tension across the boundary — verbatim from the freshly-built CLI. <a class="link-fly" href="./demo.html">Watch it play ▶</a></p>
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span>flyway — end-to-end smoke</span></div>
+<pre><span class="c-m"># 1 · two independent murmurations initialize</span>
+<span class="c-a">[A]</span> Initialized flyway identity: <span class="c-hl">did:web:github.com:xeeban:a</span>
+<span class="c-b">[B]</span> Initialized flyway identity: <span class="c-hl">did:web:github.com:emergent:praxis</span>
+
+<span class="c-m"># 2 · mutual recognition — each verifies the other</span>
+<span class="c-a">[A]</span> Recognized did:web:github.com:emergent:praxis   fingerprint: vVP7tUsbgFEF…
+<span class="c-b">[B]</span> Recognized did:web:github.com:xeeban:a          fingerprint: 8HwJS8SrFNIp…
+
+<span class="c-m"># 3 · A signs a tension → delivered into B's inbox</span>
+<span class="c-a">[A]</span> Flagged tension to did:web:github.com:emergent:praxis
+<span class="c-a">[A]</span>   delivered → …/tmp.B/flyway/inbox/github.com/xeeban/a/…yaml
+
+<span class="c-m"># 4 · B runs status — the inbox line surfaces the signal (Issue #17)</span>
+<span class="c-b">[B]</span> Identity: did:web:github.com:emergent:praxis  <span class="c-ok">(signature valid)</span>
+<span class="c-b">[B]</span> Peers:    1 recognized  ·  Agreements: 0 on file
+<span class="c-b">[B]</span> <span class="c-hl">Inbox:    1 signal (1 verified)</span>
+
+<span class="c-m"># 5 · B checks the inbox — signature verifies independently</span>
+<span class="c-b">[B]</span>   - tension  1784161602463-80d46002  from …:xeeban:a  <span class="c-ok">[sig valid]</span>
+<span class="c-ok">✓ round-trip complete — no shared database, no central controller.</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="band" style="background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <p class="eyebrow reveal">where it stands</p>
+    <h2 class="display reveal" style="margin-bottom:var(--s-lg)">The surface is complete; the evidence is executable.</h2>
+    <div class="stats reveal">
+      <div class="stat"><div class="n">9<small>/9</small></div><div class="l">protocol tools wired end-to-end</div></div>
+      <div class="stat"><div class="n">449</div><div class="l">tests passing across 30 files</div></div>
+      <div class="stat"><div class="n">13</div><div class="l">ADRs accepted</div></div>
+      <div class="stat"><div class="n">8</div><div class="l">executable walkthroughs (Tier 1–8)</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">typecheck · lint · format errors</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">open security findings</div></div>
+      <div class="stat"><div class="n">3</div><div class="l">adapters from one core: skill · MCP · CLI</div></div>
+      <div class="stat"><div class="n">100<small>%</small></div><div class="l">signatures verified on both sides</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WRAP-UP -->
+<section class="band">
+  <div class="wrap two reveal">
+    <div>
+      <p class="eyebrow">this week · S+14 wrap-up</p>
+      <h2 class="display">Closed the season honestly.</h2>
+      <p class="measure" style="margin-top:var(--s-md)">The build is green top to bottom, four backlog items are resolved with tests, and the rest of the backlog is a deliberate <span class="mono">v0.2</span> roadmap — not neglect. Nothing was closed just to reach zero.</p>
+    </div>
+    <ul class="ledger">
+      <li><span class="k">fixed #17</span><span class="v"><b>flyway_status surfaces inbox state</b> — total / verified / flagged, in CLI, JSON, and MCP.</span></li>
+      <li><span class="k">fixed #16</span><span class="v"><b>Intra-thread ordering check</b> — a response dated before its subject is flagged.</span></li>
+      <li><span class="k">fixed #20</span><span class="v"><b>Imperative CLI errors</b> — every error ends with the recovery command to run.</span></li>
+      <li><span class="k defer">part #28</span><span class="v"><b>Peer-reader deduped</b>; the risky gate-unification half deferred — it would change behavior.</span></li>
+      <li><span class="k defer">v0.2 ×9</span><span class="v">Protocol-design &amp; validation questions milestoned as an intentional roadmap.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- FINAL REPORT -->
+<section class="band" id="final-report" style="background:var(--surface); border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)">
+  <div class="wrap">
+    <p class="eyebrow reveal">gimbalabs piece of pi · final report</p>
+    <h2 class="display reveal" style="margin-bottom:var(--s-sm)">Verification.</h2>
+    <p class="lead measure reveal" style="margin-bottom:var(--s-lg)">The four items the hackathon requires to prove the work — collected in one place.</p>
+    <div class="verify reveal">
+      <a class="vcard" href="https://github.com/murmurations-ai/flyway">
+        <div class="k">01 · public repository</div>
+        <div class="v">github.com/murmurations-ai/flyway</div>
+        <div class="m">MIT-licensed monorepo · flyway-core, cli, mcp, agent · 449 tests · 13 ADRs.</div>
+      </a>
+      <a class="vcard" href="./demo.html">
+        <div class="k">02 · live demo</div>
+        <div class="v">▶ the end-to-end loop, replayable</div>
+        <div class="m">A self-contained animated run — init → recognize → tension → status → check — verbatim from the built CLI.</div>
+      </a>
+      <a class="vcard" href="https://murmurations-ai.github.io/flyway/">
+        <div class="k">03 · deployed project</div>
+        <div class="v">murmurations-ai.github.io/flyway</div>
+        <div class="m">Live docs site — landing, this deck, the demo, architecture reference, and status dashboard — deployed from <span class="mono">docs/</span> via GitHub Pages.</div>
+      </a>
+      <a class="vcard" href="#tweets">
+        <div class="k">04 · weekly progress tweets</div>
+        <div class="v">@Xeeban · 12-week thread ↓</div>
+        <div class="m">Every Friday, 2026-05-01 → 2026-07-17. Full index below.</div>
+      </a>
+    </div>
+
+    <div id="tweets" style="margin-top:var(--s-xl)">
+      <h3 class="display" style="margin-bottom:var(--s-md)">Weekly progress tweets — <span class="mono" style="font-size:.7em; color:var(--gold-ink)">@Xeeban</span></h3>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Week</th><th>Date</th><th>Milestone</th><th>Tweet</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">01</td><td class="mono">05-01</td><td class="desc">Joining the hackathon — what flyway is</td><td><a href="https://x.com/Xeeban/status/2050265771843166351">x.com/…166351</a></td></tr>
+            <tr><td class="mono">02</td><td class="mono">05-08</td><td class="desc">Protocol surface + identity</td><td><a href="https://x.com/Xeeban/status/2052854990834966838">x.com/…966838</a></td></tr>
+            <tr><td class="mono">03</td><td class="mono">05-15</td><td class="desc">Mutual recognition</td><td><a href="https://x.com/Xeeban/status/2054686648181612848">x.com/…612848</a></td></tr>
+            <tr><td class="mono">04</td><td class="mono">05-22</td><td class="desc">Signal exchange / dialogue</td><td><a href="https://x.com/Xeeban/status/2058033290120941725">x.com/…941725</a></td></tr>
+            <tr><td class="mono">05</td><td class="mono">05-29</td><td class="desc">Review-hardening pass</td><td><a href="https://x.com/Xeeban/status/2060446550950805661">x.com/…805661</a></td></tr>
+            <tr><td class="mono">06</td><td class="mono">06-05</td><td class="desc">flyway_propose — 6 of 9 tools wired</td><td><a href="https://x.com/Xeeban/status/2063043753364128026">x.com/…128026</a></td></tr>
+            <tr><td class="mono">07</td><td class="mono">06-12</td><td class="desc">Co-signed, byte-identical agreements</td><td><a href="https://x.com/Xeeban/status/2065548315819925666">x.com/…925666</a></td></tr>
+            <tr><td class="mono">08</td><td class="mono">06-19</td><td class="desc">Clean exit + discovery</td><td><a href="https://x.com/Xeeban/status/2067391906619990193">x.com/…990193</a></td></tr>
+            <tr><td class="mono">09</td><td class="mono">06-26</td><td class="desc">Recognize at a distance (did:web)</td><td><a href="https://x.com/Xeeban/status/2070706879014264872">x.com/…264872</a></td></tr>
+            <tr><td class="mono">10</td><td class="mono">07-03</td><td class="desc">github-pr delivery transport</td><td><a href="https://x.com/Xeeban/status/2072708066089598999">x.com/…598999</a></td></tr>
+            <tr><td class="mono">11</td><td class="mono">07-10</td><td class="desc">Exit-aware status</td><td><a href="https://x.com/Xeeban/status/2075654694404579624">x.com/…579624</a></td></tr>
+            <tr><td class="mono">12</td><td class="mono">07-17</td><td class="desc">Finale — the wrap-up</td><td><span class="miss">— post at submission</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted reveal" style="font-size:.82rem; margin-top:var(--s-sm)">All eleven weekly tweets to date are linked (weeks 1–11). The week-12 finale posts at submission — <span class="mono">2026-07-17</span>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSE -->
+<section class="band close-band">
+  <div class="wrap measure reveal">
+    <p class="eyebrow">the vision</p>
+    <p class="q">Sovereign Sources, each holding their own flock, meeting in open airspace to <em>achieve consent</em> — surfacing objections, integrating concerns, reaching agreements every party can stand behind, then parting cleanly when the season ends.</p>
+    <p class="lead" style="margin-top:var(--s-lg)">That's the corridor. flyway is how the murmurations find it.</p>
+  </div>
+</section>
+
+<footer class="brand-foot">
+  <div class="wrap">
+    <p class="mono">flyway · protocol v0.1.0 · @murmurations-ai/flyway</p>
+    <p>A runtime-agnostic protocol for collaboration between independent AI-agent murmurations. Signing is pluggable — a future <span class="mono">flyway-cardano</span> package adds an on-chain signer and anchoring without touching <span class="mono">flyway-core</span>.</p>
+  </div>
+</footer>
+
+<script src="./brand.js"></script>
+</body>
+</html>
