@@ -76,9 +76,7 @@ export async function runMaterialize(
     }
   }
   const ourDidDocument = JSON.parse(readFileSync(ourDidDocPath, 'utf-8')) as DidDocument
-  const ourEntityStatement = JSON.parse(
-    readFileSync(ourStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
+  const ourEntityStatement = JSON.parse(readFileSync(ourStmtPath, 'utf-8')) as SignedEntityStatement
   const ourDid = ourEntityStatement.did
 
   // 2. Resolve the peer DID (discovery hint only — the trusted DID
@@ -151,7 +149,7 @@ export async function runMaterialize(
     if (did === peerDid) return peerDidDocument
     throw new Error(
       `flyway materialize: signal sender ${did} is neither this Source (${ourDid}) ` +
-        `nor the peer (${peerDid}). Wrong peer repo path for this agreement?`,
+        `nor the peer (${peerDid}). Re-run with the peer repo path that matches this agreement's participants.`,
     )
   }
 

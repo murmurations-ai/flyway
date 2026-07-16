@@ -1,10 +1,4 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { stringify as yamlStringify } from 'yaml'
@@ -14,12 +8,19 @@ import { flywayInit } from './init.js'
 import { fingerprintEntityStatement } from './recognize.js'
 import {
   type SignedSignalEnvelope,
+  buildSignedSignal,
   signalInboxPath,
   writeSignalToInbox,
   writeSignalToOutbox,
 } from './signal.js'
 import { type Signer, localEd25519Signer } from './signing.js'
 import { flywayStatus } from './status.js'
+
+/** Assert a fixture value is present without a non-null assertion. */
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('must: expected a defined value')
+  return value
+}
 
 function freshTmp(): string {
   return mkdtempSync(join(tmpdir(), 'flyway-status-test-'))
@@ -110,7 +111,7 @@ describe('flywayStatus — degraded states', () => {
   it('flags a tampered entity statement as signature-invalid', async () => {
     await seedIdentity(tmp)
     const stmtPath = join(tmp, 'flyway', 'entity-statement.json')
-    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8'))
+    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8')) as Record<string, unknown>
     stmt.sourceName = 'Imposter'
     writeFileSync(stmtPath, JSON.stringify(stmt, null, 2))
     const status = await flywayStatus(tmp)
@@ -128,7 +129,7 @@ describe('flywayStatus — degraded states', () => {
   it('flags an unsigned (legacy) entity statement', async () => {
     await seedIdentity(tmp)
     const stmtPath = join(tmp, 'flyway', 'entity-statement.json')
-    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8'))
+    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8')) as Record<string, unknown>
     delete stmt.signature
     writeFileSync(stmtPath, JSON.stringify(stmt, null, 2))
     const status = await flywayStatus(tmp)
@@ -178,7 +179,7 @@ describe('flywayStatus — peers and agreements', () => {
       '    peerPublicKey:',
       '      kty: OKP',
       '      crv: Ed25519',
-      `      x: ${peerArtifacts.didDocument.verificationMethod[0]!.publicKeyJwk.x}`,
+      `      x: ${must(peerArtifacts.didDocument.verificationMethod[0]).publicKeyJwk.x}`,
       '    entityStatementFingerprint: ZZZ_DRIFTED_FINGERPRINT_AAAA',
       '    recognizedAt: 2026-01-01T00:00:00.000Z',
       `    recognizedBy: ${A.did}`,
@@ -194,10 +195,7 @@ describe('flywayStatus — peers and agreements', () => {
     // Drop the cached peer artifacts into place.
     const peerCache = join(tmp, 'flyway', 'peers', 'github.com', 'xeeban', 'peer')
     mkdirSync(peerCache, { recursive: true })
-    writeFileSync(
-      join(peerCache, 'did.json'),
-      JSON.stringify(peerArtifacts.didDocument, null, 2),
-    )
+    writeFileSync(join(peerCache, 'did.json'), JSON.stringify(peerArtifacts.didDocument, null, 2))
     writeFileSync(
       join(peerCache, 'entity-statement.json'),
       JSON.stringify(peerArtifacts.entityStatement, null, 2),
@@ -206,8 +204,8 @@ describe('flywayStatus — peers and agreements', () => {
     const status = await flywayStatus(tmp)
     const peer = status.peers.entries.find((p) => p.did === peerArtifacts.did)
     expect(peer).toBeDefined()
-    expect(peer!.cacheConsistent).toBe(false)
-    expect(peer!.issues.some((i) => /fingerprint/.test(i))).toBe(true)
+    expect(must(peer).cacheConsistent).toBe(false)
+    expect(must(peer).issues.some((i) => /fingerprint/.test(i))).toBe(true)
   })
 
   it('flags drift when the cached peer key has rotated (G3)', async () => {
@@ -239,7 +237,7 @@ describe('flywayStatus — peers and agreements', () => {
       '    peerPublicKey:',
       '      kty: OKP',
       '      crv: Ed25519',
-      `      x: ${peerOriginal.didDocument.verificationMethod[0]!.publicKeyJwk.x}`,
+      `      x: ${must(peerOriginal.didDocument.verificationMethod[0]).publicKeyJwk.x}`,
       `    entityStatementFingerprint: ${(await import('./recognize.js')).fingerprintEntityStatement(peerRotated.entityStatement)}`,
       '    recognizedAt: 2026-01-01T00:00:00.000Z',
       `    recognizedBy: ${A.did}`,
@@ -254,10 +252,7 @@ describe('flywayStatus — peers and agreements', () => {
     writeFileSync(join(tmp, 'flyway', 'peers.yaml'), peersYaml)
     const peerCache = join(tmp, 'flyway', 'peers', 'github.com', 'xeeban', 'peer')
     mkdirSync(peerCache, { recursive: true })
-    writeFileSync(
-      join(peerCache, 'did.json'),
-      JSON.stringify(peerRotated.didDocument, null, 2),
-    )
+    writeFileSync(join(peerCache, 'did.json'), JSON.stringify(peerRotated.didDocument, null, 2))
     writeFileSync(
       join(peerCache, 'entity-statement.json'),
       JSON.stringify(peerRotated.entityStatement, null, 2),
@@ -266,8 +261,8 @@ describe('flywayStatus — peers and agreements', () => {
     const status = await flywayStatus(tmp)
     const peer = status.peers.entries.find((p) => p.did === peerOriginal.did)
     expect(peer).toBeDefined()
-    expect(peer!.cacheConsistent).toBe(false)
-    expect(peer!.issues.some((i) => /rotated keys/.test(i))).toBe(true)
+    expect(must(peer).cacheConsistent).toBe(false)
+    expect(must(peer).issues.some((i) => /rotated keys/.test(i))).toBe(true)
   })
 
   it('counts yaml files in flyway/agreements and lists their ids', async () => {
@@ -321,7 +316,10 @@ async function makeMurmuration(owner: string, name: string): Promise<Murmuration
 function seedOursWithRecognizedPeer(cwd: string, ours: Murmuration, peer: Murmuration): void {
   mkdirSync(join(cwd, '.well-known'), { recursive: true })
   mkdirSync(join(cwd, 'flyway', 'keys'), { recursive: true })
-  writeFileSync(join(cwd, '.well-known', 'did.json'), JSON.stringify(ours.artifacts.didDocument, null, 2))
+  writeFileSync(
+    join(cwd, '.well-known', 'did.json'),
+    JSON.stringify(ours.artifacts.didDocument, null, 2),
+  )
   writeFileSync(
     join(cwd, 'flyway', 'entity-statement.json'),
     JSON.stringify(ours.artifacts.entityStatement, null, 2),
@@ -337,7 +335,7 @@ function seedOursWithRecognizedPeer(cwd: string, ours: Murmuration, peer: Murmur
   )
 
   const fp = fingerprintEntityStatement(peer.artifacts.entityStatement)
-  const peerKey = peer.artifacts.didDocument.verificationMethod[0]!.publicKeyJwk.x
+  const peerKey = must(peer.artifacts.didDocument.verificationMethod[0]).publicKeyJwk.x
   const peersYaml = [
     'schema: flyway-peers-v0',
     'peers:',
@@ -382,7 +380,12 @@ function writeAgreement(
 }
 
 /** Place a signal envelope at an arbitrary inbox path (for replay tests). */
-function placeInboxFileAt(cwd: string, fromDid: string, id: string, env: SignedSignalEnvelope): void {
+function placeInboxFileAt(
+  cwd: string,
+  fromDid: string,
+  id: string,
+  env: SignedSignalEnvelope,
+): void {
   const p = signalInboxPath(cwd, fromDid, id)
   mkdirSync(p.slice(0, p.lastIndexOf('/')), { recursive: true })
   writeFileSync(p, yamlStringify(env))
@@ -472,7 +475,10 @@ describe('flywayStatus — exit-aware peer relationships (ADR-0013)', () => {
       body: { target: ours.artifacts.did, targetType: 'peer' },
       signer: peer.signer,
     })
-    const tampered = { ...env, body: { ...(env.body as object), target: ours.artifacts.did, reason: 'injected' } } as SignedSignalEnvelope
+    const tampered = {
+      ...env,
+      body: { ...(env.body as object), target: ours.artifacts.did, reason: 'injected' },
+    } as SignedSignalEnvelope
     const path = signalInboxPath(tmp, peer.artifacts.did, env.id)
     mkdirSync(path.slice(0, path.lastIndexOf('/')), { recursive: true })
     writeFileSync(path, yamlStringify(tampered))
@@ -749,7 +755,10 @@ describe('flywayStatus — exit trust-gate hardening (review)', () => {
       body: { target: peer.artifacts.did, targetType: 'peer', reason: 'authentic' },
       signer: ours.signer,
     })
-    const forged = { ...env, body: { ...(env.body as object), reason: 'tampered' } } as SignedSignalEnvelope
+    const forged = {
+      ...env,
+      body: { ...(env.body as object), reason: 'tampered' },
+    } as SignedSignalEnvelope
     const outPath = join(
       tmp,
       'flyway',
@@ -762,8 +771,67 @@ describe('flywayStatus — exit trust-gate hardening (review)', () => {
 
     const status = await flywayStatus(tmp)
     expect(status.exits.count).toBe(0)
-    expect(status.exits.issues.some((i) => /does not verify against our DID document/.test(i))).toBe(true)
+    expect(
+      status.exits.issues.some((i) => /does not verify against our DID document/.test(i)),
+    ).toBe(true)
     const p = status.peers.entries.find((e) => e.did === peer.artifacts.did)
     expect(p?.closure).toBeUndefined()
+  })
+})
+
+describe('flywayStatus — inbox summary (Issue #17)', () => {
+  let tmp: string
+  let ours: Murmuration
+  let peer: Murmuration
+  beforeEach(async () => {
+    tmp = freshTmp()
+    ours = await makeMurmuration('xeeban', 'us')
+    peer = await makeMurmuration('emergent', 'them')
+    seedOursWithRecognizedPeer(tmp, ours, peer)
+  })
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('reports an empty inbox as zero across the board', async () => {
+    const status = await flywayStatus(tmp)
+    expect(status.inbox).toEqual({ total: 0, verified: 0, flagged: 0 })
+  })
+
+  it('counts a verified signal from a recognized peer', async () => {
+    const env = await buildSignedSignal({
+      from: peer.artifacts.did,
+      to: ours.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'X', effect: 'Y' },
+      signer: peer.signer,
+      id: 'peer-tension-1',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+    })
+    writeSignalToInbox(tmp, env)
+
+    const status = await flywayStatus(tmp)
+    expect(status.inbox.total).toBe(1)
+    expect(status.inbox.verified).toBe(1)
+    expect(status.inbox.flagged).toBe(0)
+  })
+
+  it('flags a signal from an unrecognized sender', async () => {
+    const stranger = await makeMurmuration('stranger', 's')
+    const env = await buildSignedSignal({
+      from: stranger.artifacts.did,
+      to: ours.artifacts.did,
+      kind: 'tension',
+      body: { conditions: 'X', effect: 'Y' },
+      signer: stranger.signer,
+      id: 'stranger-tension-1',
+      now: new Date('2026-05-25T12:00:00.000Z'),
+    })
+    writeSignalToInbox(tmp, env)
+
+    const status = await flywayStatus(tmp)
+    expect(status.inbox.total).toBe(1)
+    expect(status.inbox.verified).toBe(0)
+    expect(status.inbox.flagged).toBe(1)
   })
 })

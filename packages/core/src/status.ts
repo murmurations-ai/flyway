@@ -33,11 +33,8 @@ import {
   type FlywayAgreementState,
   FLYWAY_AGREEMENT_STATES,
 } from './agreements.js'
-import {
-  EXIT_TARGET_TYPES,
-  type ExitBody,
-  type ExitTargetType,
-} from './exit.js'
+import { flywayCheck, readRecognizedPeers } from './check.js'
+import { EXIT_TARGET_TYPES, type ExitBody, type ExitTargetType } from './exit.js'
 import type { DidDocument, SignedEntityStatement } from './init.js'
 import {
   type SignedRecognitionEntry,
@@ -165,12 +162,32 @@ export interface FlywayStatusExits {
   readonly issues: readonly string[]
 }
 
+/**
+ * Inbox delivery-state summary (Issue #17). Computed by delegating to
+ * `flyway_check` so status and check can't report divergent inbox counts.
+ * Lets an operator running `status` notice unread or compromised signals
+ * without remembering to run `check` separately.
+ */
+export interface FlywayStatusInbox {
+  /** Total signals sitting in flyway/inbox. */
+  readonly total: number
+  /** Recognized sender, signature verified, and no per-signal issues. */
+  readonly verified: number
+  /**
+   * Count of signals carrying one or more issues (unrecognized sender,
+   * INVALID signature, sentAt before recognizedAt, unresolved refs, …)
+   * plus any inbox files that could not be parsed.
+   */
+  readonly flagged: number
+}
+
 export interface FlywayStatus {
   readonly cwd: string
   readonly identity: FlywayStatusIdentity
   readonly peers: FlywayStatusPeers
   readonly agreements: FlywayStatusAgreements
   readonly exits: FlywayStatusExits
+  readonly inbox: FlywayStatusInbox
 }
 
 const DID_DOC_PATH = ['.well-known', 'did.json'] as const
@@ -180,9 +197,9 @@ const AGREEMENTS_DIR = ['flyway', 'agreements'] as const
 
 export async function flywayStatus(cwd: string): Promise<FlywayStatus> {
   const identity = await inspectIdentity(cwd)
-  const ourDidDocument = readOptionalJson<DidDocument>(join(cwd, ...DID_DOC_PATH))
+  const ourDidDocument = readOptionalJson(join(cwd, ...DID_DOC_PATH)) as DidDocument | undefined
   const ourDid = ourDidDocument?.id
-  const recognizedPeers = readRecognizedPeerMap(cwd)
+  const recognizedPeers = readRecognizedPeers(cwd)
   const { exits, issues: exitIssues } = await collectEffectiveExits(
     cwd,
     ourDid,
@@ -213,6 +230,22 @@ export async function flywayStatus(cwd: string): Promise<FlywayStatus> {
     peers: await inspectPeers(cwd, ourDidDocument, exits),
     agreements: agreements.result,
     exits: { count: exits.length, issues: exitIssues },
+    inbox: await summarizeInbox(cwd),
+  }
+}
+
+/**
+ * Delegate to flyway_check and reduce its per-signal report to the counts
+ * status surfaces (Issue #17). A signal is "flagged" if it carries any
+ * per-signal issue; unparseable inbox files count too.
+ */
+async function summarizeInbox(cwd: string): Promise<FlywayStatusInbox> {
+  const inbox = await flywayCheck(cwd)
+  const flaggedSignals = inbox.signals.filter((s) => s.issues.length > 0).length
+  return {
+    total: inbox.totalCount,
+    verified: inbox.validCount,
+    flagged: flaggedSignals + inbox.issues.length,
   }
 }
 
@@ -251,7 +284,8 @@ async function collectEffectiveExits(
   for (const path of collectYamlFiles(inboxRoot)) {
     const env = readSignalFile(path)
     if (!env || env.kind !== 'exit') continue
-    if (!(await honorInboxExit(cwd, path, inboxRoot, env, ourDid, recognizedPeers, issues))) continue
+    if (!(await honorInboxExit(cwd, path, inboxRoot, env, ourDid, recognizedPeers, issues)))
+      continue
     const norm = normalizeExit(env, 'peer-exited', env.from, issues)
     if (norm) exits.push(norm)
   }
@@ -301,7 +335,9 @@ async function honorOutboxExit(
   }
   try {
     if (!(await verifySignedSignal(env, ourDidDocument))) {
-      issues.push(`outbox exit ${env.id}: signature does not verify against our DID document — ignored`)
+      issues.push(
+        `outbox exit ${env.id}: signature does not verify against our DID document — ignored`,
+      )
       return false
     }
   } catch (e) {
@@ -336,7 +372,9 @@ function normalizeExit(
   // A peer exit's target is the recipient (createExit enforces this at send
   // time; re-check on read so a mis-targeted-but-signed notice can't slip in).
   if (body.targetType === 'peer' && body.target !== env.to) {
-    issues.push(`peer exit ${env.id} target (${body.target}) does not match its recipient — ignored`)
+    issues.push(
+      `peer exit ${env.id} target (${body.target}) does not match its recipient — ignored`,
+    )
     return null
   }
   return {
@@ -415,19 +453,6 @@ async function honorInboxExit(
   return true
 }
 
-function readRecognizedPeerMap(cwd: string): Map<string, SignedRecognitionEntry> {
-  const peersPath = join(cwd, ...PEERS_PATH)
-  if (!existsSync(peersPath)) return new Map()
-  try {
-    const raw = readFileSync(peersPath, 'utf-8')
-    const parsed = parseDocument(raw).toJS() as { peers?: SignedRecognitionEntry[] } | null
-    const entries = parsed && Array.isArray(parsed.peers) ? parsed.peers : []
-    return new Map(entries.map((e) => [e.did, e]))
-  } catch {
-    return new Map()
-  }
-}
-
 /** The earliest peer-exit that closed this relationship, if any. */
 function closureForPeer(
   did: string,
@@ -467,7 +492,6 @@ function exitClosesAgreement(
       return e.target === agreement.syndicateId
   }
 }
-
 
 function earliestClosure(relevant: readonly EffectiveExit[]): FlywayStatusClosure | undefined {
   if (relevant.length === 0) return undefined
@@ -521,7 +545,7 @@ async function inspectIdentity(cwd: string): Promise<FlywayStatusIdentity> {
 
   let signatureValid: boolean | undefined
   if (didDocument && entityStatement) {
-    if (!entityStatement.signature) {
+    if (!(entityStatement as { signature?: unknown }).signature) {
       issues.push('entity statement is unsigned — predates the signing milestone')
       signatureValid = false
     } else {
@@ -605,9 +629,7 @@ async function inspectPeers(
       recognizedAt: entry.recognizedAt,
       recognitionValid,
       issues: drift.issues,
-      ...(drift.cacheConsistent !== undefined
-        ? { cacheConsistent: drift.cacheConsistent }
-        : {}),
+      ...(drift.cacheConsistent !== undefined ? { cacheConsistent: drift.cacheConsistent } : {}),
       ...(closure !== undefined ? { closure } : {}),
     })
   }
@@ -674,10 +696,10 @@ function inspectPeerCacheDrift(
   return { cacheConsistent: issues.length === 0, issues }
 }
 
-function readOptionalJson<T>(path: string): T | undefined {
+function readOptionalJson(path: string): unknown {
   if (!existsSync(path)) return undefined
   try {
-    return JSON.parse(readFileSync(path, 'utf-8')) as T
+    return JSON.parse(readFileSync(path, 'utf-8')) as unknown
   } catch {
     return undefined
   }

@@ -19,12 +19,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 import { parseDocument } from 'yaml'
 import type { DidDocument } from './init.js'
+import { type SignedRecognitionEntry, peerCachePathSegments } from './recognize.js'
 import {
-  type SignedRecognitionEntry,
-  peerCachePathSegments,
-} from './recognize.js'
-import {
-  SIGNAL_SCHEMA_VERSION,
   type SignalKind,
   type SignedSignalEnvelope,
   collectYamlFiles,
@@ -64,7 +60,7 @@ export async function flywayCheck(cwd: string): Promise<FlywaySignalInbox> {
   const inboxRoot = join(cwd, ...INBOX_ROOT)
   const issues: string[] = []
 
-  const recognizedPeers = readRecognizedPeerSet(cwd)
+  const recognizedPeers = readRecognizedPeers(cwd)
 
   if (!existsSync(inboxRoot)) {
     return { cwd, signals: [], totalCount: 0, validCount: 0, issues }
@@ -99,11 +95,6 @@ async function inspectSignalFile(
     globalIssues.push(`could not parse signal at ${path} (not flyway-signal-v0 or unreadable)`)
     return null
   }
-  if (envelope.schema !== SIGNAL_SCHEMA_VERSION) {
-    globalIssues.push(`${path}: unsupported signal schema ${(envelope as { schema?: string }).schema}`)
-    return null
-  }
-
   const perEntryIssues: string[] = []
 
   // Confirm the on-disk path matches the envelope.from (the file must
@@ -116,9 +107,7 @@ async function inspectSignalFile(
     perEntryIssues.push(`envelope.from DID is not a did:web (got: ${envelope.from})`)
   }
   if (!fromPathMatchesEnvelope && perEntryIssues.length === 0) {
-    perEntryIssues.push(
-      `signal file is not in the expected inbox subpath for envelope.from`,
-    )
+    perEntryIssues.push(`signal file is not in the expected inbox subpath for envelope.from`)
   }
 
   // Did the envelope sign over the right domain for its declared kind?
@@ -149,7 +138,7 @@ async function inspectSignalFile(
   // gain recognition over older signed material. This also flags
   // "ghost" signals dropped into the inbox before the sender was a
   // peer.
-  if (peerEntry?.recognizedAt && envelope.sentAt < peerEntry.recognizedAt) {
+  if (peerEntry.recognizedAt && envelope.sentAt < peerEntry.recognizedAt) {
     perEntryIssues.push(
       `signal sentAt (${envelope.sentAt}) predates peer recognizedAt ` +
         `(${peerEntry.recognizedAt}) — refusing retroactive validation`,
@@ -162,7 +151,9 @@ async function inspectSignalFile(
     const segments = peerCachePathSegments(envelope.from)
     const didDocPath = join(cwd, 'flyway', 'peers', ...segments, 'did.json')
     if (!existsSync(didDocPath)) {
-      perEntryIssues.push(`peer DID document missing at flyway/peers/${segments.join('/')}/did.json`)
+      perEntryIssues.push(
+        `peer DID document missing at flyway/peers/${segments.join('/')}/did.json`,
+      )
     } else {
       const peerDidDocument = JSON.parse(readFileSync(didDocPath, 'utf-8')) as DidDocument
       signatureValid = await verifySignedSignal(envelope, peerDidDocument)
@@ -256,8 +247,7 @@ function verifyOneRef(
   }
   if (subject.kind !== expectedKind) {
     perEntryIssues.push(
-      `refs.${refKey}='${refId}' resolves to a ${subject.kind} signal, ` +
-        `not a ${expectedKind}`,
+      `refs.${refKey}='${refId}' resolves to a ${subject.kind} signal, ` + `not a ${expectedKind}`,
     )
   }
   if (subject.to !== envelope.from) {
@@ -266,9 +256,30 @@ function verifyOneRef(
         `${subject.to}, not to ${envelope.from} (the responder)`,
     )
   }
+  // Intra-thread ordering (Issue #16 / G9): a response can't predate the
+  // subject it answers. Clocks drift by seconds, not backwards across the
+  // exchange — a response dated before its subject is suspicious for audit.
+  // Sibling to the SEC-3 sentAt >= recognizedAt check, one level finer.
+  if (
+    typeof subject.sentAt === 'string' &&
+    typeof envelope.sentAt === 'string' &&
+    envelope.sentAt < subject.sentAt
+  ) {
+    perEntryIssues.push(
+      `response sentAt (${envelope.sentAt}) precedes the ${expectedKind} it answers ` +
+        `(refs.${refKey}='${refId}' sentAt ${subject.sentAt}) — response predates its subject`,
+    )
+  }
 }
 
-function readRecognizedPeerSet(cwd: string): Map<string, SignedRecognitionEntry> {
+/**
+ * Read flyway/peers.yaml into a DID→entry map — the single source of truth
+ * for "who do we recognize?" shared by flyway_check and flyway_status
+ * (Issue #28; formerly duplicated verbatim as status.ts's
+ * `readRecognizedPeerMap`). Returns a Map (the old `…Set` name was a
+ * misnomer). Never throws: a missing or unparseable file yields an empty map.
+ */
+export function readRecognizedPeers(cwd: string): Map<string, SignedRecognitionEntry> {
   const peersPath = join(cwd, ...PEERS_PATH)
   if (!existsSync(peersPath)) return new Map()
   try {
@@ -280,4 +291,3 @@ function readRecognizedPeerSet(cwd: string): Map<string, SignedRecognitionEntry>
     return new Map()
   }
 }
-

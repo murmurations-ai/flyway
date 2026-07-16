@@ -18,6 +18,7 @@ import {
   type DidDocument,
   type SignedEntityStatement,
   type SignedRecognitionEntry,
+  getPrimaryVerificationKey,
   localEd25519Signer,
   peerCachePathSegments,
   recognizePeer,
@@ -80,15 +81,11 @@ export async function runRecognize(options: RunRecognizeOptions): Promise<RunRec
     ['private key', ourKeyPath] as const,
   ]) {
     if (!existsSync(p)) {
-      throw new Error(
-        `flyway recognize: missing our ${label} at ${p}. Run \`flyway init\` first.`,
-      )
+      throw new Error(`flyway recognize: missing our ${label} at ${p}. Run \`flyway init\` first.`)
     }
   }
   const ourDidDocument = JSON.parse(readFileSync(ourDidDocPath, 'utf-8')) as DidDocument
-  const ourEntityStatement = JSON.parse(
-    readFileSync(ourStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
+  const ourEntityStatement = JSON.parse(readFileSync(ourStmtPath, 'utf-8')) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
   // 2. Load the peer's identity — locally from peerRepoPath, or remotely by
@@ -114,22 +111,21 @@ export async function runRecognize(options: RunRecognizeOptions): Promise<RunRec
     ]) {
       if (!existsSync(p)) {
         throw new Error(
-          `flyway recognize: peer ${label} missing at ${p}. Is ${repoPath} a flyway-initialized repo?`,
+          `flyway recognize: peer ${label} missing at ${p}. ` +
+            `Run \`flyway init\` in ${repoPath} first, or point at the peer's initialized repo.`,
         )
       }
     }
     peerDidDocument = JSON.parse(readFileSync(peerDidDocPath, 'utf-8')) as DidDocument
-    peerEntityStatement = JSON.parse(
-      readFileSync(peerStmtPath, 'utf-8'),
-    ) as SignedEntityStatement
+    peerEntityStatement = JSON.parse(readFileSync(peerStmtPath, 'utf-8')) as SignedEntityStatement
   }
 
   // 3. Build the signer and call core recognizePeer.
-  const verificationKeyId =
-    ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
+  const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
+  const verificationKeyId = ourEntityStatement.verificationKeyId
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
-    publicKeyJwk: ourDidDocument.verificationMethod[0]!.publicKeyJwk,
+    publicKeyJwk: ownVerificationMethod.publicKeyJwk,
     verificationKeyId,
   })
   const recognizeInput = {
