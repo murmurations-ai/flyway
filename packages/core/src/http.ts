@@ -94,7 +94,13 @@ function isBlockedIpv6(bytes: number[]): boolean {
   // IPv4-mapped ::ffff:a.b.c.d
   if (allZeroUpTo(10) && at(10) === 0xff && at(11) === 0xff) return isBlockedIpv4(at(12), at(13))
   // NAT64 64:ff9b::/96
-  if (at(0) === 0x00 && at(1) === 0x64 && at(2) === 0xff && at(3) === 0x9b && bytes.slice(4, 12).every((x) => x === 0)) {
+  if (
+    at(0) === 0x00 &&
+    at(1) === 0x64 &&
+    at(2) === 0xff &&
+    at(3) === 0x9b &&
+    bytes.slice(4, 12).every((x) => x === 0)
+  ) {
     return isBlockedIpv4(at(12), at(13))
   }
   // 6to4 2002:V4ADDR::/16 — embedded IPv4 in bytes 2..5
@@ -208,7 +214,9 @@ export async function fetchTextOverHttps(
         }
         const location = res.headers.get('location')
         if (!location) {
-          throw new Error(`flyway: redirect (HTTP ${String(res.status)}) with no Location from ${currentUrl}`)
+          throw new Error(
+            `flyway: redirect (HTTP ${String(res.status)}) with no Location from ${currentUrl}`,
+          )
         }
         currentUrl = new URL(location, currentUrl).toString()
         continue

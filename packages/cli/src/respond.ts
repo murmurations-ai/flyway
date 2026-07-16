@@ -89,15 +89,11 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     ['private key', ourKeyPath] as const,
   ]) {
     if (!existsSync(p)) {
-      throw new Error(
-        `flyway respond: missing our ${label} at ${p}. Run \`flyway init\` first.`,
-      )
+      throw new Error(`flyway respond: missing our ${label} at ${p}. Run \`flyway init\` first.`)
     }
   }
   const ourDidDocument = JSON.parse(readFileSync(ourDidDocPath, 'utf-8')) as DidDocument
-  const ourEntityStatement = JSON.parse(
-    readFileSync(ourStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
+  const ourEntityStatement = JSON.parse(readFileSync(ourStmtPath, 'utf-8')) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
   // 2. Resolve the peer DID. The peer's *.well-known/did.json* is used
@@ -164,8 +160,7 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
 
   // 7. Build the signer once; the kind-specific branches reuse it.
   const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
-  const verificationKeyId =
-    ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
+  const verificationKeyId = ourEntityStatement.verificationKeyId
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
     publicKeyJwk: ownVerificationMethod.publicKeyJwk,
@@ -208,9 +203,7 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
       )
     }
     if (options.transferTo !== undefined) {
-      throw new Error(
-        'flyway respond: --transfer-to is only valid when responding to a tension.',
-      )
+      throw new Error('flyway respond: --transfer-to is only valid when responding to a tension.')
     }
     response = await createProposalResponse({
       from: ourEntityStatement.did,
@@ -251,4 +244,3 @@ export async function runRespond(options: RunRespondOptions): Promise<RunRespond
     receipt,
   }
 }
-

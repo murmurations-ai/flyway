@@ -1,4 +1,10 @@
-export type { FlywaySkill, FlywayToolDefinition, FlywayToolName, JsonSchema, JsonSchemaType } from './types.js'
+export type {
+  FlywaySkill,
+  FlywayToolDefinition,
+  FlywayToolName,
+  JsonSchema,
+  JsonSchemaType,
+} from './types.js'
 export { FLYWAY_TOOLS } from './tools.js'
 export { FLYWAY_INSTRUCTIONS } from './instructions.js'
 export { FLYWAY_PROTOCOL_VERSION, createFlywaySkill } from './skill.js'
@@ -108,16 +114,9 @@ export {
 } from './github-pr.js'
 export type { HttpsFetchDeps } from './http.js'
 export { assertPublicHttpsUrl, fetchTextOverHttps } from './http.js'
-export type {
-  DidWebResolutionUrls,
-  ResolvePeerOptions,
-  ResolvedPeerIdentity,
-} from './resolve.js'
+export type { DidWebResolutionUrls, ResolvePeerOptions, ResolvedPeerIdentity } from './resolve.js'
 export { didWebResolutionUrls, githubRepoForDid, resolvePeerIdentity } from './resolve.js'
-export type {
-  MaterializeAgreementInput,
-  MaterializedAgreement,
-} from './materialize.js'
+export type { MaterializeAgreementInput, MaterializedAgreement } from './materialize.js'
 export {
   agreementFilePath,
   buildAgreementSigningTarget,
@@ -126,10 +125,7 @@ export {
   verifyAgreementSignature,
   writeAgreementFile,
 } from './materialize.js'
-export type {
-  FlywaySignalInbox,
-  FlywaySignalInboxEntry,
-} from './check.js'
+export type { FlywaySignalInbox, FlywaySignalInboxEntry } from './check.js'
 export { flywayCheck } from './check.js'
 export type {
   FlywayStatus,

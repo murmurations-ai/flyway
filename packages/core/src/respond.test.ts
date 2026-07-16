@@ -116,8 +116,7 @@ describe('createTensionResponse — body validation', () => {
       createTensionResponse({
         from: B.artifacts.did,
         to: A.artifacts.did,
-        // biome-ignore lint/suspicious/noExplicitAny: validating runtime input shape
-        body: { decision: 'maybe' as any },
+        body: { decision: 'maybe' as never },
         refs: { tensionId: tension.id },
         subjectEnvelope: tension,
         subjectSenderDidDocument: A.artifacts.didDocument,
@@ -218,7 +217,7 @@ describe('createTensionResponse — antecedent verification (ADR-0009)', () => {
     expect(tension.kind).toBe('tension')
   })
 
-  it("rejects when refs.tensionId does not match subjectEnvelope.id", async () => {
+  it('rejects when refs.tensionId does not match subjectEnvelope.id', async () => {
     const { A, B, tension } = await fixture()
     await expect(
       createTensionResponse({
@@ -263,9 +262,7 @@ describe('createTensionResponse — antecedent verification (ADR-0009)', () => {
         subjectSenderDidDocument: C.artifacts.didDocument,
         signer: B.signer,
       }),
-    ).rejects.toThrow(
-      /subjectSenderDidDocument\.id .* does not match subjectEnvelope\.from/,
-    )
+    ).rejects.toThrow(/subjectSenderDidDocument\.id .* does not match subjectEnvelope\.from/)
   })
 
   it('rejects when subjectEnvelope signature does not verify (tampered body)', async () => {
@@ -442,8 +439,7 @@ describe('createProposalResponse — body validation', () => {
       createProposalResponse({
         from: B.artifacts.did,
         to: A.artifacts.did,
-        // biome-ignore lint/suspicious/noExplicitAny: validating runtime input
-        body: { decision: 'maybe' as any },
+        body: { decision: 'maybe' as never },
         refs: { proposalId: proposal.id },
         subjectEnvelope: proposal,
         subjectSenderDidDocument: A.artifacts.didDocument,

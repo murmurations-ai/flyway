@@ -31,12 +31,7 @@ export type FlywayDecisionRule =
   | 'weighted-vote-bounded'
   | 'apache-vote'
 
-export type FlywayAgreementState =
-  | 'proposed'
-  | 'agreed'
-  | 'in-flight'
-  | 'suspended'
-  | 'closed'
+export type FlywayAgreementState = 'proposed' | 'agreed' | 'in-flight' | 'suspended' | 'closed'
 
 export interface FlywayAgreementDriver {
   readonly conditions: string
@@ -168,12 +163,11 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
       type: 'string',
       description:
         'Unique identifier for this agreement (ULID, UUID, or content hash). ' +
-        'Stable across the agreement\'s lifecycle.',
+        "Stable across the agreement's lifecycle.",
     },
     schemaVersion: {
       type: 'string',
-      description:
-        'Version of the flyway agreement schema this document conforms to.',
+      description: 'Version of the flyway agreement schema this document conforms to.',
     },
     createdAt: {
       type: 'string',
@@ -285,9 +279,7 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
       properties: {
         notice: {
           type: 'string',
-          description:
-            'Notice period before exit takes effect (e.g. "30 days", ' +
-            '"immediate").',
+          description: 'Notice period before exit takes effect (e.g. "30 days", ' + '"immediate").',
         },
         breach: {
           type: 'string',
@@ -295,8 +287,7 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
         },
         inFlightWork: {
           type: 'string',
-          description:
-            'What happens to work in flight at the time of exit notice.',
+          description: 'What happens to work in flight at the time of exit notice.',
         },
       },
       required: ['notice'],
@@ -330,7 +321,7 @@ export const FLYWAY_AGREEMENT_SCHEMA: JsonSchema = {
             type: 'string',
             description:
               'Cryptographic signature over the canonical-form agreement ' +
-              '(algorithm specified in the signer\'s entity statement).',
+              "(algorithm specified in the signer's entity statement).",
           },
           verificationKeyId: {
             type: 'string',

@@ -61,10 +61,7 @@ export async function runInit(options: RunInitOptions): Promise<RunInitResult> {
   mkdirSync(join(cwd, 'flyway', 'keys'), { recursive: true })
 
   writeFileSync(didDocPath, JSON.stringify(artifacts.didDocument, null, 2) + '\n')
-  writeFileSync(
-    entityStatementPath,
-    JSON.stringify(artifacts.entityStatement, null, 2) + '\n',
-  )
+  writeFileSync(entityStatementPath, JSON.stringify(artifacts.entityStatement, null, 2) + '\n')
   writeFileSync(keyPath, artifacts.keypair.privateKeyPem, { mode: 0o600 })
 
   const gitignoreUpdated = ensureGitignore(gitignorePath)

@@ -20,7 +20,7 @@
 
 import type { DidDocument } from './init.js'
 import { signAgreement, verifyAgreementSignature } from './materialize.js'
-import type { ProposalAgreementBody, ProposalBody } from './propose.js'
+import type { ProposalBody } from './propose.js'
 import {
   type BuildSignedSignalInput,
   type SignalRefs,
@@ -30,12 +30,7 @@ import {
 } from './signal.js'
 import type { SignatureEnvelope, Signer } from './signing.js'
 
-export const TENSION_DECISIONS = [
-  'acknowledge',
-  'dispute',
-  'dissolve',
-  'transfer',
-] as const
+export const TENSION_DECISIONS = ['acknowledge', 'dispute', 'dissolve', 'transfer'] as const
 
 export type TensionDecision = (typeof TENSION_DECISIONS)[number]
 
@@ -128,7 +123,7 @@ export async function createTensionResponse(
   if (!TENSION_DECISIONS.includes(body.decision)) {
     throw new Error(
       `createTensionResponse: decision must be one of ${TENSION_DECISIONS.join(', ')} ` +
-        `(got: ${String(body.decision)})`,
+        `(got: ${body.decision})`,
     )
   }
   if (DECISIONS_REQUIRING_REASON.has(body.decision)) {
@@ -300,7 +295,7 @@ export async function createProposalResponse(
   if (!PROPOSAL_DECISIONS.includes(body.decision)) {
     throw new Error(
       `createProposalResponse: decision must be one of ${PROPOSAL_DECISIONS.join(', ')} ` +
-        `(got: ${String(body.decision)})`,
+        `(got: ${body.decision})`,
     )
   }
   if (PROPOSAL_DECISIONS_REQUIRING_REASON.has(body.decision)) {
@@ -325,7 +320,7 @@ export async function createProposalResponse(
     for (const [i, c] of body.concernsToRecord.entries()) {
       if (typeof c !== 'string' || c.trim() === '') {
         throw new Error(
-          `createProposalResponse: concernsToRecord[${i}] must be a non-empty string`,
+          `createProposalResponse: concernsToRecord[${String(i)}] must be a non-empty string`,
         )
       }
     }
@@ -380,7 +375,7 @@ export async function createProposalResponse(
     subjectBody.type === 'agreement' &&
     (subjectBody.stage ?? 'final') === 'final'
   ) {
-    const agreementSubject = subjectBody as ProposalAgreementBody
+    const agreementSubject = subjectBody
     if (!agreementSubject.agreementSignature) {
       throw new Error(
         'createProposalResponse: cannot accept a final-stage agreement proposal that carries ' +
@@ -394,7 +389,7 @@ export async function createProposalResponse(
     )
     if (!proposerSigOk) {
       throw new Error(
-        'createProposalResponse: the proposal\'s agreementSignature does not verify over the ' +
+        "createProposalResponse: the proposal's agreementSignature does not verify over the " +
           'agreement signing target. Refusing to co-sign a tampered agreement.',
       )
     }
@@ -404,9 +399,7 @@ export async function createProposalResponse(
   const normalizedBody: ProposalResponseBody = {
     decision: body.decision,
     ...(body.reason !== undefined ? { reason: body.reason } : {}),
-    ...(body.concernsToRecord !== undefined
-      ? { concernsToRecord: body.concernsToRecord }
-      : {}),
+    ...(body.concernsToRecord !== undefined ? { concernsToRecord: body.concernsToRecord } : {}),
     ...(agreementSignature !== undefined ? { agreementSignature } : {}),
   }
   const normalizedRefs: SignalRefs = {

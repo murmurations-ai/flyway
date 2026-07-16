@@ -172,9 +172,7 @@ describe('inbox / outbox writers', () => {
       id: 'bbb',
     })
     const result = writeSignalToOutbox(tmp, env)
-    expect(result.path).toBe(
-      signalOutboxPath(tmp, 'did:web:github.com:emergent:praxis', 'bbb'),
-    )
+    expect(result.path).toBe(signalOutboxPath(tmp, 'did:web:github.com:emergent:praxis', 'bbb'))
   })
 
   it('is idempotent when re-writing the same signed envelope', async () => {

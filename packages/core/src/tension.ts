@@ -55,9 +55,7 @@ export interface CreateTensionInput {
  * Validates that conditions and effect are non-empty strings — a tension
  * with no observable conditions or effect is not a tension.
  */
-export async function createTension(
-  input: CreateTensionInput,
-): Promise<SignedSignalEnvelope> {
+export async function createTension(input: CreateTensionInput): Promise<SignedSignalEnvelope> {
   const { body } = input
   if (typeof body.conditions !== 'string' || body.conditions.trim() === '') {
     throw new Error('createTension: body.conditions must be a non-empty string')

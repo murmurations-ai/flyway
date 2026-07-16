@@ -10,8 +10,6 @@ import {
   type ProposalDecision,
   type ProposalResponseBody,
   type ProposalResponseRefs,
-  type ProposalStage,
-  type ProposalType,
   type SignalRefs,
   type SignedEntityStatement,
   type SignedSignalEnvelope,
@@ -80,19 +78,17 @@ export async function callFlywayTool(request: CallToolRequest): Promise<CallTool
   }
 }
 
-async function handleDiscover(
-  args: Record<string, unknown> | undefined,
-): Promise<CallToolResult> {
+function handleDiscover(args: Record<string, unknown> | undefined): CallToolResult {
   // Read-only, pre-trust, stateless. The caller supplies the directory
   // document (already loaded/fetched on its side — the MCP server does no
   // filesystem or network I/O for discovery in v0.1); the handler parses,
   // validates, and filters it.
-  if (!args || typeof args !== 'object' || (args as Record<string, unknown>).directory == null) {
+  if (!args || typeof args !== 'object' || args.directory == null) {
     return errorResult(
       'flyway_discover requires arguments: directory (a flyway directory document), query? (string)',
     )
   }
-  const a = args as Record<string, unknown>
+  const a = args
   try {
     const directory = parseFlywayDirectory(a.directory)
     const result = flywayDiscover({
@@ -107,9 +103,7 @@ async function handleDiscover(
   }
 }
 
-async function handleExit(
-  args: Record<string, unknown> | undefined,
-): Promise<CallToolResult> {
+async function handleExit(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
   // Stateless: caller supplies its own identity and the peer DID; the
   // handler signs an exit envelope and returns it. The caller writes it to
   // its own outbox and delivers to the peer's inbox (the flyway CLI's
@@ -119,7 +113,7 @@ async function handleExit(
       'flyway_exit requires arguments: ownDidDocument, ownPrivateKeyPem, peerDid, target, targetType',
     )
   }
-  const a = args as Record<string, unknown>
+  const a = args
   if (
     typeof a.ownPrivateKeyPem !== 'string' ||
     typeof a.ownDidDocument !== 'object' ||
@@ -133,7 +127,7 @@ async function handleExit(
     )
   }
   const ownDidDocument = a.ownDidDocument as DidDocument
-  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  const ownVerificationMethod = ownDidDocument.verificationMethod[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_exit: ownDidDocument has no verificationMethod')
   }
@@ -178,9 +172,7 @@ async function handleExit(
   }
 }
 
-async function handleProposal(
-  args: Record<string, unknown> | undefined,
-): Promise<CallToolResult> {
+async function handleProposal(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
   // Stateless: caller supplies own identity + (optionally) antecedents
   // for tension promotion / stage chain continuation. Handler delegates
   // to createProposal which enforces ADR-0009 antecedent verification.
@@ -189,7 +181,7 @@ async function handleProposal(
       'flyway_propose requires arguments: ownDidDocument, ownPrivateKeyPem, peerDid, body',
     )
   }
-  const a = args as Record<string, unknown>
+  const a = args
   if (
     typeof a.ownPrivateKeyPem !== 'string' ||
     typeof a.ownDidDocument !== 'object' ||
@@ -203,7 +195,7 @@ async function handleProposal(
     )
   }
   const ownDidDocument = a.ownDidDocument as DidDocument
-  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  const ownVerificationMethod = ownDidDocument.verificationMethod[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_propose: ownDidDocument has no verificationMethod')
   }
@@ -212,9 +204,7 @@ async function handleProposal(
     typeof proposalBody.type !== 'string' ||
     !(PROPOSAL_TYPES as readonly string[]).includes(proposalBody.type)
   ) {
-    return errorResult(
-      `flyway_propose: body.type must be one of ${PROPOSAL_TYPES.join(', ')}`,
-    )
+    return errorResult(`flyway_propose: body.type must be one of ${PROPOSAL_TYPES.join(', ')}`)
   }
   const tensionAntecedent = extractAntecedent(a.tensionAntecedent)
   const proposalAntecedent = extractAntecedent(a.proposalAntecedent)
@@ -267,9 +257,7 @@ async function handleProposal(
  * undefined if absent, 'invalid' if present but malformed, or the
  * structured antecedent otherwise.
  */
-function extractAntecedent(
-  raw: unknown,
-): ProposalAntecedent | undefined | 'invalid' {
+function extractAntecedent(raw: unknown): ProposalAntecedent | undefined | 'invalid' {
   if (raw === undefined || raw === null) return undefined
   if (typeof raw !== 'object') return 'invalid'
   const r = raw as Record<string, unknown>
@@ -295,16 +283,14 @@ function extractAntecedent(
  * adding the proposal branch later is mechanical — no rewriting of
  * existing logic.
  */
-async function handleRespond(
-  args: Record<string, unknown> | undefined,
-): Promise<CallToolResult> {
+async function handleRespond(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
   if (!args || typeof args !== 'object') {
     return errorResult(
       'flyway_respond requires arguments: ownDidDocument, ownPrivateKeyPem, ' +
         'peerDidDocument, subjectEnvelope, decision',
     )
   }
-  const a = args as Record<string, unknown>
+  const a = args
   if (
     typeof a.ownPrivateKeyPem !== 'string' ||
     typeof a.ownDidDocument !== 'object' ||
@@ -341,15 +327,13 @@ async function handleRespond(
       return handleProposalResponse(a)
     default:
       return errorResult(
-        `flyway_respond: cannot respond to subjectEnvelope.kind='${String(rawSubject.kind)}' ` +
+        `flyway_respond: cannot respond to subjectEnvelope.kind='${rawSubject.kind}' ` +
           `(only 'tension' and 'proposal' are wired).`,
       )
   }
 }
 
-async function handleProposalResponse(
-  a: Record<string, unknown>,
-): Promise<CallToolResult> {
+async function handleProposalResponse(a: Record<string, unknown>): Promise<CallToolResult> {
   if (!PROPOSAL_DECISIONS.includes(a.decision as ProposalDecision)) {
     return errorResult(
       `flyway_respond: decision must be one of ${PROPOSAL_DECISIONS.join(', ')} ` +
@@ -359,7 +343,7 @@ async function handleProposalResponse(
   const ownDidDocument = a.ownDidDocument as DidDocument
   const peerDidDocument = a.peerDidDocument as DidDocument
   const subject = a.subjectEnvelope as SignedSignalEnvelope
-  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  const ownVerificationMethod = ownDidDocument.verificationMethod[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_respond: ownDidDocument has no verificationMethod')
   }
@@ -367,7 +351,9 @@ async function handleProposalResponse(
   let concernsToRecord: readonly string[] | undefined
   if (a.concernsToRecord !== undefined) {
     if (!Array.isArray(a.concernsToRecord)) {
-      return errorResult('flyway_respond: concernsToRecord must be an array of strings when present')
+      return errorResult(
+        'flyway_respond: concernsToRecord must be an array of strings when present',
+      )
     }
     concernsToRecord = a.concernsToRecord as readonly string[]
   }
@@ -419,9 +405,7 @@ async function handleProposalResponse(
   }
 }
 
-async function handleTensionResponse(
-  a: Record<string, unknown>,
-): Promise<CallToolResult> {
+async function handleTensionResponse(a: Record<string, unknown>): Promise<CallToolResult> {
   if (!TENSION_DECISIONS.includes(a.decision as TensionDecision)) {
     return errorResult(
       `flyway_respond: decision must be one of ${TENSION_DECISIONS.join(', ')} ` +
@@ -431,7 +415,7 @@ async function handleTensionResponse(
   const ownDidDocument = a.ownDidDocument as DidDocument
   const peerDidDocument = a.peerDidDocument as DidDocument
   const subject = a.subjectEnvelope as SignedSignalEnvelope
-  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  const ownVerificationMethod = ownDidDocument.verificationMethod[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_respond: ownDidDocument has no verificationMethod')
   }
@@ -483,9 +467,7 @@ async function handleTensionResponse(
   }
 }
 
-async function handleTension(
-  args: Record<string, unknown> | undefined,
-): Promise<CallToolResult> {
+async function handleTension(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
   // Stateless: the calling agent supplies its own identity and the peer
   // DID; the handler signs an envelope and returns it. The caller is
   // responsible for writing to its own outbox and delivering to the
@@ -495,7 +477,7 @@ async function handleTension(
       'flyway_tension requires arguments: ownDidDocument, ownPrivateKeyPem, peerDid, conditions, effect',
     )
   }
-  const a = args as Record<string, unknown>
+  const a = args
   if (
     typeof a.ownPrivateKeyPem !== 'string' ||
     typeof a.ownDidDocument !== 'object' ||
@@ -509,7 +491,7 @@ async function handleTension(
     )
   }
   const ownDidDocument = a.ownDidDocument as DidDocument
-  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  const ownVerificationMethod = ownDidDocument.verificationMethod[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_tension: ownDidDocument has no verificationMethod')
   }
@@ -519,8 +501,7 @@ async function handleTension(
     ...(typeof a.relevance === 'string' ? { relevance: a.relevance } : {}),
     ...(typeof a.proposedOwner === 'string' ? { proposedOwner: a.proposedOwner } : {}),
   }
-  const refs =
-    a.refs && typeof a.refs === 'object' ? (a.refs as SignalRefs) : undefined
+  const refs = a.refs && typeof a.refs === 'object' ? (a.refs as SignalRefs) : undefined
   try {
     const signer = localEd25519Signer({
       privateKeyPem: a.ownPrivateKeyPem,
@@ -559,7 +540,7 @@ async function handleTension(
 }
 
 async function handleCheck(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
-  const cwdArg = args && typeof args === 'object' ? (args as Record<string, unknown>).cwd : undefined
+  const cwdArg = args && typeof args === 'object' ? args.cwd : undefined
   const cwd = typeof cwdArg === 'string' ? cwdArg : process.cwd()
   try {
     const inbox = await flywayCheck(cwd)
@@ -571,9 +552,7 @@ async function handleCheck(args: Record<string, unknown> | undefined): Promise<C
   }
 }
 
-async function handleRecognize(
-  args: Record<string, unknown> | undefined,
-): Promise<CallToolResult> {
+async function handleRecognize(args: Record<string, unknown> | undefined): Promise<CallToolResult> {
   // The MCP handler doesn't itself read or write the local repo. It expects
   // the calling agent to supply both the recognizing Source's identity and
   // the peer's identity as pre-fetched artifacts. Persistence (writing to
@@ -584,7 +563,7 @@ async function handleRecognize(
       'flyway_recognize requires arguments: ownDidDocument, ownPrivateKeyPem, peerDidDocument, peerEntityStatement',
     )
   }
-  const a = args as Record<string, unknown>
+  const a = args
   if (
     typeof a.ownPrivateKeyPem !== 'string' ||
     typeof a.ownDidDocument !== 'object' ||
@@ -601,7 +580,7 @@ async function handleRecognize(
   const ownDidDocument = a.ownDidDocument as DidDocument
   const peerDidDocument = a.peerDidDocument as DidDocument
   const peerEntityStatement = a.peerEntityStatement as SignedEntityStatement
-  const ownVerificationMethod = ownDidDocument.verificationMethod?.[0]
+  const ownVerificationMethod = ownDidDocument.verificationMethod[0]
   if (!ownVerificationMethod) {
     return errorResult('flyway_recognize: ownDidDocument has no verificationMethod')
   }
@@ -648,7 +627,7 @@ async function handleStatus(args: Record<string, unknown> | undefined): Promise<
   // flyway_status has no required arguments (empty inputSchema). An optional
   // cwd override is honoured if a caller wants to inspect a different repo
   // checkout; otherwise we use the MCP server's working directory.
-  const cwdArg = args && typeof args === 'object' ? (args as Record<string, unknown>).cwd : undefined
+  const cwdArg = args && typeof args === 'object' ? args.cwd : undefined
   const cwd = typeof cwdArg === 'string' ? cwdArg : process.cwd()
   try {
     const status = await flywayStatus(cwd)
@@ -671,7 +650,7 @@ async function handleInit(args: Record<string, unknown> | undefined): Promise<Ca
   if (!args || typeof args !== 'object') {
     return errorResult('flyway_init requires arguments: repoUrl, sourceName, mode')
   }
-  const { repoUrl, sourceName, mode } = args as Record<string, unknown>
+  const { repoUrl, sourceName, mode } = args
   if (typeof repoUrl !== 'string' || typeof sourceName !== 'string' || typeof mode !== 'string') {
     return errorResult('flyway_init requires string repoUrl, sourceName, and mode')
   }

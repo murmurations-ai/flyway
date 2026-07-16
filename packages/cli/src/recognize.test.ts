@@ -1,9 +1,4 @@
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { flywayStatus } from '@murmurations-ai/flyway-core'
@@ -97,9 +92,9 @@ describe('runRecognize — refuses unsafe operations', () => {
 
   it('refuses to re-recognize the same peer without --force', async () => {
     await runRecognize({ cwd: pair.a, peerRepoPath: pair.b })
-    await expect(
-      runRecognize({ cwd: pair.a, peerRepoPath: pair.b }),
-    ).rejects.toThrow(/already recognized/)
+    await expect(runRecognize({ cwd: pair.a, peerRepoPath: pair.b })).rejects.toThrow(
+      /already recognized/,
+    )
   })
 
   it('replaces the prior entry when --force is set', async () => {
@@ -115,9 +110,9 @@ describe('runRecognize — refuses unsafe operations', () => {
   it("refuses if our identity hasn't been initialized", async () => {
     const empty = freshTmp()
     try {
-      await expect(
-        runRecognize({ cwd: empty, peerRepoPath: pair.b }),
-      ).rejects.toThrow(/flyway init/)
+      await expect(runRecognize({ cwd: empty, peerRepoPath: pair.b })).rejects.toThrow(
+        /flyway init/,
+      )
     } finally {
       rmSync(empty, { recursive: true, force: true })
     }
@@ -126,29 +121,29 @@ describe('runRecognize — refuses unsafe operations', () => {
   it("refuses if the peer repo hasn't been initialized", async () => {
     const empty = freshTmp()
     try {
-      await expect(
-        runRecognize({ cwd: pair.a, peerRepoPath: empty }),
-      ).rejects.toThrow(/peer .* missing/)
+      await expect(runRecognize({ cwd: pair.a, peerRepoPath: empty })).rejects.toThrow(
+        /peer .* missing/,
+      )
     } finally {
       rmSync(empty, { recursive: true, force: true })
     }
   })
 
   it('refuses to recognize self', async () => {
-    await expect(
-      runRecognize({ cwd: pair.a, peerRepoPath: pair.a }),
-    ).rejects.toThrow(/cannot recognize self/)
+    await expect(runRecognize({ cwd: pair.a, peerRepoPath: pair.a })).rejects.toThrow(
+      /cannot recognize self/,
+    )
   })
 
   it('refuses to recognize when peer entity statement is tampered', async () => {
     const stmtPath = join(pair.b, 'flyway', 'entity-statement.json')
-    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8'))
+    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8')) as { sourceName: string }
     stmt.sourceName = 'Imposter'
     const { writeFileSync } = await import('node:fs')
     writeFileSync(stmtPath, JSON.stringify(stmt, null, 2))
-    await expect(
-      runRecognize({ cwd: pair.a, peerRepoPath: pair.b }),
-    ).rejects.toThrow(/does not verify/)
+    await expect(runRecognize({ cwd: pair.a, peerRepoPath: pair.b })).rejects.toThrow(
+      /does not verify/,
+    )
   })
 })
 
@@ -164,7 +159,7 @@ describe('runRecognize — remote (did:web over HTTPS, v0.2a)', () => {
 
   /** Serve peer B's real on-disk identity files via the raw.githubusercontent URLs. */
   function fetchFromPeerRepo(repo: string): typeof fetch {
-    return (async (input: string | URL) => {
+    return ((input: string | URL) => {
       const url = typeof input === 'string' ? input : input.toString()
       let file: string | undefined
       if (url.endsWith('/.well-known/did.json')) {
@@ -172,8 +167,10 @@ describe('runRecognize — remote (did:web over HTTPS, v0.2a)', () => {
       } else if (url.endsWith('/flyway/entity-statement.json')) {
         file = join(repo, 'flyway', 'entity-statement.json')
       }
-      if (!file || !existsSync(file)) return new Response('not found', { status: 404 })
-      return new Response(readFileSync(file, 'utf-8'), { status: 200 })
+      if (!file || !existsSync(file)) {
+        return Promise.resolve(new Response('not found', { status: 404 }))
+      }
+      return Promise.resolve(new Response(readFileSync(file, 'utf-8'), { status: 200 }))
     }) as unknown as typeof fetch
   }
 
@@ -200,7 +197,7 @@ describe('runRecognize — remote (did:web over HTTPS, v0.2a)', () => {
   it('still verifies the signature on remotely-fetched artifacts (tamper rejected)', async () => {
     const { writeFileSync } = await import('node:fs')
     const stmtPath = join(pair.b, 'flyway', 'entity-statement.json')
-    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8'))
+    const stmt = JSON.parse(readFileSync(stmtPath, 'utf-8')) as { sourceName: string }
     stmt.sourceName = 'Imposter'
     writeFileSync(stmtPath, JSON.stringify(stmt, null, 2))
     await expect(

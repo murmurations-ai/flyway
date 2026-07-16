@@ -53,7 +53,10 @@ function parseDidWeb(did: string): { host: string; segments: string[] } {
   if (!did.startsWith(DID_WEB_PREFIX)) {
     throw new Error(`flyway resolve: '${did}' is not a did:web identifier`)
   }
-  const parts = did.slice(DID_WEB_PREFIX.length).split(':').filter((p) => p.length > 0)
+  const parts = did
+    .slice(DID_WEB_PREFIX.length)
+    .split(':')
+    .filter((p) => p.length > 0)
   const host = parts[0]
   if (host === undefined) {
     throw new Error(`flyway resolve: '${did}' has no host segment`)
@@ -117,7 +120,10 @@ export async function resolvePeerIdentity(
   did: string,
   options: ResolvePeerOptions = {},
 ): Promise<ResolvedPeerIdentity> {
-  const { didDocUrl, entityStatementUrl } = didWebResolutionUrls(did, options.branch ?? DEFAULT_BRANCH)
+  const { didDocUrl, entityStatementUrl } = didWebResolutionUrls(
+    did,
+    options.branch ?? DEFAULT_BRANCH,
+  )
   const [didDocText, stmtText] = await Promise.all([
     fetchTextOverHttps(didDocUrl, options),
     fetchTextOverHttps(entityStatementUrl, options),

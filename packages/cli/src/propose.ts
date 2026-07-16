@@ -71,15 +71,11 @@ export async function runPropose(options: RunProposeOptions): Promise<RunPropose
     ['private key', ourKeyPath] as const,
   ]) {
     if (!existsSync(p)) {
-      throw new Error(
-        `flyway propose: missing our ${label} at ${p}. Run \`flyway init\` first.`,
-      )
+      throw new Error(`flyway propose: missing our ${label} at ${p}. Run \`flyway init\` first.`)
     }
   }
   const ourDidDocument = JSON.parse(readFileSync(ourDidDocPath, 'utf-8')) as DidDocument
-  const ourEntityStatement = JSON.parse(
-    readFileSync(ourStmtPath, 'utf-8'),
-  ) as SignedEntityStatement
+  const ourEntityStatement = JSON.parse(readFileSync(ourStmtPath, 'utf-8')) as SignedEntityStatement
   const ourPrivateKeyPem = readFileSync(ourKeyPath, 'utf-8')
 
   // 2. Resolve peer DID from their published did.json (discovery hint
@@ -120,16 +116,16 @@ export async function runPropose(options: RunProposeOptions): Promise<RunPropose
         `Run \`flyway recognize ${peerRepoPath} --force\` to refresh the cache.`,
     )
   }
-  const cachedPeerDidDocument = JSON.parse(
-    readFileSync(cachedPeerDidPath, 'utf-8'),
-  ) as DidDocument
+  const cachedPeerDidDocument = JSON.parse(readFileSync(cachedPeerDidPath, 'utf-8')) as DidDocument
 
   // 5. Resolve tension antecedent (promotion). A tension we received
   //    from the peer lives in our inbox; a tension we sent lives in our
   //    outbox. Both cases are valid for promotion: A→B tension followed
   //    by A→B proposal continues A's own driver; B→A tension followed
   //    by A→B proposal is A picking up B's surfaced concern.
-  let tensionAntecedent: { envelope: SignedSignalEnvelope; senderDidDocument: DidDocument } | undefined
+  let tensionAntecedent:
+    | { envelope: SignedSignalEnvelope; senderDidDocument: DidDocument }
+    | undefined
   if (options.promoteTensionId) {
     const fromInbox = findInboxSignalById(cwd, options.promoteTensionId)
     let tensionEnv: SignedSignalEnvelope | null = fromInbox
@@ -162,7 +158,9 @@ export async function runPropose(options: RunProposeOptions): Promise<RunPropose
   //    a stage chain, the prior proposal must be one *we* sent — chains
   //    are authored by a single Source while the other consents. We
   //    look in our outbox.
-  let proposalAntecedent: { envelope: SignedSignalEnvelope; senderDidDocument: DidDocument } | undefined
+  let proposalAntecedent:
+    | { envelope: SignedSignalEnvelope; senderDidDocument: DidDocument }
+    | undefined
   if (options.previousStageId) {
     const outboxPath = signalOutboxPath(cwd, peerDid, options.previousStageId)
     const priorProposal = readSignalFile(outboxPath)
@@ -186,8 +184,7 @@ export async function runPropose(options: RunProposeOptions): Promise<RunPropose
 
   // 7. Build the signer and the signed proposal.
   const ownVerificationMethod = getPrimaryVerificationKey(ourDidDocument)
-  const verificationKeyId =
-    ourEntityStatement.verificationKeyId ?? `${ourEntityStatement.did}#key-1`
+  const verificationKeyId = ourEntityStatement.verificationKeyId
   const signer = localEd25519Signer({
     privateKeyPem: ourPrivateKeyPem,
     publicKeyJwk: ownVerificationMethod.publicKeyJwk,
@@ -196,7 +193,7 @@ export async function runPropose(options: RunProposeOptions): Promise<RunPropose
   // If the caller passed previousStageId at the CLI level, mirror it
   // into the body so core's validation enforces the chain rules.
   const effectiveBody: ProposalBody = options.previousStageId
-    ? ({ ...body, previousStageId: options.previousStageId } as ProposalBody)
+    ? { ...body, previousStageId: options.previousStageId }
     : body
   const proposal = await createProposal({
     from: ourEntityStatement.did,

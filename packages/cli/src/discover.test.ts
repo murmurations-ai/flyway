@@ -68,7 +68,8 @@ describe('runDiscover', () => {
   })
 
   it('fetches an https directory via an injected fetch (v0.2a)', async () => {
-    const fetchImpl = (async () => new Response(DIRECTORY_YAML)) as unknown as typeof fetch
+    const fetchImpl = (() =>
+      Promise.resolve(new Response(DIRECTORY_YAML))) as unknown as typeof fetch
     const r = await runDiscover({
       directory: 'https://directory.flyway.dev/list.yaml',
       query: 'governance',
@@ -84,16 +85,15 @@ describe('runDiscover', () => {
   })
 
   it('refuses a private-host https directory unless explicitly allowed', async () => {
-    const fetchImpl = (async () => new Response(DIRECTORY_YAML)) as unknown as typeof fetch
+    const fetchImpl = (() =>
+      Promise.resolve(new Response(DIRECTORY_YAML))) as unknown as typeof fetch
     await expect(
       runDiscover({ directory: 'https://127.0.0.1/dir.yaml', fetchImpl }),
     ).rejects.toThrow(/private\/loopback/)
   })
 
   it('errors clearly when the directory file is missing', async () => {
-    await expect(
-      runDiscover({ directory: join(dir, 'nope.yaml') }),
-    ).rejects.toThrow(/not found/)
+    await expect(runDiscover({ directory: join(dir, 'nope.yaml') })).rejects.toThrow(/not found/)
   })
 
   it('surfaces a parse/validation error for a malformed directory', async () => {

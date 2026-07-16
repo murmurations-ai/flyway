@@ -17,6 +17,12 @@ import {
   sendSignal,
 } from './transport.js'
 
+/** Assert a fixture value is present without a non-null assertion. */
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('must: expected a defined value')
+  return value
+}
+
 async function makeMurmuration(owner: string, name: string) {
   const artifacts = await flywayInit({
     repoUrl: `https://github.com/${owner}/${name}`,
@@ -80,9 +86,9 @@ describe('localFsTransport', () => {
     const A = await makeMurmuration('xeeban', 'a')
     const B = await makeMurmuration('emergent', 'praxis')
     const signal = await makeSignal(A.artifacts.did, B.artifacts.did, A.signer)
-    await expect(
-      localFsTransport(signal, { toDid: B.artifacts.did }),
-    ).rejects.toThrow(/localRepoPath is required/)
+    await expect(localFsTransport(signal, { toDid: B.artifacts.did })).rejects.toThrow(
+      /localRepoPath is required/,
+    )
   })
 
   it('is idempotent on identical re-delivery', async () => {
@@ -133,7 +139,7 @@ describe('sendSignal', () => {
     expect(outboxPath).toBe(signalOutboxPath(senderRepo, B.artifacts.did, 'sig-001'))
     expect(existsSync(outboxPath)).toBe(true)
     // And it was delivered to the peer inbox.
-    expect(existsSync(receipt.ref!)).toBe(true)
+    expect(existsSync(must(receipt.ref))).toBe(true)
   })
 
   it('routes through an injected transport', async () => {
@@ -142,6 +148,7 @@ describe('sendSignal', () => {
     const signal = await makeSignal(A.artifacts.did, B.artifacts.did, A.signer)
 
     let seen: SignedSignalEnvelope | undefined
+    // eslint-disable-next-line @typescript-eslint/require-await -- stub matches async SignalTransport signature
     const stub: SignalTransport = async (env): Promise<DeliveryReceipt> => {
       seen = env
       return { transport: 'github-pr', delivered: true, at: env.sentAt, ref: 'pr#1' }
@@ -162,6 +169,7 @@ describe('sendSignal', () => {
     const B = await makeMurmuration('emergent', 'praxis')
     const signal = await makeSignal(A.artifacts.did, B.artifacts.did, A.signer)
 
+    // eslint-disable-next-line @typescript-eslint/require-await -- stub matches async SignalTransport signature
     const failing: SignalTransport = async () => {
       throw new Error('network down')
     }
@@ -188,7 +196,7 @@ describe('sendSignal', () => {
       signal,
       target: { toDid: B.artifacts.did, localRepoPath: peerRepo },
     })
-    const delivered = readFileSync(receipt.ref!, 'utf-8')
+    const delivered = readFileSync(must(receipt.ref), 'utf-8')
     expect(delivered).toContain('id: sig-001')
     expect(delivered).toContain(`from: ${A.artifacts.did}`)
   })

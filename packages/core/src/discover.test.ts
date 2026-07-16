@@ -18,7 +18,8 @@ entries:
 
 /** Build a fetch stub returning a Response with the given body/status. */
 function stubFetch(body: string, init: ResponseInit = { status: 200 }): typeof fetch {
-  return (async () => new Response(body, init)) as unknown as typeof fetch
+  // eslint-disable-next-line @typescript-eslint/require-await -- stub matches async fetch signature
+  return async () => new Response(body, init)
 }
 
 function directory(): FlywayDirectory {
@@ -209,29 +210,51 @@ describe('parseDirectoryLocation', () => {
 
 describe('assertPublicHttpsUrl', () => {
   it('accepts a public https URL', () => {
-    expect(() => assertPublicHttpsUrl('https://directory.flyway.dev/list.yaml')).not.toThrow()
+    expect(() => {
+      assertPublicHttpsUrl('https://directory.flyway.dev/list.yaml')
+    }).not.toThrow()
   })
 
   it('refuses non-https', () => {
-    expect(() => assertPublicHttpsUrl('http://example.com')).toThrow(/HTTPS-only/)
+    expect(() => {
+      assertPublicHttpsUrl('http://example.com')
+    }).toThrow(/HTTPS-only/)
   })
 
   it('refuses loopback and private hosts', () => {
-    expect(() => assertPublicHttpsUrl('https://localhost/d')).toThrow(/private\/loopback/)
-    expect(() => assertPublicHttpsUrl('https://127.0.0.1/d')).toThrow(/private\/loopback/)
-    expect(() => assertPublicHttpsUrl('https://10.0.0.5/d')).toThrow(/private\/loopback/)
-    expect(() => assertPublicHttpsUrl('https://192.168.1.1/d')).toThrow(/private\/loopback/)
-    expect(() => assertPublicHttpsUrl('https://172.16.0.1/d')).toThrow(/private\/loopback/)
-    expect(() => assertPublicHttpsUrl('https://169.254.0.1/d')).toThrow(/private\/loopback/)
-    expect(() => assertPublicHttpsUrl('https://[::1]/d')).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://localhost/d')
+    }).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://127.0.0.1/d')
+    }).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://10.0.0.5/d')
+    }).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://192.168.1.1/d')
+    }).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://172.16.0.1/d')
+    }).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://169.254.0.1/d')
+    }).toThrow(/private\/loopback/)
+    expect(() => {
+      assertPublicHttpsUrl('https://[::1]/d')
+    }).toThrow(/private\/loopback/)
   })
 
   it('allows a private host when allowPrivate is set', () => {
-    expect(() => assertPublicHttpsUrl('https://127.0.0.1/d', true)).not.toThrow()
+    expect(() => {
+      assertPublicHttpsUrl('https://127.0.0.1/d', true)
+    }).not.toThrow()
   })
 
   it('rejects a malformed URL', () => {
-    expect(() => assertPublicHttpsUrl('not a url')).toThrow(/not a valid URL/)
+    expect(() => {
+      assertPublicHttpsUrl('not a url')
+    }).toThrow(/not a valid URL/)
   })
 })
 
@@ -270,6 +293,7 @@ describe('loadDirectory', () => {
 
   it('refuses a private https host before fetching', async () => {
     let called = false
+    // eslint-disable-next-line @typescript-eslint/require-await -- stub matches async fetch signature
     const spy = (async () => {
       called = true
       return new Response(DIRECTORY_YAML)

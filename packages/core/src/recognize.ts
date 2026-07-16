@@ -142,7 +142,7 @@ export async function recognizePeer(input: RecognizePeerInput): Promise<Recogniz
   const signed = await signArtifactInline(DOMAIN_RECOGNITION, unsigned, input.signer)
 
   return {
-    entry: signed as SignedRecognitionEntry,
+    entry: signed,
     peerSignatureValid,
   }
 }
@@ -194,7 +194,7 @@ export async function unrecognizePeer(
     ...(input.reason !== undefined ? { reason: input.reason } : {}),
   }
   const signed = await signArtifactInline(DOMAIN_UNRECOGNITION, unsigned, input.signer)
-  return signed as SignedUnrecognitionRecord
+  return signed
 }
 
 export async function verifyUnrecognitionRecord(
@@ -216,9 +216,7 @@ export async function verifyRecognitionEntry(
   return verifyInlineSignedArtifact(DOMAIN_RECOGNITION, entry, recognizerDidDocument)
 }
 
-export function fingerprintEntityStatement(
-  signedStatement: SignedEntityStatement,
-): string {
+export function fingerprintEntityStatement(signedStatement: SignedEntityStatement): string {
   const canonical = canonicalize(signedStatement)
   const hash = createHash('sha256').update(canonical).digest()
   return hash.toString('base64url')
@@ -245,7 +243,7 @@ const SAFE_SEGMENT_RE = /^[A-Za-z0-9._-]+$/
 export function peerCachePathSegments(did: string): readonly string[] {
   const prefix = 'did:web:'
   if (typeof did !== 'string' || !did.startsWith(prefix)) {
-    throw new Error(`peerCachePathSegments: only did:web DIDs supported (got: ${String(did)})`)
+    throw new Error(`peerCachePathSegments: only did:web DIDs supported (got: ${did})`)
   }
   const tail = did.slice(prefix.length)
   // Split on ':' but do NOT filter empties — an empty segment indicates
@@ -257,9 +255,7 @@ export function peerCachePathSegments(did: string): readonly string[] {
   }
   for (const segment of segments) {
     if (segment === '' || segment === '.' || segment === '..') {
-      throw new Error(
-        `peerCachePathSegments: rejected unsafe segment '${segment}' in did (${did})`,
-      )
+      throw new Error(`peerCachePathSegments: rejected unsafe segment '${segment}' in did (${did})`)
     }
     if (!SAFE_SEGMENT_RE.test(segment)) {
       throw new Error(

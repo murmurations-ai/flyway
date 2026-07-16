@@ -1,9 +1,4 @@
-import {
-  existsSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-} from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -103,17 +98,17 @@ describe('runUnrecognize', () => {
 
   it('refuses to unrecognize a peer that is not currently recognized', async () => {
     await runUnrecognize({ cwd: pair.a, peerDid: pair.bDid })
-    await expect(
-      runUnrecognize({ cwd: pair.a, peerDid: pair.bDid }),
-    ).rejects.toThrow(/not currently in/)
+    await expect(runUnrecognize({ cwd: pair.a, peerDid: pair.bDid })).rejects.toThrow(
+      /not currently in/,
+    )
   })
 
   it('refuses when our identity has not been initialized', async () => {
     const empty = freshTmp()
     try {
-      await expect(
-        runUnrecognize({ cwd: empty, peerDid: pair.bDid }),
-      ).rejects.toThrow(/flyway init/)
+      await expect(runUnrecognize({ cwd: empty, peerDid: pair.bDid })).rejects.toThrow(
+        /flyway init/,
+      )
     } finally {
       rmSync(empty, { recursive: true, force: true })
     }

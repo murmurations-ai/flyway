@@ -152,6 +152,7 @@ export function localEd25519Signer(opts: LocalEd25519SignerOptions): Signer {
     id: `local-ed25519:${opts.verificationKeyId}`,
     verificationKeyId: opts.verificationKeyId,
     publicKeyJwk: opts.publicKeyJwk,
+    // eslint-disable-next-line @typescript-eslint/require-await -- Signer.sign interface returns a Promise
     sign: async (bytes: Uint8Array): Promise<Uint8Array> => {
       // For Ed25519, Node accepts a null algorithm — the algorithm is
       // implied by the key type, and the message is hashed inside the
@@ -185,25 +186,28 @@ export async function signArtifactInline<T extends object>(
     domain,
     signature: toBase64Url(sig),
   }
-  return { ...(stripped as T), signature: envelope } as SignedInline<T>
+  return { ...(stripped as T), signature: envelope }
 }
 
-export async function verifyInlineSignedArtifact<T extends { signature?: SignatureEnvelope }>(
+// eslint-disable-next-line @typescript-eslint/require-await -- async verification API; callers await this
+export async function verifyInlineSignedArtifact(
   expectedDomain: string,
-  signed: T,
+  signed: { signature?: SignatureEnvelope },
   didDocument: DidDocument,
 ): Promise<boolean> {
   const envelope = signed.signature
   if (!envelope) return false
   if (envelope.domain !== expectedDomain) return false
+  // The algorithm/canonicalization/crv fields are typed as literals but arrive
+  // from untrusted parsed data — these are defensive checks, not redundant.
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition -- untrusted-envelope */
   if (envelope.algorithm !== 'EdDSA') return false
   if (envelope.canonicalization !== 'flyway-jcs-v1') return false
 
-  const method = didDocument.verificationMethod.find(
-    (m) => m.id === envelope.verificationKeyId,
-  )
+  const method = didDocument.verificationMethod.find((m) => m.id === envelope.verificationKeyId)
   if (!method) return false
   if (method.publicKeyJwk.crv !== 'Ed25519') return false
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
   const stripped = stripSignature(signed)
   const canonical = canonicalize(stripped)
@@ -218,8 +222,9 @@ export async function verifyInlineSignedArtifact<T extends { signature?: Signatu
 }
 
 function stripSignature<T extends object>(artifact: T): Omit<T, 'signature'> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure-omit strips signature
   const { signature: _omit, ...rest } = artifact as T & { signature?: unknown }
-  return rest as Omit<T, 'signature'>
+  return rest
 }
 
 // ────────────────────────────────────────────────────────────────────────
@@ -246,6 +251,7 @@ export async function signArtifactDetached(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/require-await -- async verification API; callers await this
 export async function verifyDetachedSignature(
   expectedDomain: string,
   artifact: object,
@@ -253,14 +259,15 @@ export async function verifyDetachedSignature(
   didDocument: DidDocument,
 ): Promise<boolean> {
   if (envelope.domain !== expectedDomain) return false
+  // Defensive checks over untrusted parsed envelope fields (typed as literals).
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition -- untrusted-envelope */
   if (envelope.algorithm !== 'EdDSA') return false
   if (envelope.canonicalization !== 'flyway-jcs-v1') return false
 
-  const method = didDocument.verificationMethod.find(
-    (m) => m.id === envelope.verificationKeyId,
-  )
+  const method = didDocument.verificationMethod.find((m) => m.id === envelope.verificationKeyId)
   if (!method) return false
   if (method.publicKeyJwk.crv !== 'Ed25519') return false
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
   const canonical = canonicalize(artifact)
   const bytes = domainSeparated(expectedDomain, canonical)

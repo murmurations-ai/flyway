@@ -24,8 +24,7 @@ export interface InstallableSkill {
 export const SKILL_REGISTRY: Readonly<Record<string, InstallableSkill>> = {
   flyway: {
     name: 'flyway',
-    description:
-      'flyway protocol for cross-murmuration collaboration (grounded in Sociocracy 3.0)',
+    description: 'flyway protocol for cross-murmuration collaboration (grounded in Sociocracy 3.0)',
     version: FLYWAY_PROTOCOL_VERSION,
     files: {
       'SKILL.md': FLYWAY_SKILL_MD,
@@ -40,9 +39,7 @@ function knownSkillNames(): string[] {
 function requireSkill(name: string): InstallableSkill {
   const skill = SKILL_REGISTRY[name]
   if (!skill) {
-    throw new Error(
-      `unknown skill: ${name}. Known skills: ${knownSkillNames().join(', ')}`,
-    )
+    throw new Error(`unknown skill: ${name}. Known skills: ${knownSkillNames().join(', ')}`)
   }
   return skill
 }

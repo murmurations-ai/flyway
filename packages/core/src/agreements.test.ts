@@ -53,11 +53,7 @@ describe('FLYWAY_AGREEMENT_SCHEMA', () => {
 
   it('signatures items require participant, signedAt, signature', () => {
     const signatures = FLYWAY_AGREEMENT_SCHEMA.properties?.['signatures']
-    expect(signatures?.items?.required).toEqual([
-      'participant',
-      'signedAt',
-      'signature',
-    ])
+    expect(signatures?.items?.required).toEqual(['participant', 'signedAt', 'signature'])
   })
 })
 

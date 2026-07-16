@@ -59,14 +59,10 @@ export interface DidDocument {
  * `verificationMethod[0]`. v0.1 always treats `verificationMethod[0]`
  * as the primary key; rotation policy lives outside this helper.
  */
-export function getPrimaryVerificationKey(
-  doc: DidDocument,
-): DidVerificationMethod {
+export function getPrimaryVerificationKey(doc: DidDocument): DidVerificationMethod {
   const vm = doc.verificationMethod[0]
   if (!vm) {
-    throw new Error(
-      `getPrimaryVerificationKey: DID document ${doc.id} has no verificationMethod`,
-    )
+    throw new Error(`getPrimaryVerificationKey: DID document ${doc.id} has no verificationMethod`)
   }
   return vm
 }
@@ -148,10 +144,7 @@ export function generateEd25519Keypair(): FlywayKeypair {
 export function buildDidDocument(did: string, keypair: FlywayKeypair): DidDocument {
   const keyId = `${did}#key-1`
   return {
-    '@context': [
-      'https://www.w3.org/ns/did/v1',
-      'https://w3id.org/security/suites/jws-2020/v1',
-    ],
+    '@context': ['https://www.w3.org/ns/did/v1', 'https://w3id.org/security/suites/jws-2020/v1'],
     id: did,
     verificationMethod: [
       {
@@ -193,10 +186,6 @@ export async function flywayInit(input: FlywayInitInput): Promise<FlywayInitArti
     publicKeyJwk: keypair.publicKeyJwk,
     verificationKeyId: `${did}#key-1`,
   })
-  const entityStatement = await signArtifactInline(
-    DOMAIN_ENTITY_STATEMENT,
-    unsigned,
-    signer,
-  )
+  const entityStatement = await signArtifactInline(DOMAIN_ENTITY_STATEMENT, unsigned, signer)
   return { did, didDocument, entityStatement, keypair }
 }

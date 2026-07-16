@@ -3,10 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseDocument, stringify as yamlStringify } from 'yaml'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import {
-  type FlywayAgreement,
-  FLYWAY_AGREEMENT_SCHEMA_VERSION,
-} from './agreements.js'
+import { type FlywayAgreement, FLYWAY_AGREEMENT_SCHEMA_VERSION } from './agreements.js'
 import { flywayInit } from './init.js'
 import {
   type MaterializedAgreement,
@@ -17,17 +14,17 @@ import {
   verifyAgreementSignature,
   writeAgreementFile,
 } from './materialize.js'
-import {
-  type ProposalAgreementBody,
-  createProposal,
-} from './propose.js'
-import {
-  type ProposalResponseBody,
-  createProposalResponse,
-} from './respond.js'
+import { type ProposalAgreementBody, createProposal } from './propose.js'
+import { type ProposalResponseBody, createProposalResponse } from './respond.js'
 import type { SignedSignalEnvelope } from './signal.js'
 import { localEd25519Signer } from './signing.js'
 import { createTension } from './tension.js'
+
+/** Assert a fixture value is present without a non-null assertion. */
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error('must: expected a defined value')
+  return value
+}
 
 async function makeMurmuration(owner: string, name: string) {
   const artifacts = await flywayInit({
@@ -124,7 +121,7 @@ describe('createProposal — agreementSignature attachment (S+5b)', () => {
     expect(body.agreementSignature?.domain).toBe('flyway-v1:agreement')
     const ok = await verifyAgreementSignature(
       body.agreement,
-      body.agreementSignature!,
+      must(body.agreementSignature),
       a.artifacts.didDocument,
     )
     expect(ok).toBe(true)
@@ -198,7 +195,7 @@ describe('createProposalResponse — co-signing on accept (S+5b)', () => {
     const subjectBody = proposal.body as ProposalAgreementBody
     const ok = await verifyAgreementSignature(
       subjectBody.agreement,
-      body.agreementSignature!,
+      must(body.agreementSignature),
       b.artifacts.didDocument,
     )
     expect(ok).toBe(true)
@@ -231,7 +228,7 @@ describe('createProposalResponse — co-signing on accept (S+5b)', () => {
         to: a.artifacts.did,
         body: { decision: 'accept' },
         refs: { proposalId: tampered.id },
-        subjectEnvelope: tampered as SignedSignalEnvelope,
+        subjectEnvelope: tampered,
         subjectSenderDidDocument: a.artifacts.didDocument,
         signer: b.signer,
       }),
@@ -271,16 +268,14 @@ describe('materializeAgreement', () => {
     })
     expect(materialized.agreement.state).toBe('agreed')
     expect(materialized.agreement.signatures).toHaveLength(2)
-    expect(materialized.relativePath).toBe(
-      join('flyway', 'agreements', 'agreement-tier4-001.yaml'),
-    )
+    expect(materialized.relativePath).toBe(join('flyway', 'agreements', 'agreement-tier4-001.yaml'))
     expect(materialized.sha256).toMatch(/^[0-9a-f]{64}$/)
     // signedAt pins to the envelopes, not wall-clock.
     const byDid = Object.fromEntries(
-      materialized.agreement.signatures!.map((s) => [s.participant, s]),
+      must(materialized.agreement.signatures).map((s) => [s.participant, s]),
     )
-    expect(byDid[a.artifacts.did]!.signedAt).toBe(proposal.sentAt)
-    expect(byDid[b.artifacts.did]!.signedAt).toBe(response.sentAt)
+    expect(must(byDid[a.artifacts.did]).signedAt).toBe(proposal.sentAt)
+    expect(must(byDid[b.artifacts.did]).signedAt).toBe(response.sentAt)
   })
 
   it('sorts signatures by participant DID', async () => {
@@ -291,7 +286,7 @@ describe('materializeAgreement', () => {
       proposerDidDocument: a.artifacts.didDocument,
       responderDidDocument: b.artifacts.didDocument,
     })
-    const participants = agreement.signatures!.map((s) => s.participant)
+    const participants = must(agreement.signatures).map((s) => s.participant)
     expect(participants).toEqual([...participants].sort())
   })
 
@@ -327,18 +322,14 @@ describe('materializeAgreement', () => {
     // Re-parse the file, rebuild the signing target, verify each embedded
     // signature against the corresponding DID document.
     const parsed = parseDocument(yamlText).toJS() as FlywayAgreement
-    expect(buildAgreementSigningTarget(parsed)).toEqual(
-      buildAgreementSigningTarget(agreement),
-    )
-    for (const sig of parsed.signatures!) {
+    expect(buildAgreementSigningTarget(parsed)).toEqual(buildAgreementSigningTarget(agreement))
+    for (const sig of must(parsed.signatures)) {
       const didDoc =
-        sig.participant === a.artifacts.did
-          ? a.artifacts.didDocument
-          : b.artifacts.didDocument
+        sig.participant === a.artifacts.did ? a.artifacts.didDocument : b.artifacts.didDocument
       const ok = await verifyAgreementSignature(
         parsed,
         {
-          verificationKeyId: sig.verificationKeyId!,
+          verificationKeyId: must(sig.verificationKeyId),
           algorithm: 'EdDSA',
           canonicalization: 'flyway-jcs-v1',
           domain: 'flyway-v1:agreement',
@@ -431,7 +422,13 @@ describe('materializeAgreement', () => {
     const proposal = await createProposal({
       from: a.artifacts.did,
       to: b.artifacts.did,
-      body: { type: 'agreement', title: 'Retro cadence', body: 'Final.', stage: 'final', agreement },
+      body: {
+        type: 'agreement',
+        title: 'Retro cadence',
+        body: 'Final.',
+        stage: 'final',
+        agreement,
+      },
       signer: a.signer,
       tensionAntecedent: { envelope: tension, senderDidDocument: b.artifacts.didDocument },
       now: new Date('2026-06-09T12:00:00.000Z'),
@@ -457,11 +454,11 @@ describe('materializeAgreement', () => {
     // The link is under signature: mutating it in the file breaks standalone verify.
     const parsed = parseDocument(materialized.yamlText).toJS() as FlywayAgreement
     const mutated = { ...parsed, originTensionId: 'tension-forged-9' }
-    const sig = parsed.signatures![0]!
+    const sig = must(must(parsed.signatures)[0])
     const ok = await verifyAgreementSignature(
       mutated,
       {
-        verificationKeyId: sig.verificationKeyId!,
+        verificationKeyId: must(sig.verificationKeyId),
         algorithm: 'EdDSA',
         canonicalization: 'flyway-jcs-v1',
         domain: 'flyway-v1:agreement',

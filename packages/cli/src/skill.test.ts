@@ -1,22 +1,9 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FLYWAY_SKILL_MD } from '@murmurations-ai/flyway-agent'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import {
-  SKILL_REGISTRY,
-  inferTarget,
-  installSkill,
-  listSkills,
-  uninstallSkill,
-} from './skill.js'
+import { SKILL_REGISTRY, inferTarget, installSkill, listSkills, uninstallSkill } from './skill.js'
 
 function freshTmp(): string {
   return mkdtempSync(join(tmpdir(), 'flyway-cli-test-'))

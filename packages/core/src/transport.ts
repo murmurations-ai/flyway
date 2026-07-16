@@ -20,11 +20,7 @@
  * without touching the senders — which is the whole point of this seam.
  */
 
-import {
-  type SignedSignalEnvelope,
-  writeSignalToInbox,
-  writeSignalToOutbox,
-} from './signal.js'
+import { type SignedSignalEnvelope, writeSignalToInbox, writeSignalToOutbox } from './signal.js'
 
 /** Where a signal is being delivered — enough for any transport to act. */
 export interface DeliveryTarget {
