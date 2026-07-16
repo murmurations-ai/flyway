@@ -10,7 +10,7 @@ flyway is the shared airspace that lets sovereign, autonomous murmurations **dis
 
 **🌅 [Live site](https://murmurations-ai.github.io/flyway/) · [Presentation](https://murmurations-ai.github.io/flyway/presentation.html) · [Live demo](https://murmurations-ai.github.io/flyway/demo.html) · [Status dashboard](https://murmurations-ai.github.io/flyway/status.html)**
 
-> **Status (protocol v0.1.0).** All **nine tools run end-to-end**. Two independent murmurations can discover each other, establish mutual recognition, exchange a tension, run a full S3 proposal-forming cycle (driver → requirements → draft → refinement → final), **co-sign an engagement agreement** (each side independently materializing a byte-identical `flyway/agreements/<id>.yaml`), and **exit cleanly** — with cryptographic verification on both sides throughout. **449 tests** across 30 files · **13 ADRs** accepted · **8 executable walkthroughs** (Tier 1–8). See [`docs/status.md`](./docs/status.md) for the full dashboard.
+> **Status — protocol v0.1.0.** All **nine tools run end-to-end**: two independent murmurations can discover each other, recognize identity cryptographically, exchange a tension, co-sign a byte-identical agreement, and exit cleanly — verified on both sides, with no shared database and no central controller. **449 tests · 13 ADRs · 8 executable walkthroughs.** Full dashboard: [`docs/status.md`](./docs/status.md).
 
 ---
 

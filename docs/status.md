@@ -1,7 +1,7 @@
 ---
-date: 2026-07-10
+date: 2026-07-16
 protocol-version: 0.1.0
-code-sha: 1576181
+code-sha: 0af2e32
 purpose: project status snapshot for reviewers
 audience: external reviewers, peer Sources, and anyone evaluating flyway for adoption
 ---
@@ -28,12 +28,12 @@ A visual companion lives at [`docs/status.html`](./status.html) — same content
 | | |
 | --- | --- |
 | **Protocol version** | 0.1.0 |
-| **Code SHA** | `1576181` |
+| **Code SHA** | `0af2e32` |
 | **Tools wired (end-to-end)** | 9 of 9 |
 | **Executable walkthroughs** | 8 (Tier 1–8) |
 | **ADRs accepted** | 13 |
-| **Tests passing** | 445 across 30 test files |
-| **Open issues** | 12 (9 closed since the 3-agent review) |
+| **Tests passing** | 449 across 30 test files |
+| **Open issues** | 9 (12 closed, incl. the season-wrap batch #16 / #17 / #20) |
 | **Open security findings** | 0 (all high/medium-severity items from the security review are resolved) |
 
 ---
@@ -193,11 +193,10 @@ What's left is reach and depth — not new tools:
 
 ### Open issues by theme
 
-12 open issues (9 closed: #3, #6, #7, #8, #9, #14, #15, **#2**, and one historical). Grouped:
+9 open issues (12 closed: #3, #6, #7, #8, #9, #14, #15, **#2**, one historical, plus the season-wrap batch **#16 / #17 / #20**). All open items are depth or design questions — none security. Grouped:
 
 **Protocol gaps (`protocol-gap`)** — soundness or correctness holes that don't block current functionality but accumulate risk:
 
-- [#16](https://github.com/murmurations-ai/flyway/issues/16) `flyway_check` should flag responses whose `sentAt` precedes the subject's
 - [#19](https://github.com/murmurations-ai/flyway/issues/19) Constrain tension `proposedOwner` to a recognized peer
 - [#28](https://github.com/murmurations-ai/flyway/issues/28) Extract one shared `verifyInboxSignal` predicate so `flyway_status` and `flyway_check` provably can't drift (surfaced by the S+13 review)
 
@@ -216,8 +215,6 @@ What's left is reach and depth — not new tools:
 
 - [#10](https://github.com/murmurations-ai/flyway/issues/10) Sync vs async filesystem policy decision
 - [#13](https://github.com/murmurations-ai/flyway/issues/13) Validate `peerRepoPath` against recognition-time path
-- [#17](https://github.com/murmurations-ai/flyway/issues/17) `flyway_status` should surface inbox state — *exit half addressed by S+13 (closed relationships/agreements); inbox/outbox delivery-state half remains*
-- [#20](https://github.com/murmurations-ai/flyway/issues/20) CLI error messages should end with imperative recovery commands
 
 ---
 
@@ -245,9 +242,9 @@ pnpm install && pnpm -r build
 - **Code:** [github.com/murmurations-ai/flyway](https://github.com/murmurations-ai/flyway)
 - **Issues:** [github.com/murmurations-ai/flyway/issues](https://github.com/murmurations-ai/flyway/issues)
 - **ADRs:** [`docs/adr/`](./adr/) (13 accepted)
-- **Walkthroughs:** [`docs/walkthroughs/`](./walkthroughs/) (7 executable, 1 narrative)
+- **Walkthroughs:** [`docs/walkthroughs/`](./walkthroughs/) (8 executable, 1 narrative)
 - **Architecture reference:** [`docs/architecture/how-flyway-works.md`](./architecture/how-flyway-works.md) + [`.html`](./architecture/how-flyway-works.html)
 
 ---
 
-*This snapshot is regenerated as milestones land. Last update: 2026-07-10 — surface complete (9 of 9); **S+13 complete** (ADR-0013): `flyway_status` now reads the exit lifecycle back — a relationship or agreement closed by a verified exit reports as effectively `closed` from a single read, the co-signed file never rewritten (Tier 8). A 4-agent review then hardened the inbox-exit trust gate against replay. With Tiers 6–8, a Source can stand up a cross-boundary collaboration, run it, and see exactly what's still live — all with no shared filesystem. Next: v0.2c url-webhook (gated on demand); extract a shared inbox-verify predicate (#28).*
+*This snapshot is regenerated as milestones land. Last update: 2026-07-16 — surface complete (9 of 9); **S+13 complete** (ADR-0013): `flyway_status` now reads the exit lifecycle back — a relationship or agreement closed by a verified exit reports as effectively `closed` from a single read, the co-signed file never rewritten (Tier 8). A 4-agent review then hardened the inbox-exit trust gate against replay. The season-wrap pass then added the inbox delivery-state line to `flyway_status` (#17), a `flyway_check` ordering guard (#16), and imperative CLI recovery errors (#20) — 449 tests. With Tiers 6–8, a Source can stand up a cross-boundary collaboration, run it, and see exactly what's still live — all with no shared filesystem. Next: v0.2c url-webhook (gated on demand); extract a shared inbox-verify predicate (#28).*
