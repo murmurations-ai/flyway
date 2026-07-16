@@ -607,7 +607,7 @@
   </div>
   <div class="meta">
     <div><span class="label">VERSION</span> &nbsp; protocol 0.1.0</div>
-    <div><span class="label">SHA</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway/tree/17f9bc1">17f9bc1</a></div>
+    <div><span class="label">SHA</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway/tree/0af2e32">0af2e32</a></div>
     <div><span class="label">REPO</span> &nbsp; <a href="https://github.com/murmurations-ai/flyway">murmurations-ai/flyway</a></div>
   </div>
 </header>
@@ -625,7 +625,7 @@
   </p>
   <div class="prose">
     <p>This document is a concrete walk-through of how the system actually works at the code level. It is tied to a specific git SHA; future revisions update the figures and bump the version. Read sequentially, or jump to whichever section you need.</p>
-    <p><strong>Status snapshot:</strong> at SHA <code>17f9bc1</code>, <strong>all nine tools are wired end-to-end</strong> — the protocol surface is complete (<code>flyway_init</code>, <code>flyway_status</code>, <code>flyway_discover</code>, <code>flyway_recognize</code>, <code>flyway_check</code>, <code>flyway_tension</code>, <code>flyway_propose</code>, <code>flyway_respond</code> for both tensions and proposals, and <code>flyway_exit</code>). Five executable walkthroughs prove the protocol carries a full S3 cycle — from a navigate-via-tension dialogue through the full proposal-forming chain (with an objection integrated mid-chain) to a <strong>co-signed engagement agreement</strong>, materialized byte-identically on both repos — plus pre-trust discovery and a signed, unilateral clean exit. What remains is reach (remote transports) and depth, not new tools. The Markdown source of this document — <a href="./how-flyway-works.md">how-flyway-works.md</a> — has the up-to-date sequence diagrams; some figures in this HTML companion still mark the consent flow as "execution pending" and lag the wired implementation. See <a href="../status.html">docs/status.html</a> for the current dashboard.</p>
+    <p><strong>Status snapshot:</strong> at SHA <code>0af2e32</code>, <strong>all nine tools are wired end-to-end</strong> — the protocol surface is complete (<code>flyway_init</code>, <code>flyway_status</code>, <code>flyway_discover</code>, <code>flyway_recognize</code>, <code>flyway_check</code>, <code>flyway_tension</code>, <code>flyway_propose</code>, <code>flyway_respond</code> for both tensions and proposals, and <code>flyway_exit</code>). Eight executable walkthroughs prove the protocol carries a full S3 cycle — from a navigate-via-tension dialogue through the full proposal-forming chain (with an objection integrated mid-chain) to a <strong>co-signed engagement agreement</strong>, materialized byte-identically on both repos — plus pre-trust discovery and a signed, unilateral clean exit. The reach and exit-aware work has since shipped too: the whole discover → recognize → deliver loop now runs <strong>at a distance</strong> over HTTPS and GitHub PRs (v0.2a/b, Tiers 6–7), and <code>flyway_status</code> reads the <strong>exit lifecycle</strong> back (ADR-0013, Tier 8). What remains is one gated transport (<code>url-webhook</code>) and depth, not new tools. The Markdown source of this document — <a href="./how-flyway-works.md">how-flyway-works.md</a> — has the up-to-date sequence diagrams; some figures in this HTML companion still mark the consent flow as "execution pending" and lag the wired implementation. See <a href="../status.html">docs/status.html</a> for the current dashboard.</p>
   </div>
 
   <nav class="reading-guide" aria-label="Document sections">
@@ -1754,7 +1754,7 @@
     <div>
       <div class="label">flyway</div>
       <div>runtime-agnostic protocol for cross-murmuration collaboration</div>
-      <div>protocol v0.1.0 · code SHA <a href="https://github.com/murmurations-ai/flyway/tree/17f9bc1">17f9bc1</a></div>
+      <div>protocol v0.1.0 · code SHA <a href="https://github.com/murmurations-ai/flyway/tree/0af2e32">0af2e32</a></div>
     </div>
     <div>
       <div class="label">read further</div>
