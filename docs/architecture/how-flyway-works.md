@@ -1,7 +1,7 @@
 ---
-date: 2026-05-25
+date: 2026-07-16
 protocol-version: 0.1.0
-code-sha: d5ad56f
+code-sha: 0af2e32
 status: living document — updated as the system evolves
 ---
 
@@ -388,12 +388,15 @@ even if its signature itself is fine.
 **All nine tools are wired.** The protocol surface is complete: discovery,
 identity, recognition, the tension dialogue, the full proposal-forming
 consent cycle, co-signed-agreement materialization, and clean exit all run
-end-to-end. What remains is depth and reach, not new tools:
+end-to-end. Since this document was first written, the **reach** and
+**exit-aware** work has also shipped — the whole loop now runs at a genuine
+distance, over HTTPS and GitHub PRs, and the exit lifecycle reads back. What
+remains is one gated transport and further depth, not new tools:
 
 | Area | What it adds | Status |
 | ---- | ------------ | ------ |
-| Remote transports (v0.2) | http(s) directory fetch for `flyway_discover`; GitHub-PR / URL signal transport (ADR-0008) | Reserved seam — the shapes are defined; local-fs ships today |
-| Exit-aware reads | `flyway_status` / `flyway_check` interpret exit records and surface a relationship or agreement as closed | Not yet modelled |
+| Remote transports (v0.2) | http(s) directory fetch for `flyway_discover`; recognize-at-a-distance from a `did:web` URL; github-pr signal transport (ADR-0010 / 0011 / 0012) | **Shipped** — v0.2a HTTPS fetch + the transport seam (Tier 6) and v0.2b github-pr delivery (Tier 7). Only `url-webhook` (v0.2c) remains, gated on real sub-PR-latency demand |
+| Exit-aware reads | `flyway_status` interprets exit records and surfaces a relationship or agreement as effectively *closed* | **Shipped** — S+13 / ADR-0013 (Tier 8); the co-signed file is never rewritten, the inbox-exit trust gate reuses `flyway_check` |
 | Agreement lifecycle | `in_flight` / `suspended` transitions past `agreed` | Not yet modelled |
 
 A few tools are subtler than "wired" conveys:
@@ -401,8 +404,10 @@ A few tools are subtler than "wired" conveys:
 - `flyway_discover` is the one *pre-trust* tool — directory entries are
   informational pointers, not attestations, so it signs and verifies
   nothing. The trust step is `flyway_recognize`, which fetches the
-  candidate's own signed artifacts and verifies them. v0.1 reads a local
-  directory file; remote fetch is the reserved seam above.
+  candidate's own signed artifacts and verifies them. It reads a local
+  directory file *or* an `https://` directory URL (v0.2a; SSRF-guarded),
+  and `flyway_recognize` can resolve a peer from its `did:web` URL — remote
+  fetch shipped, proven in Tier 6.
 - `flyway_exit` is a *unilateral* signed notice — always valid, no peer can
   prevent it — delivered like any signal under `DOMAIN_EXIT`. It is distinct
   from `flyway_unrecognize` (exit ends joint commitments; it does not
@@ -665,7 +670,7 @@ stateDiagram-v2
 | ---- | --------------------- | ------ | ------ |
 | `flyway_init` | repoUrl, sourceName, mode | Generates signed DID document + entity statement + Ed25519 keypair | ✅ |
 | `flyway_status` | (none) | Reports identity, peers, agreements, signature validity, inbox issues | ✅ |
-| `flyway_discover` | query?, directory | Pre-trust search of a flyway directory (free-text or exact-DID); v0.1 reads a local directory file | ✅ |
+| `flyway_discover` | query?, directory | Pre-trust search of a flyway directory (free-text or exact-DID); reads a local file or an `https://` URL (v0.2a) | ✅ |
 | `flyway_recognize` | peerDid, note? | Produces a signed recognition entry binding peer's key fingerprint | ✅ |
 | `flyway_tension` | peerDid, conditions, effect, relevance?, proposedOwner? | Signs an S3 §IV.1.2 tension envelope; delivers to peer inbox | ✅ |
 | `flyway_propose` | peerDid, type, title, body, deadline?, stage?, previousStageId? | Sends a directive / project / agreement at an S3 stage | ✅ |
