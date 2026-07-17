@@ -11,6 +11,12 @@ importers:
       '@eslint/js':
         specifier: ^9.26.0
         version: 9.39.4
+      '@murmurations-ai/flyway-cli':
+        specifier: workspace:*
+        version: link:packages/cli
+      '@murmurations-ai/flyway-mcp':
+        specifier: workspace:*
+        version: link:packages/mcp
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.18

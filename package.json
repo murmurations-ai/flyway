@@ -8,14 +8,18 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc --build",
+    "build": "tsc --build && node scripts/postbuild.mjs",
     "typecheck": "tsc --build",
+    "setup": "pnpm install && pnpm build && pnpm link-bins",
+    "link-bins": "cd packages/cli && npm link && cd ../mcp && npm link",
     "test": "vitest run",
     "lint": "eslint packages/*/src",
     "format": "prettier --write packages/*/src",
     "format:check": "prettier --check packages/*/src"
   },
   "devDependencies": {
+    "@murmurations-ai/flyway-cli": "workspace:*",
+    "@murmurations-ai/flyway-mcp": "workspace:*",
     "@types/node": "^22.0.0",
     "@eslint/js": "^9.26.0",
     "eslint": "^9.26.0",

@@ -8,7 +8,7 @@
 
 flyway is the shared airspace that lets sovereign, autonomous murmurations **discover** one another, **recognize** identity cryptographically, **exchange** governance signals, **co-sign** byte-identical agreements, and **exit clean** — without surrendering authority to a central controller.
 
-**🌅 [Live site](https://murmurations-ai.github.io/flyway/) · [Presentation](https://murmurations-ai.github.io/flyway/presentation.html) · [Live demo](https://murmurations-ai.github.io/flyway/demo.html) · [Status dashboard](https://murmurations-ai.github.io/flyway/status.html)**
+**🌅 [Live site](https://murmurations-ai.github.io/flyway/) · [Presentation](https://murmurations-ai.github.io/flyway/presentation.html) · [Live demo](https://murmurations-ai.github.io/flyway/demo.html) · [Status dashboard](https://murmurations-ai.github.io/flyway/status.html) · [☕ Support](https://buymeacoffee.com/xeeban)**
 
 > **Status — protocol v0.1.0.** All **nine tools run end-to-end**: two independent murmurations can discover each other, recognize identity cryptographically, exchange a tension, co-sign a byte-identical agreement, and exit cleanly — verified on both sides, with no shared database and no central controller. **449 tests · 13 ADRs · 8 executable walkthroughs.** Full dashboard: [`docs/status.md`](./docs/status.md).
 
@@ -22,18 +22,22 @@ flyway is one typed core exposed three ways — an **agent skill**, an **MCP ser
 
 ```bash
 git clone https://github.com/murmurations-ai/flyway && cd flyway
-pnpm install
-pnpm --filter '!*harness' -r build
+pnpm setup          # install deps, build, and put `flyway` on your PATH
+```
 
+`pnpm setup` is a one-time convenience — it runs `pnpm install`, `pnpm build`, and links the `flyway` (and `flyway-mcp`) commands onto your `PATH` via `npm link`. After it, `flyway` works from any directory:
+
+```bash
 # mint this murmuration's cryptographic identity (DID + signed entity statement + Ed25519 keypair)
-node packages/cli/dist/bin/flyway.js init \
-  --repo-url https://github.com/you/your-repo --source-name "You"
+flyway init --repo-url https://github.com/you/your-repo --source-name "You"
 
 # see what you've got
-node packages/cli/dist/bin/flyway.js status
+flyway status
 ```
 
 From there: `recognize` a peer, flag a `tension`, `propose` an agreement, `check` your inbox, `exit` when done. Run `flyway <command> --help` for options, or read the [live demo](https://murmurations-ai.github.io/flyway/demo.html) for the full loop.
+
+> **Prefer not to link a global command?** Skip `pnpm setup` and run `pnpm install && pnpm build` instead, then invoke the CLI in-repo with `pnpm flyway <command>` (e.g. `pnpm flyway status`). Once the package is published to npm, `npm install -g @murmurations-ai/flyway-cli` will install `flyway` directly.
 
 ### 🤖 For an agent (or a Source pointing their murmuration at flyway)
 
@@ -43,14 +47,15 @@ A murmuration doesn't need a human at the keyboard. Point your agent at this rep
 
 ```bash
 # writes the flyway SKILL.md into your agent's skills directory
-node packages/cli/dist/bin/flyway.js skill install
-node packages/cli/dist/bin/flyway.js skill list      # what's installed, and whether it drifted
+# (after `pnpm setup`; otherwise prefix with `pnpm`, e.g. `pnpm flyway skill install`)
+flyway skill install
+flyway skill list      # what's installed, and whether it drifted
 ```
 
 **2. Or run the MCP server** — exposes all nine tools over stdio to any MCP-capable client:
 
 ```bash
-node packages/mcp/dist/bin/flyway-mcp.js
+flyway-mcp
 # then register it in your MCP client's server config
 ```
 
@@ -163,6 +168,10 @@ Signing is pluggable through the `Signer` interface ([ADR-0007](./docs/adr/0007-
 ## Name
 
 A **flyway** is an ornithological term for a shared migration corridor used by many independent flocks: a shared route, no central authority, autonomy preserved, coordination by agreement. That is the posture of this project.
+
+## Support
+
+flyway is free and MIT-licensed — no paywall, no gate. If it's useful to you or your murmuration, you can support the work **pay-what-you-want** at **[☕ Buy Me a Coffee](https://buymeacoffee.com/xeeban)**. It funds development without ever putting a tool behind it.
 
 ## License
 
