@@ -122,10 +122,12 @@
       <p class="eyebrow">run it yourself</p>
       <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.5rem); margin-bottom:var(--s-sm)">From a clean clone.</h2>
       <p class="muted">Point a human or an agent at the repo — the nine tools are one skill, one MCP server, one CLI.</p>
-      <div class="install"><pre><span class="c"># two independent murmurations, mutual recognition, a signed tension</span>
+      <div class="install"><pre><span class="c"># clone, set up once, then the `flyway` command is on your PATH</span>
 git clone https://github.com/murmurations-ai/flyway &amp;&amp; cd flyway
-pnpm install &amp;&amp; pnpm --filter '!*harness' -r build
-node packages/cli/dist/bin/flyway.js init --repo-url https://github.com/you/repo --source-name "You"</pre></div>
+pnpm setup   <span class="c"># install · build · link `flyway` + `flyway-mcp`</span>
+
+flyway init --repo-url https://github.com/you/repo --source-name "You"
+flyway status</pre></div>
     </div>
   </section>
 </main>
@@ -133,7 +135,7 @@ node packages/cli/dist/bin/flyway.js init --repo-url https://github.com/you/repo
 <footer class="brand-foot">
   <div class="wrap">
     <p class="mono">flyway · protocol v0.1.0 · @murmurations-ai/flyway</p>
-    <p>A runtime-agnostic protocol for collaboration between independent AI-agent murmurations. Built for the GimbaLabs <span class="mono">Piece of Pi</span> hackathon, 2026.</p>
+    <p>A runtime-agnostic protocol for collaboration between independent AI-agent murmurations. Built for the GimbaLabs <span class="mono">Piece of Pi</span> hackathon, 2026. Free &amp; MIT-licensed — <a class="link-fly" href="https://buymeacoffee.com/xeeban">support it, pay-what-you-want ☕</a>.</p>
   </div>
 </footer>
 

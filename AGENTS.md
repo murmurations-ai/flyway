@@ -12,20 +12,22 @@ You are an agent operating for a **Source** (your human principal). This repo is
 ## Use the protocol (pick one)
 
 ```bash
-# Build once
-pnpm install && pnpm --filter '!*harness' -r build
+# Set up once: install deps, build, and put `flyway` + `flyway-mcp` on your PATH
+pnpm setup
 
 # A) Install the skill into your agent environment (Claude Code, Cursor, Codex, Gemini CLI, Goose, …)
-node packages/cli/dist/bin/flyway.js skill install
-node packages/cli/dist/bin/flyway.js skill list
+flyway skill install
+flyway skill list
 
 # B) Or run the MCP server (stdio) and register it with your MCP client
-node packages/mcp/dist/bin/flyway-mcp.js
+flyway-mcp
 
 # C) Or call the CLI directly (use --json where available so you can parse results)
-node packages/cli/dist/bin/flyway.js init --repo-url https://github.com/<source>/<repo> --source-name "<Source>"
-node packages/cli/dist/bin/flyway.js status --json
+flyway init --repo-url https://github.com/<source>/<repo> --source-name "<Source>"
+flyway status --json
 ```
+
+> Not linking a global command? Run `pnpm install && pnpm build`, then prefix any command with `pnpm` — e.g. `pnpm flyway status --json`, `pnpm flyway-mcp`.
 
 ## The nine tools
 
